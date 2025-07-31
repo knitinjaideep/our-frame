@@ -1,0 +1,19 @@
+{
+  "name": "our-frame",
+  "version": "1.0.0",
+  "description": "Photo gallery application with Google Drive integration",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+    "dev:frontend": "cd frontend && npm run dev -- --port 3000",
+    "install:all": "npm install && cd frontend && npm install",
+    "build": "cd frontend && npm run build",
+    "start:backend": "cd backend && python -m uvicorn main:app --host 0.0.0.0 --port 8000"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": ["photo-gallery", "google-drive", "react", "fastapi"],
+  "author": "",
+  "license": "MIT"
+} 
