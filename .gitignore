@@ -13,3 +13,4 @@ dist/
 # Google Drive API files
 client_secrets.json
 token.pickle
+token.json

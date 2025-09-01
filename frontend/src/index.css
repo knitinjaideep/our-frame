@@ -1,20 +1,131 @@
-/* Remove default margins and set box-sizing */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* CSS vars for a light/dark theme; tweak to taste */
+:root{
+  --background: 0 0% 100%;
+  --foreground: 224 71% 4%;
+  --card: 0 0% 100%;
+  --primary: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
 }
+.dark{
+  --background: 222 84% 5%;
+  --foreground: 210 40% 98%;
+  --card: 222 84% 5%;
+  --primary: 210 40% 98%;
+  --muted: 217 33% 18%;
+  --muted-foreground: 215 20% 65%;
+}
+html,body,#root{height:100%}
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+/* ---------- Tailwind component layer: recreate App.css in utilities ---------- */
+@layer components {
+  /* App background */
+  .app-shell {
+    @apply min-h-dvh flex flex-col bg-gradient-to-br from-indigo-500 to-fuchsia-600;
+  }
+
+  /* Glass header */
+  .header {
+    @apply sticky top-0 z-40 border-b border-white/20 bg-white/90 backdrop-blur shadow;
+  }
+  .header-content {
+    @apply mx-auto max-w-6xl px-4 py-3 flex items-center justify-between;
+  }
+  .logo {
+    @apply flex items-center gap-2 text-slate-800 hover:scale-[1.03] transition-transform;
+  }
+
+  /* Nav buttons */
+  .nav-button {
+    @apply inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-indigo-50 transition;
+  }
+  .nav-button.active {
+    @apply text-white shadow;
+    background-image: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+
+  /* Page container */
+  .main {
+    @apply flex-1 w-full;
+  }
+  .page-pad {
+    @apply mx-auto max-w-6xl px-4 py-6;
+  }
+
+  /* Section header */
+  .section-header { @apply flex items-center justify-between mb-5 text-white; }
+  .section-header h2 { @apply text-2xl font-bold; }
+  .actions { @apply flex gap-2 flex-wrap; }
+
+  /* Buttons used in sections */
+  .btn-white {
+    @apply inline-flex items-center gap-2 rounded-xl bg-white text-slate-800 px-3 py-2 font-semibold shadow-sm hover:-translate-y-0.5 hover:shadow transition;
+  }
+  .btn-gradient {
+    @apply inline-flex items-center gap-2 rounded-xl px-3 py-2 font-semibold text-white disabled:opacity-60 transition;
+    background-image: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 6px 20px rgba(102,126,234,.3);
+  }
+
+  /* Empty/loading/error cards */
+  .state-card {
+    @apply rounded-2xl border border-white/30 bg-white/80 backdrop-blur p-8 text-center text-slate-800;
+  }
+
+  /* Feature cards (home) */
+  .feature-card {
+    @apply rounded-2xl border border-white/30 bg-white/20 text-white p-6 text-center backdrop-blur transition shadow hover:-translate-y-1 hover:bg-white/30;
+  }
+  .feature-grid {
+    @apply grid gap-5 sm:grid-cols-2 lg:grid-cols-3 mt-4;
+  }
+  .hero {
+    @apply text-center mb-10 text-white;
+  }
+  .hero h1 {
+    @apply text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent mb-2;
+  }
+  .hero p { @apply text-base/relaxed opacity-90; }
+  .hero-stats { @apply mt-4 flex justify-center gap-10; }
+  .stat { @apply flex flex-col items-center; }
+  .stat-number { @apply text-3xl font-extrabold; }
+  .stat-label { @apply text-xs uppercase tracking-wide opacity-80; }
+
+  /* Folders & photos */
+  .folder-grid {
+    @apply grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(230px,1fr))];
+  }
+  .folder-card {
+    @apply flex items-center gap-3 rounded-xl bg-white/95 shadow hover:-translate-y-1 transition px-4 py-3;
+  }
+  .folder-name { @apply font-semibold text-slate-800 truncate; }
+
+  .photo-grid {
+    @apply grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))] py-1;
+  }
+  .photo-card {
+    @apply relative overflow-hidden rounded-2xl bg-white shadow;
+  }
+  .photo-container { @apply relative overflow-hidden; aspect-ratio: 4 / 3; }
+  .photo-image { @apply w-full h-full object-cover transition-transform group-hover:scale-105; }
+  .photo-overlay { @apply absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition grid place-items-center; }
+  .view-button { @apply inline-flex items-center gap-2 rounded-xl bg-white text-slate-800 px-3 py-2 font-semibold; }
+
+  .photo-info { @apply p-3; }
+  .photo-name { @apply font-semibold text-slate-900 truncate; }
+  .photo-type { @apply text-xs uppercase tracking-wide text-slate-500; }
+
+  /* Lightbox */
+  .lightbox { @apply fixed inset-0 z-50 bg-black/90 grid place-items-center; }
+  .lb-image { @apply max-w-[92vw] max-h-[92vh] object-contain; }
+  .lb-btn {
+    @apply absolute rounded-xl bg-white/90 px-3 py-2 text-xs font-semibold shadow;
+  }
+  .lb-close { @apply top-4 right-4; }
+  .lb-prev { @apply left-4 top-1/2 -translate-y-1/2; }
+  .lb-next { @apply right-4 top-1/2 -translate-y-1/2; }
 }
