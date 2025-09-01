@@ -2,10 +2,11 @@ import os
 from typing import Optional
 from io import BytesIO
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse, StreamingResponse
 from dotenv import load_dotenv
+from PIL import Image
 from googleapiclient.http import MediaIoBaseDownload
 
 from google_drive_client import (
@@ -15,6 +16,13 @@ from google_drive_client import (
     get_credentials,
     get_drive,
 )
+
+# Optional HEIC/HEIF support (recommended if you have iPhone photos)
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except Exception:
+    pass
 
 load_dotenv()  # loads backend/.env
 
@@ -134,8 +142,6 @@ def drive_file_content(file_id: str):
 
     meta = svc.files().get(fileId=file_id, fields="name,mimeType").execute()
 
-    # Download into memory (OK for typical photos). If you plan very large images,
-    # switch to a generator/iterable stream.
     fh = BytesIO()
     request = svc.files().get_media(fileId=file_id)
     downloader = MediaIoBaseDownload(fh, request)
@@ -171,3 +177,74 @@ def drive_file_download(file_id: str):
 
     headers = {"Content-Disposition": f'attachment; filename="{name}"'}
     return StreamingResponse(fh, media_type=mime, headers=headers)
+
+
+# ---------- Image helpers for thumbnail/preview ----------
+def _open_image(raw: bytes) -> Image.Image:
+    img = Image.open(BytesIO(raw))
+    img.load()
+    return img
+
+
+def _to_jpeg_bytes(img: Image.Image, quality: int = 85) -> BytesIO:
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+    buf = BytesIO()
+    img.save(buf, format="JPEG", quality=quality, optimize=True)
+    buf.seek(0)
+    return buf
+
+
+def _download_file_bytes(svc, file_id: str) -> bytes:  # ← fixed: str, not "string"
+    fh = BytesIO()
+    req = svc.files().get_media(fileId=file_id)
+    dl = MediaIoBaseDownload(fh, req)
+    done = False
+    while not done:
+        _, done = dl.next_chunk()
+    fh.seek(0)
+    return fh.getvalue()
+
+
+@app.get("/drive/file/{file_id}/thumbnail")
+def drive_thumbnail(file_id: str, s: int = Query(600, ge=64, le=2000)):
+    """
+    Small JPEG thumbnail for grid cards.
+    """
+    try:
+        svc = _drive()
+    except ReauthRequired:
+        return _reauth_json()
+
+    try:
+        raw = _download_file_bytes(svc, file_id)
+        img = _open_image(raw)
+        img.thumbnail((s, s))
+        buf = _to_jpeg_bytes(img, quality=80)
+        headers = {"Cache-Control": "public, max-age=86400"}
+        return StreamingResponse(buf, media_type="image/jpeg", headers=headers)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"thumbnail failed: {e}")
+
+
+@app.get("/drive/file/{file_id}/preview")
+def drive_preview(file_id: str, w: int = Query(1600, ge=400, le=4096)):
+    """
+    Resized JPEG for fast lightbox preview.
+    """
+    try:
+        svc = _drive()
+    except ReauthRequired:
+        return _reauth_json()
+
+    try:
+        raw = _download_file_bytes(svc, file_id)
+        img = _open_image(raw)
+        if img.width > w and img.width > 0:
+            h = round(img.height * (w / img.width))
+            img = img.resize((w, h), Image.LANCZOS)
+        buf = _to_jpeg_bytes(img, quality=85)
+        headers = {"Cache-Control": "public, max-age=86400"}
+        return StreamingResponse(buf, media_type="image/jpeg", headers=headers)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"preview failed: {e}")
