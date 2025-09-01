@@ -15,7 +15,7 @@ export function NavBar() {
     <header className="header">
       <div className="header-content">
         <button onClick={() => setCurrent('home')} className="logo">
-          <Heart size={18} className="opacity-70" />
+          <Heart size={25} className="opacity-70" fill="red" stroke="red" />
           <span className="text-lg font-semibold">Our Frame</span>
         </button>
 
