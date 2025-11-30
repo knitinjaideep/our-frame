@@ -1,49 +1,70 @@
-export function Lightbox({
-    src,
-    onClose,
-    onPrev,
-    onNext,
-  }: {
-    src: string
-    onClose: () => void
-    onPrev: () => void
-    onNext: () => void
-  }) {
-    return (
-      <div
-        className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
-        onClick={onClose}
-        role="dialog"
-        aria-modal
+import { useEffect } from "react";
+import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import type { MediaItem } from "../types";
+
+interface LightboxProps {
+  item: MediaItem;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+}
+
+export default function Lightbox({ item, onClose, onPrev, onNext }: LightboxProps) {
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <button className="absolute top-6 right-6 p-2 bg-white/10 rounded-full">
+        <X size={24} />
+      </button>
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onPrev();
+        }}
+        className="absolute left-6 top-1/2 p-4 bg-white/10 rounded-full"
       >
-        <img
-          src={src}
-          alt=""
-          className="max-h-[90vh] max-w-[92vw] object-contain"
-          onClick={(e) => e.stopPropagation()}
-          decoding="async"
-          fetchPriority="high"
-        />
-  
-        <button
-          className="absolute top-4 right-4 rounded-xl bg-white/90 px-3 py-2 text-xs font-semibold shadow"
-          onClick={(e) => { e.stopPropagation(); onClose() }}
-        >
-          Close
-        </button>
-        <button
-          className="absolute left-4 top-1/2 -translate-y-1/2 rounded-xl bg-white/90 px-3 py-2 text-xs font-semibold shadow"
-          onClick={(e) => { e.stopPropagation(); onPrev() }}
-        >
-          Prev
-        </button>
-        <button
-          className="absolute right-4 top-1/2 -translate-y-1/2 rounded-xl bg-white/90 px-3 py-2 text-xs font-semibold shadow"
-          onClick={(e) => { e.stopPropagation(); onNext() }}
-        >
-          Next
-        </button>
+        <ChevronLeft size={34} />
+      </button>
+
+      <div
+        className="max-h-[85vh] max-w-[90vw]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {item.type === "video" ? (
+          <video
+            src={item.url}
+            controls
+            autoPlay
+            className="rounded-xl max-h-[85vh]"
+          />
+        ) : (
+          <img
+            src={item.url}
+            className="rounded-xl max-h-[85vh] object-contain"
+          />
+        )}
       </div>
-    )
-  }
-  
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onNext();
+        }}
+        className="absolute right-6 top-1/2 p-4 bg-white/10 rounded-full"
+      >
+        <ChevronRight size={34} />
+      </button>
+    </div>
+  );
+}
