@@ -1,11 +1,19 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import type { Photo } from "../types";
+import type { Photo, DriveFolder } from "../types";
 import { PhotoGrid } from "../components/PhotoGrid";
 import { Loader2, Heart } from "lucide-react";
 import { getFavoritePhotoIds } from "../components/PhotoCard";
 
 const API = (p: string) => `http://localhost:8000${p}`;
+
+type ChildrenResponse = {
+  parentId?: string;
+  folders?: DriveFolder[];
+  files?: Photo[];
+  needsAuth?: boolean;
+  authUrl?: string;
+};
 
 const thumbSrc = (p: Photo, size = 800) =>
   API(`/drive/file/${encodeURIComponent(p.id)}/thumbnail?s=${size}`);
@@ -15,14 +23,50 @@ export default function Favorites() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const handleAuthBounce = (data: ChildrenResponse) => {
+    if (data?.needsAuth && data?.authUrl) {
+      window.location.href = API(data.authUrl);
+      return true;
+    }
+    return false;
+  };
+
   const loadFavorites = async () => {
     setLoading(true);
     setError(null);
+
     try {
-      const { data } = await axios.get(API("/drive/children"));
-      const files = (data?.files ?? []) as Photo[];
+      // 1) Get root children (same as Home/Gallery)
+      const rootRes = await axios.get<ChildrenResponse>(API("/drive/children"));
+      const rootData = rootRes.data;
+      if (handleAuthBounce(rootData)) return;
+
+      const allPhotos: Photo[] = [...(rootData.files ?? [])];
+      const folders = (rootData.folders ?? []) as DriveFolder[];
+
+      // 2) For each album folder, fetch its children and collect photos
+      if (folders.length) {
+        const responses = await Promise.all(
+          folders.map((f) =>
+            axios.get<ChildrenResponse>(
+              API(`/drive/children?parentId=${encodeURIComponent(f.id)}`)
+            )
+          )
+        );
+
+        for (const r of responses) {
+          const data = r.data;
+          if (handleAuthBounce(data)) return;
+          if (data.files?.length) {
+            allPhotos.push(...(data.files as Photo[]));
+          }
+        }
+      }
+
+      // 3) Filter to only favorites (selected in Gallery/PhotoCard)
       const favoriteIds = new Set(getFavoritePhotoIds());
-      const favoritesOnly = files.filter((f) => favoriteIds.has(f.id));
+      const favoritesOnly = allPhotos.filter((f) => favoriteIds.has(f.id));
+
       setPhotos(favoritesOnly);
     } catch (e: any) {
       console.error(e);
@@ -67,7 +111,7 @@ export default function Favorites() {
             <Heart className="mx-auto mb-3 h-8 w-8 text-rose-400" />
             <p className="text-sm text-slate-100">No favorites yet.</p>
             <p className="mt-1 text-xs text-slate-500">
-              Tap the heart on any photo to save it here.
+              Tap the heart on any photo in your albums to save it here.
             </p>
           </div>
         </div>
