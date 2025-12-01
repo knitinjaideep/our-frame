@@ -1,6 +1,6 @@
 import React, { type Dispatch, type SetStateAction } from "react";
 import NavItem from "./NavItem";
-import { Grid, Video, FolderHeart, Heart } from "lucide-react";
+import { Grid, Video, FolderHeart, Heart, Image as ImageIcon } from "lucide-react";
 import type { ActiveTab } from "../types";
 
 const MASCOT_URL = "/mascot.png";
@@ -53,20 +53,20 @@ export default function Sidebar({
             }}
           />
           <NavItem
-            icon={Video}
-            label="Gallery"
-            active={activeTab === "gallery"}
-            onClick={() => {
-              setActiveTab("gallery");
-              setSidebarOpen(false);
-            }}
-          />
-          <NavItem
             icon={FolderHeart}
             label="Albums"
             active={activeTab === "albums"}
             onClick={() => {
               setActiveTab("albums");
+              setSidebarOpen(false);
+            }}
+          />
+          <NavItem
+            icon={Video}
+            label="Videos (coming soon)"
+            active={activeTab === "videos"}
+            onClick={() => {
+              setActiveTab("videos" as ActiveTab);
               setSidebarOpen(false);
             }}
           />

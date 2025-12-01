@@ -3,6 +3,7 @@ import axios from "axios";
 import type { Photo } from "../types";
 import { PhotoGrid } from "../components/PhotoGrid";
 import { Loader2, Heart } from "lucide-react";
+import { getFavoritePhotoIds } from "../components/PhotoCard";
 
 const API = (p: string) => `http://localhost:8000${p}`;
 
@@ -20,8 +21,9 @@ export default function Favorites() {
     try {
       const { data } = await axios.get(API("/drive/children"));
       const files = (data?.files ?? []) as Photo[];
-      // Fake favorites: take first 8 for now
-      setPhotos(files.slice(0, 8));
+      const favoriteIds = new Set(getFavoritePhotoIds());
+      const favoritesOnly = files.filter((f) => favoriteIds.has(f.id));
+      setPhotos(favoritesOnly);
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? "Failed to load favorites.");
@@ -34,14 +36,14 @@ export default function Favorites() {
     loadFavorites();
   }, []);
 
+  const hasFavorites = photos.length > 0;
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Heart className="h-5 w-5 text-rose-400" />
-          <h1 className="text-xl font-semibold text-slate-50">
-            Favorites (placeholder)
-          </h1>
+          <h1 className="text-xl font-semibold text-slate-50">Favorites</h1>
         </div>
         <button
           onClick={loadFavorites}
@@ -59,11 +61,25 @@ export default function Favorites() {
         </div>
       )}
 
-      <PhotoGrid
-        photos={photos}
-        thumbSrc={(p) => thumbSrc(p, 600)}
-        thumbSrcLg={(p) => thumbSrc(p, 1200)}
-      />
+      {!loading && !error && !hasFavorites && (
+        <div className="grid place-items-center rounded-2xl border border-slate-800 bg-slate-900/60 py-16 text-center">
+          <div>
+            <Heart className="mx-auto mb-3 h-8 w-8 text-rose-400" />
+            <p className="text-sm text-slate-100">No favorites yet.</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Tap the heart on any photo to save it here.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {hasFavorites && (
+        <PhotoGrid
+          photos={photos}
+          thumbSrc={(p) => thumbSrc(p, 600)}
+          thumbSrcLg={(p) => thumbSrc(p, 1200)}
+        />
+      )}
     </div>
   );
 }

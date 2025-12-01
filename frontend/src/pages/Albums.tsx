@@ -1,12 +1,27 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import type { DriveFolder } from "../types";
+import type { DriveFolder, Photo } from "../types";
 import { Album, Loader2, Image as ImageIcon } from "lucide-react";
 
 const API = (p: string) => `http://localhost:8000${p}`;
 
+type ChildrenResponse = {
+  parentId?: string;
+  folders?: DriveFolder[];
+  files?: Photo[];
+  needsAuth?: boolean;
+  authUrl?: string;
+};
+
+type AlbumWithThumb = DriveFolder & {
+  coverPhoto?: Photo | null;
+};
+
+const thumbSrc = (p: Photo, size = 800) =>
+  API(`/drive/file/${encodeURIComponent(p.id)}/thumbnail?s=${size}`);
+
 export default function Albums() {
-  const [folders, setFolders] = useState<DriveFolder[]>([]);
+  const [albums, setAlbums] = useState<AlbumWithThumb[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -14,9 +29,37 @@ export default function Albums() {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await axios.get(API("/drive/children"));
-      const f = (data?.folders ?? []) as DriveFolder[];
-      setFolders(f);
+      // 1) Get root folders (albums)
+      const { data } = await axios.get<ChildrenResponse>(API("/drive/children"));
+      const folders = (data?.folders ?? []) as DriveFolder[];
+
+      if (folders.length === 0) {
+        setAlbums([]);
+        return;
+      }
+
+      // 2) For each folder, fetch its children and pick a photo as cover
+      const requests = folders.map((f) =>
+        axios.get<ChildrenResponse>(
+          API(`/drive/children?parentId=${encodeURIComponent(f.id)}`)
+        )
+      );
+
+      const responses = await Promise.all(requests);
+
+      const albumsWithThumbs: AlbumWithThumb[] = folders.map((folder, idx) => {
+        const folderData = responses[idx].data;
+        const files = (folderData.files ?? []) as Photo[];
+        // Choose first photo as cover (you could randomize if you like)
+        const coverPhoto = files.length > 0 ? files[0] : null;
+
+        return {
+          ...folder,
+          coverPhoto,
+        };
+      });
+
+      setAlbums(albumsWithThumbs);
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? "Failed to load albums.");
@@ -31,6 +74,7 @@ export default function Albums() {
 
   return (
     <div className="px-2">
+      {/* Header */}
       <div className="mb-6 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Album className="h-5 w-5 text-indigo-400" />
@@ -46,13 +90,15 @@ export default function Albums() {
         </button>
       </div>
 
+      {/* Error */}
       {error && (
         <div className="mb-4 rounded-2xl border border-rose-500/40 bg-rose-900/40 px-4 py-3 text-sm text-rose-100">
           {error}
         </div>
       )}
 
-      {!loading && !error && folders.length === 0 && (
+      {/* Empty */}
+      {!loading && !error && albums.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-12 text-center text-slate-300">
           <ImageIcon size={40} className="mb-3 opacity-70" />
           <p className="font-medium">No albums yet.</p>
@@ -63,16 +109,33 @@ export default function Albums() {
         </div>
       )}
 
-      {folders.length > 0 && (
+      {/* Albums grid */}
+      {albums.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {folders.map((album) => (
+          {albums.map((album) => (
             <div
               key={album.id}
-              className="flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 shadow-sm hover:-translate-y-1 hover:shadow-md"
+              className="flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 shadow-sm hover:-translate-y-1 hover:shadow-md transition-transform"
             >
-              <div className="flex h-32 items-center justify-center bg-gradient-to-br from-indigo-600/40 to-slate-900">
-                <Album className="h-9 w-9 text-indigo-100" />
+              {/* Thumbnail / fun fallback */}
+              <div className="relative h-32 w-full overflow-hidden">
+                {album.coverPhoto ? (
+                  <>
+                    <img
+                      src={thumbSrc(album.coverPhoto, 800)}
+                      alt={album.name}
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                  </>
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500/40 via-sky-500/30 to-emerald-500/40">
+                    <span className="text-3xl">🎉</span>
+                  </div>
+                )}
               </div>
+
+              {/* Text */}
               <div className="p-4">
                 <h2 className="truncate text-sm font-semibold text-slate-50">
                   {album.name}

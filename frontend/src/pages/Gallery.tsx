@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Sparkles,
 } from "lucide-react";
 import { PhotoGrid } from "../components/PhotoGrid";
 
@@ -40,13 +41,20 @@ const fullSrcOriginal = (p: Photo) => {
 
 const SectionHeader = ({
   title,
+  subtitle,
   children,
 }: {
   title: string;
+  subtitle?: string;
   children?: React.ReactNode;
 }) => (
-  <div className="mb-4 flex items-center justify-between gap-3">
-    <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+      {subtitle && (
+        <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
+      )}
+    </div>
     <div className="flex gap-2">{children}</div>
   </div>
 );
@@ -56,12 +64,20 @@ export default function Gallery() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [rootFolderId, setRootFolderId] = useState<string | null>(null);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [currentFolderName, setCurrentFolderName] = useState<string | null>(
+    null
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+
+  // albumId -> first Photo in that folder (or null if none)
+  const [albumThumbs, setAlbumThumbs] = useState<Record<string, Photo | null>>(
+    {}
+  );
 
   const handleAuthBounce = (data: ChildrenResponse) => {
     if (data?.needsAuth && data?.authUrl) {
@@ -81,8 +97,10 @@ export default function Gallery() {
       const { data } = await axios.get<ChildrenResponse>(url);
       if (handleAuthBounce(data)) return;
 
-      if (!parentId && !rootFolderId && data?.parentId)
+      if (!parentId && !rootFolderId && data?.parentId) {
         setRootFolderId(data.parentId);
+      }
+
       setCurrentFolderId(data?.parentId ?? null);
       setFolders(data?.folders ?? []);
       setPhotos(data?.files ?? []);
@@ -100,9 +118,18 @@ export default function Gallery() {
   }, []);
 
   const isAtRoot = !rootFolderId || currentFolderId === rootFolderId;
+
   const refresh = () => loadChildren(currentFolderId ?? undefined);
-  const openFolder = (id: string) => loadChildren(id);
-  const backToRoot = () => loadChildren(undefined);
+
+  const openFolder = (id: string, name?: string) => {
+    if (name) setCurrentFolderName(name);
+    loadChildren(id);
+  };
+
+  const backToRoot = () => {
+    setCurrentFolderName(null);
+    loadChildren(undefined);
+  };
 
   // Prefetch preview images for snappier next/prev in lightbox
   useEffect(() => {
@@ -134,9 +161,56 @@ export default function Gallery() {
     }
   };
 
+  // Fetch a "cover photo" for each album (folder) for the album cards
+  useEffect(() => {
+    if (!isAtRoot || folders.length === 0) return;
+
+    const fetchThumbs = async () => {
+      const toFetch = folders.filter(
+        (f) => albumThumbs[f.id] === undefined
+      );
+      if (!toFetch.length) return;
+
+      try {
+        const results = await Promise.all(
+          toFetch.map(async (f) => {
+            try {
+              const url = API(
+                `/drive/children?parentId=${encodeURIComponent(f.id)}`
+              );
+              const { data } = await axios.get<ChildrenResponse>(url);
+              if (handleAuthBounce(data)) return [f.id, null] as const;
+
+              const firstPhoto = data?.files?.[0] ?? null;
+              return [f.id, firstPhoto] as const;
+            } catch (err) {
+              console.error("Album thumb load error:", f.id, err);
+              return [f.id, null] as const;
+            }
+          })
+        );
+
+        setAlbumThumbs((prev) => {
+          const copy = { ...prev };
+          results.forEach(([id, photo]) => {
+            copy[id] = photo;
+          });
+          return copy;
+        });
+      } catch (err) {
+        console.error("Album thumbs batch error:", err);
+      }
+    };
+
+    fetchThumbs();
+  }, [folders, isAtRoot, albumThumbs]);
+
   const FoldersView = () => (
     <>
-      <SectionHeader title="Folders">
+      <SectionHeader
+        title="Albums"
+        subtitle="Each album is a little time capsule. Tap to open and start flipping through memories."
+      >
         <button
           onClick={refresh}
           disabled={loading}
@@ -167,32 +241,89 @@ export default function Gallery() {
         <div className="flex items-center justify-center rounded-2xl border bg-white/80 py-16">
           <div className="flex items-center gap-3 text-slate-600">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Loading folders…</span>
+            <span>Gathering your albums…</span>
           </div>
         </div>
       )}
 
       {!loading && !error && (
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {folders.map((f) => (
-            <button
-              key={f.id}
-              className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-medium text-slate-800 shadow-sm hover:-translate-y-1 hover:border-slate-300 hover:shadow-md"
-              onClick={() => openFolder(f.id)}
-              title={f.name}
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-indigo-500">
-                <Album size={18} />
-              </div>
-              <span className="truncate">{f.name}</span>
-            </button>
-          ))}
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {folders.map((f) => {
+            const cover = albumThumbs[f.id];
+            const isLoadingCover = cover === undefined;
+
+            return (
+              <button
+                key={f.id}
+                className="group flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-slate-300 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                onClick={() => openFolder(f.id, f.name)}
+                title={f.name}
+              >
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
+                  {/* Loading shimmer */}
+                  {isLoadingCover && (
+                    <div className="h-full w-full animate-pulse bg-gradient-to-br from-slate-100 via-slate-200 to-slate-100" />
+                  )}
+
+                  {/* Real photo cover */}
+                  {!isLoadingCover && cover && (
+                    <img
+                      src={thumbSrc(cover, 900)}
+                      alt={f.name}
+                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                      loading="lazy"
+                    />
+                  )}
+
+                  {/* Fun fallback cover if no photos */}
+                  {!isLoadingCover && !cover && (
+                    <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-indigo-100 via-sky-100 to-emerald-100 text-slate-700">
+                      <div className="mb-2 flex items-center gap-1 text-2xl">
+                        <span>📸</span>
+                        <span>✨</span>
+                      </div>
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                        No photos yet
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Overlay gradient + badge */}
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent px-3 pb-3 pt-6 text-left">
+                    <div className="flex items-end justify-between gap-2">
+                      <p className="max-w-[70%] truncate text-sm font-semibold text-white">
+                        {f.name}
+                      </p>
+                      <div className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-medium text-slate-800 shadow-sm">
+                        <Album className="h-3 w-3" />
+                        <span>Open</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between px-3 pb-3 pt-2 text-xs text-slate-500">
+                  <span className="truncate">Tap to view this album</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700 group-hover:bg-indigo-50 group-hover:text-indigo-700">
+                    <Sparkles className="h-3 w-3" />
+                    <span>Memories</span>
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+
           {folders.length === 0 && (
-            <div className="col-span-full rounded-2xl border bg-white/80 p-6 text-center text-sm text-slate-600">
-              <ImageIcon size={32} className="mx-auto mb-2 opacity-70" />
-              <p className="font-medium">No folders found</p>
-              <p className="text-xs opacity-80 mt-1">
-                Create subfolders in your root Drive folder, then click Refresh.
+            <div className="col-span-full rounded-3xl border bg-white/80 p-8 text-center text-sm text-slate-600">
+              <div className="mb-3 flex items-center justify-center gap-2">
+                <ImageIcon size={32} className="opacity-70" />
+                <Sparkles size={18} className="opacity-80 text-indigo-500" />
+              </div>
+              <p className="font-medium">No albums yet</p>
+              <p className="mt-1 text-xs opacity-80">
+                Create subfolders in your root Drive folder, then click
+                <span className="font-semibold"> Refresh</span> to see them
+                here.
               </p>
             </div>
           )}
@@ -203,24 +334,27 @@ export default function Gallery() {
 
   const PhotosView = () => (
     <>
-      <SectionHeader title="Photos">
-        <div className="flex gap-2">
+      <SectionHeader
+        title={currentFolderName || "Photos"}
+        subtitle="Swipe through this album, open full-screen, or download your favorites."
+      >
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={backToRoot}
             className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            title="Back to folders"
+            title="Back to albums"
           >
             <ChevronLeftCircle size={16} />
-            Back
+            Back to Albums
           </button>
           {photos.length > 0 && (
             <button
               onClick={openPreviewAll}
-              className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+              className="inline-flex items-center gap-1 rounded-full border border-indigo-500 bg-indigo-500/90 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-600"
               title="Preview all"
             >
               <Maximize2 size={16} />
-              Preview All
+              Fullscreen Slideshow
             </button>
           )}
           <button
@@ -262,9 +396,9 @@ export default function Gallery() {
       {!loading && !error && photos.length === 0 && (
         <div className="rounded-2xl border bg-white/80 p-6 text-center text-sm text-slate-600">
           <ImageIcon size={32} className="mx-auto mb-2 opacity-70" />
-          <p className="font-medium">No photos in this folder</p>
-          <p className="text-xs opacity-80 mt-1">
-            Choose another folder or go back.
+          <p className="font-medium">No photos in this album (yet!)</p>
+          <p className="mt-1 text-xs opacity-80">
+            Choose another album or go back to the albums overview.
           </p>
         </div>
       )}
@@ -281,10 +415,6 @@ export default function Gallery() {
               setIsPreviewOpen(true);
             }}
           />
-
-          {/* Download buttons on each card */}
-          <div className="hidden" />
-          {/* downloads are handled below in the lightbox overlay */}
         </div>
       )}
 
@@ -293,6 +423,7 @@ export default function Gallery() {
           className="fixed inset-0 z-40 flex items-center justify-center bg-black/90"
           onClick={() => setIsPreviewOpen(false)}
         >
+          {/* Close */}
           <button
             className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
             onClick={(e) => {
@@ -303,6 +434,13 @@ export default function Gallery() {
           >
             <X size={18} />
           </button>
+
+          {/* Index badge */}
+          <div className="pointer-events-none absolute left-4 top-4 rounded-full bg-white/15 px-3 py-1 text-[11px] font-medium text-slate-50 backdrop-blur">
+            {previewIndex + 1} / {photos.length}
+          </div>
+
+          {/* Prev */}
           <button
             className="lb-btn lb-prev absolute left-4 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
             onClick={(e) => {
@@ -314,6 +452,7 @@ export default function Gallery() {
             <ChevronLeft size={22} />
           </button>
 
+          {/* Image */}
           <div
             className="max-h-[85vh] max-w-[90vw]"
             onClick={(e) => e.stopPropagation()}
@@ -343,6 +482,7 @@ export default function Gallery() {
             </div>
           </div>
 
+          {/* Next */}
           <button
             className="lb-btn lb-next absolute right-4 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
             onClick={(e) => {
@@ -360,6 +500,25 @@ export default function Gallery() {
 
   return (
     <div className="space-y-6">
+      {/* Albums hero header */}
+      <div className="rounded-3xl bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-400 px-6 py-5 text-white shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-[11px] font-medium uppercase tracking-wide">
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Family Albums</span>
+            </div>
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+              One cozy place for all your memories
+            </h1>
+            <p className="mt-1 max-w-xl text-xs sm:text-sm text-sky-50/90">
+              Flip through seasons, milestones, and tiny everyday moments.
+              Pick an album below to dive in.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {isAtRoot ? <FoldersView /> : <PhotosView />}
     </div>
   );

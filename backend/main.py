@@ -3,10 +3,10 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-
+from pillow_heif import register_heif_opener
 # Make sure .env is loaded (GOOGLE_DRIVE_ROOT_FOLDER, ROOT_FOLDER_ID, etc.)
 load_dotenv()
-
+register_heif_opener()
 # Import routers from your packages
 from auth.routes import router as auth_router
 from drive.routes import router as drive_router

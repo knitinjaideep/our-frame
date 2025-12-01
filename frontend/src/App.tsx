@@ -3,9 +3,20 @@ import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import Home from "./pages/Home";
 import Gallery from "./pages/Gallery";
-import Albums from "./pages/Albums";
 import Favorites from "./pages/Favorites";
 import type { ActiveTab } from "./types";
+
+function VideosComingSoon() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 py-16 text-center">
+      <div className="text-2xl font-semibold text-slate-50">Videos</div>
+      <p className="max-w-md text-sm text-slate-400">
+        📹 Video memories are coming soon. You&apos;ll be able to store and
+        browse your family clips right here.
+      </p>
+    </div>
+  );
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
@@ -15,12 +26,12 @@ export default function App() {
     switch (activeTab) {
       case "home":
         return <Home />;
-      case "gallery":
-        return <Gallery />;
       case "albums":
-        return <Albums />;
+        return <Gallery />;
       case "favorites":
         return <Favorites />;
+      case "videos":
+        return <VideosComingSoon />;
       default:
         return <Home />;
     }
