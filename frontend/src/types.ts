@@ -1,5 +1,4 @@
-export type ActiveTab = "home" | "albums" | "favorites" | "videos";
-
+export type ActiveTab = "home" | "albums" | "favorites" | "videos" | "search" | "journal";
 
 export interface DriveFolder {
   id: string;
