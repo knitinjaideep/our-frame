@@ -1,70 +1,36 @@
-# Photo Gallery Frontend
-
-A modern React application for displaying photos from Google Drive.
-
-## Features
-
-- 🖼️ Beautiful photo grid layout
-- 🔄 Real-time refresh functionality
-- 📱 Responsive design for all devices
-- ⚡ Fast loading with lazy image loading
-- 🎨 Modern UI with smooth animations
-- 🔗 Direct links to original photos
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
-### Prerequisites
+First, run the development server:
 
-- Node.js (version 16 or higher)
-- Backend server running on `http://localhost:8000`
-
-### Installation
-
-1. Install dependencies:
-```bash
-npm install
-```
-
-2. Start the development server:
 ```bash
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-3. Open your browser and navigate to `http://localhost:3000`
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-### Building for Production
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-To create a production build:
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-```bash
-npm run build
-```
+## Learn More
 
-The built files will be in the `dist` folder.
+To learn more about Next.js, take a look at the following resources:
 
-## Development
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-The application is built with:
-- **React 18** with TypeScript
-- **Vite** for fast development and building
-- **Axios** for HTTP requests
-- **Lucide React** for beautiful icons
-- **CSS3** with modern features like Grid and Flexbox
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## API Integration
+## Deploy on Vercel
 
-The frontend connects to the backend API at `http://localhost:8000/photos/sync` to fetch photos from Google Drive. Make sure your backend server is running before starting the frontend.
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-## Project Structure
-
-```
-src/
-├── App.tsx          # Main application component
-├── App.css          # Application styles
-├── index.css        # Global styles
-└── main.tsx         # Application entry point
-```
-
-## Environment Variables
-
-No environment variables are required for the frontend. The API endpoint is hardcoded to `http://localhost:8000` for development.
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
