@@ -1,0 +1,396 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ─────────────────────────────────────────────
+   THEME BRIDGE — Tailwind v4 token mapping
+   Maps CSS vars → Tailwind color utilities
+   ───────────────────────────────────────────── */
+@theme inline {
+  --color-background:                var(--background);
+  --color-foreground:                var(--foreground);
+  --font-sans:                       var(--font-sans);
+  --font-mono:                       var(--font-geist-mono);
+  --font-serif:                      var(--font-serif);
+  --font-heading:                    var(--font-heading);
+
+  /* Core semantic tokens */
+  --color-card:                      var(--card);
+  --color-card-foreground:           var(--card-foreground);
+  --color-popover:                   var(--popover);
+  --color-popover-foreground:        var(--popover-foreground);
+  --color-primary:                   var(--primary);
+  --color-primary-foreground:        var(--primary-foreground);
+  --color-secondary:                 var(--secondary);
+  --color-secondary-foreground:      var(--secondary-foreground);
+  --color-muted:                     var(--muted);
+  --color-muted-foreground:          var(--muted-foreground);
+  --color-accent:                    var(--accent);
+  --color-accent-foreground:         var(--accent-foreground);
+  --color-destructive:               var(--destructive);
+  --color-border:                    var(--border);
+  --color-input:                     var(--input);
+  --color-ring:                      var(--ring);
+
+  /* Sidebar tokens */
+  --color-sidebar:                   var(--sidebar);
+  --color-sidebar-foreground:        var(--sidebar-foreground);
+  --color-sidebar-primary:           var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent:            var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border:            var(--sidebar-border);
+  --color-sidebar-ring:              var(--sidebar-ring);
+
+  /* Chart tokens */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Border radius scale */
+  --radius-sm:   calc(var(--radius) * 0.5);
+  --radius-md:   calc(var(--radius) * 0.75);
+  --radius-lg:   var(--radius);
+  --radius-xl:   calc(var(--radius) * 1.5);
+  --radius-2xl:  calc(var(--radius) * 2);
+  --radius-3xl:  calc(var(--radius) * 2.5);
+  --radius-4xl:  calc(var(--radius) * 3);
+}
+
+/* ═══════════════════════════════════════════════════════
+   LIGHT MODE — Warm Memory Book
+   Feeling: premium family photo album, warm cream paper,
+   soft natural daylight, editorial but intimate
+   ═══════════════════════════════════════════════════════ */
+:root {
+  /* ── Base surfaces ── */
+  --background:               oklch(0.974 0.006 74);    /* #F6F3EF — warm ivory */
+  --foreground:               oklch(0.195 0.012 58);    /* #2C2C28 — deep warm charcoal */
+
+  /* ── Cards & elevated surfaces ── */
+  --card:                     oklch(0.995 0.003 72);    /* #FEFCFA — near-white card */
+  --card-foreground:          oklch(0.195 0.012 58);
+
+  /* ── Popovers / dropdowns ── */
+  --popover:                  oklch(0.998 0.002 72);
+  --popover-foreground:       oklch(0.195 0.012 58);
+
+  /* ── Primary — warm sand/tan (brand accent on buttons) ── */
+  --primary:                  oklch(0.64 0.085 62);     /* #C8A97E — warm gold/tan */
+  --primary-foreground:       oklch(0.995 0.003 72);    /* near-white on primary buttons */
+
+  /* ── Secondary — warm parchment ── */
+  --secondary:                oklch(0.915 0.018 70);    /* #E8DED2 — warm beige */
+  --secondary-foreground:     oklch(0.28 0.015 58);
+
+  /* ── Muted surfaces and text ── */
+  --muted:                    oklch(0.935 0.014 72);    /* #EFE7DE — warm parchment */
+  --muted-foreground:         oklch(0.455 0.022 62);    /* #6F6A63 — warm medium gray */
+
+  /* ── Accent — warm sand ── */
+  --accent:                   oklch(0.875 0.028 72);    /* #D6C3A3 — muted sand */
+  --accent-foreground:        oklch(0.22 0.012 55);
+
+  /* ── Destructive ── */
+  --destructive:              oklch(0.577 0.245 27.325);
+
+  /* ── Borders and inputs ── */
+  --border:                   oklch(0.895 0.018 70);    /* #E5DCD3 — soft warm border */
+  --input:                    oklch(0.895 0.018 70);
+  --ring:                     oklch(0.64 0.085 62);     /* same as primary */
+
+  /* ── Border radius base ── */
+  --radius: 0.75rem;
+
+  /* ── Sidebar — slightly warmer than main bg ── */
+  --sidebar:                  oklch(0.965 0.008 73);    /* slightly creamier panel */
+  --sidebar-foreground:       oklch(0.195 0.012 58);
+  --sidebar-primary:          oklch(0.64 0.085 62);
+  --sidebar-primary-foreground: oklch(0.995 0.003 72);
+  --sidebar-accent:           oklch(0.930 0.014 72);
+  --sidebar-accent-foreground: oklch(0.22 0.012 55);
+  --sidebar-border:           oklch(0.895 0.018 70);
+  --sidebar-ring:             oklch(0.64 0.085 62);
+
+  /* ── Charts (warm amber scale) ── */
+  --chart-1: oklch(0.72 0.12 58);
+  --chart-2: oklch(0.60 0.09 52);
+  --chart-3: oklch(0.48 0.07 47);
+  --chart-4: oklch(0.38 0.05 42);
+  --chart-5: oklch(0.28 0.03 37);
+
+  /* ════════════════════════════════
+     APP-SPECIFIC DESIGN TOKENS
+     ════════════════════════════════ */
+
+  /* Photo viewer — dark overlay for immersive viewing */
+  --photo-overlay:            oklch(0.07 0 0 / 90%);
+
+  /* Hero gradient — warm vignette on photo slideshow */
+  --hero-gradient-from:       oklch(0.07 0 0 / 68%);
+  --hero-gradient-mid:        oklch(0.07 0 0 / 0%);
+  --hero-gradient-to:         oklch(0.07 0 0 / 14%);
+
+  /* Surface overlays */
+  --surface-overlay:          oklch(0.974 0.006 74 / 82%);
+  --surface-overlay-dark:     oklch(0.195 0.012 58 / 6%);
+
+  /* Skeleton shimmer — warm cream pulse */
+  --skeleton-base:            oklch(0.930 0.012 72);
+  --skeleton-shine:           oklch(0.965 0.007 74);
+
+  /* ── Warm gold brand accent ── */
+  --amber:                    oklch(0.66 0.13 60);      /* warm gold */
+  --amber-subtle:             oklch(0.66 0.13 60 / 10%);
+  --amber-muted:              oklch(0.66 0.13 60 / 16%);
+  --amber-border:             oklch(0.66 0.13 60 / 38%);
+  --amber-hover:              oklch(0.66 0.13 60 / 24%);
+
+  /* ── Card shadow — soft, diffused, warm ── */
+  --shadow-card:              0 2px 8px oklch(0.195 0.012 58 / 6%), 0 1px 3px oklch(0.195 0.012 58 / 8%);
+  --shadow-card-hover:        0 8px 24px oklch(0.195 0.012 58 / 10%), 0 2px 6px oklch(0.195 0.012 58 / 8%);
+  --shadow-photo:             0 4px 20px oklch(0.195 0.012 58 / 14%);
+}
+
+/* ═══════════════════════════════════════════════════════
+   DARK MODE — Warm Cinematic Evening
+   Feeling: warm charcoal studio, immersive photo viewing,
+   soft luxury, quiet and elegant
+   NOT: cold black, blue-black, corporate dark
+   ═══════════════════════════════════════════════════════ */
+.dark {
+  /* ── Base surfaces — deep warm charcoal ── */
+  --background:               oklch(0.128 0.007 48);    /* #1A1816 — warm dark base */
+  --foreground:               oklch(0.942 0.010 68);    /* #F5F3F0 — warm near-white */
+
+  /* ── Cards — slightly lifted warm surface ── */
+  --card:                     oklch(0.162 0.008 48);    /* #23201D — cocoa charcoal */
+  --card-foreground:          oklch(0.942 0.010 68);
+
+  /* ── Popovers ── */
+  --popover:                  oklch(0.175 0.008 48);
+  --popover-foreground:       oklch(0.942 0.010 68);
+
+  /* ── Primary — warm muted gold ── */
+  --primary:                  oklch(0.72 0.105 62);     /* #D6B98C — warm bronze gold */
+  --primary-foreground:       oklch(0.128 0.007 48);    /* dark bg on gold buttons */
+
+  /* ── Secondary — warm raised surface ── */
+  --secondary:                oklch(0.218 0.009 48);    /* #3A342F — warm dark taupe */
+  --secondary-foreground:     oklch(0.942 0.010 68);
+
+  /* ── Muted ── */
+  --muted:                    oklch(0.192 0.009 48);    /* #2A2622 — warm dark surface */
+  --muted-foreground:         oklch(0.708 0.018 62);    /* #B8B2AA — warm light gray */
+
+  /* ── Accent — warm bronze ── */
+  --accent:                   oklch(0.218 0.009 48);
+  --accent-foreground:        oklch(0.942 0.010 68);
+
+  /* ── Destructive ── */
+  --destructive:              oklch(0.704 0.191 22.216);
+
+  /* ── Borders — subtle warm white ── */
+  --border:                   oklch(1 0 0 / 7%);
+  --input:                    oklch(1 0 0 / 9%);
+  --ring:                     oklch(0.72 0.105 62);
+
+  /* ── Sidebar — slightly different tone ── */
+  --sidebar:                  oklch(0.145 0.007 48);    /* #1E1C19 — warm sidebar */
+  --sidebar-foreground:       oklch(0.942 0.010 68);
+  --sidebar-primary:          oklch(0.72 0.105 62);
+  --sidebar-primary-foreground: oklch(0.128 0.007 48);
+  --sidebar-accent:           oklch(0.192 0.009 48);
+  --sidebar-accent-foreground: oklch(0.942 0.010 68);
+  --sidebar-border:           oklch(1 0 0 / 6%);
+  --sidebar-ring:             oklch(0.72 0.105 62);
+
+  /* ── Charts ── */
+  --chart-1: oklch(0.87 0.018 68);
+  --chart-2: oklch(0.68 0.032 63);
+  --chart-3: oklch(0.50 0.024 58);
+  --chart-4: oklch(0.36 0.016 53);
+  --chart-5: oklch(0.26 0.010 48);
+
+  /* ════════════════════════════════
+     APP-SPECIFIC DESIGN TOKENS (dark)
+     ════════════════════════════════ */
+
+  /* Photo viewer — deeper immersive overlay */
+  --photo-overlay:            oklch(0.04 0 0 / 95%);
+
+  /* Hero gradient — cinematic warm vignette */
+  --hero-gradient-from:       oklch(0.04 0 0 / 82%);
+  --hero-gradient-mid:        oklch(0.04 0 0 / 0%);
+  --hero-gradient-to:         oklch(0.04 0 0 / 22%);
+
+  /* Surface overlays */
+  --surface-overlay:          oklch(0.128 0.007 48 / 88%);
+  --surface-overlay-dark:     oklch(0 0 0 / 45%);
+
+  /* Skeleton shimmer — warm charcoal pulse */
+  --skeleton-base:            oklch(0.192 0.009 48);
+  --skeleton-shine:           oklch(0.225 0.009 50);
+
+  /* ── Warm gold brand accent (slightly brighter in dark) ── */
+  --amber:                    oklch(0.74 0.130 63);
+  --amber-subtle:             oklch(0.74 0.130 63 / 10%);
+  --amber-muted:              oklch(0.74 0.130 63 / 16%);
+  --amber-border:             oklch(0.74 0.130 63 / 32%);
+  --amber-hover:              oklch(0.74 0.130 63 / 22%);
+
+  /* ── Card shadows — warm glow ── */
+  --shadow-card:              0 2px 8px oklch(0 0 0 / 30%), 0 1px 3px oklch(0 0 0 / 20%);
+  --shadow-card-hover:        0 8px 32px oklch(0 0 0 / 40%), 0 2px 8px oklch(0 0 0 / 28%);
+  --shadow-photo:             0 4px 24px oklch(0 0 0 / 50%);
+}
+
+/* ═══════════════════════════════════════════════════════
+   BASE STYLES — Global warm resets
+   ═══════════════════════════════════════════════════════ */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply font-sans;
+    /* Smooth, comfortable reading */
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    transition: background-color 0.25s ease, color 0.2s ease;
+  }
+
+  /* Prevent transition flash on images */
+  img {
+    transition: none !important;
+  }
+
+  /* Headings use heading font variable */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+
+  /* Selection color — warm amber tint */
+  ::selection {
+    background: var(--amber-muted);
+    color: var(--foreground);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   TYPOGRAPHY SCALE — editorial and warm
+   ═══════════════════════════════════════════════════════ */
+@layer base {
+  /* Page-level hero headings — can opt into serif via .font-serif */
+  .text-display {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+  }
+
+  /* Section headings */
+  .text-section-heading {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--foreground);
+  }
+
+  /* Eyebrow labels — small caps style */
+  .text-eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   SKELETON SHIMMER — warm, smooth
+   ═══════════════════════════════════════════════════════ */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base)  25%,
+    var(--skeleton-shine) 50%,
+    var(--skeleton-base)  75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════════
+   SCROLLBAR — tasteful, theme-aware
+   ═══════════════════════════════════════════════════════ */
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); opacity: 0.5; }
+
+/* ═══════════════════════════════════════════════════════
+   PHOTO LIGHTBOX OVERRIDE
+   Always show lightbox in a dark cinematic environment,
+   regardless of current app theme
+   ═══════════════════════════════════════════════════════ */
+.yarl__root {
+  --yarl__color_backdrop: oklch(0.04 0 0 / 96%);
+}
+
+/* ═══════════════════════════════════════════════════════
+   UTILITY CLASSES — warm design system helpers
+   ═══════════════════════════════════════════════════════ */
+
+/* Warm card shadow — use instead of Tailwind shadow-* */
+.shadow-warm {
+  box-shadow: var(--shadow-card);
+}
+.shadow-warm-hover:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* Amber accent text */
+.text-amber {
+  color: var(--amber);
+}
+
+/* Amber subtle background */
+.bg-amber-subtle {
+  background-color: var(--amber-subtle);
+}
+.bg-amber-muted {
+  background-color: var(--amber-muted);
+}
+.border-amber {
+  border-color: var(--amber-border);
+}
+
+/* Section divider — warm, quiet */
+.divider-warm {
+  border-top: 1px solid var(--border);
+  opacity: 0.8;
+}
+
+/* Photo grid hover — consistent across grids */
+.photo-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.photo-hover:hover {
+  transform: scale(1.02);
+  box-shadow: var(--shadow-card-hover);
+}

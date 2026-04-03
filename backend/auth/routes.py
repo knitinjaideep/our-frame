@@ -1,6 +1,5 @@
 # backend/auth/routes.py
 
-import os
 import json
 from pathlib import Path
 from typing import Optional
@@ -9,17 +8,16 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 from google_auth_oauthlib.flow import Flow
 
+from core.config import settings
+
 router = APIRouter()
 
-# Google OAuth config
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 
-CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-REDIRECT_URI = os.getenv("GOOGLE_OAUTH_REDIRECT", "http://localhost:8000/auth/callback")
-
-# Where to persist tokens – service.py should read from the same path
-TOKEN_PATH = Path(os.getenv("GOOGLE_TOKEN_PATH", "token.json")).resolve()
+CLIENT_ID = settings.google_client_id
+CLIENT_SECRET = settings.google_client_secret
+REDIRECT_URI = settings.google_oauth_redirect
+TOKEN_PATH = (Path(__file__).resolve().parent.parent / settings.google_token_path)
 
 
 def _require_oauth_env():
@@ -94,10 +92,7 @@ def auth_callback(request: Request, code: str, state: Optional[str] = None):
 
     TOKEN_PATH.write_text(json.dumps(data))
 
-    # After successful auth, send user back to your frontend root
-    # Adjust this if your frontend runs on a different port/origin.
-    frontend_root = os.getenv("FRONTEND_ROOT", "http://localhost:5173")
-    return RedirectResponse(frontend_root)
+    return RedirectResponse(settings.frontend_root)
 
 
 @router.get("/status")
