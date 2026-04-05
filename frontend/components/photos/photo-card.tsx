@@ -13,21 +13,21 @@ interface PhotoCardProps {
 
 export function PhotoCard({ photo, folderId, priority = false, onClick }: PhotoCardProps) {
   const [loaded, setLoaded] = useState(false)
+  const [hovered, setHovered] = useState(false)
 
   return (
     <div
-      className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl bg-muted transition-all duration-300 hover:-translate-y-0.5"
-      style={
-        {
-          boxShadow: 'var(--shadow-card)',
-        } as React.CSSProperties
-      }
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--shadow-photo)'
+      className="group relative cursor-pointer overflow-hidden rounded-xl bg-muted"
+      style={{
+        aspectRatio: '4 / 5',
+        boxShadow: hovered
+          ? '0 16px 48px oklch(0 0 0 / 60%), 0 4px 16px oklch(0 0 0 / 38%), 0 0 0 1px oklch(0.70 0.145 58 / 22%)'
+          : '0 2px 8px oklch(0 0 0 / 30%), 0 1px 3px oklch(0 0 0 / 20%)',
+        transform: hovered ? 'translateY(-3px) scale(1.015)' : 'translateY(0) scale(1)',
+        transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
       }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--shadow-card)'
-      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onClick={onClick}
     >
       {/* Skeleton shimmer */}
@@ -40,21 +40,45 @@ export function PhotoCard({ photo, folderId, priority = false, onClick }: PhotoC
         alt={photo.name}
         loading={priority ? 'eager' : 'lazy'}
         onLoad={() => setLoaded(true)}
-        className={`h-full w-full object-cover transition-all duration-400 group-hover:scale-[1.04] ${
-          loaded ? 'opacity-100' : 'opacity-0'
-        }`}
+        className={`h-full w-full object-cover ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        style={{
+          transform: hovered ? 'scale(1.06)' : 'scale(1)',
+          transition: 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease',
+        }}
       />
 
-      {/* Warm cinematic hover overlay — not harsh black */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/0 to-black/0 transition-all duration-300 group-hover:from-black/40 group-hover:to-black/10" />
+      {/* Warm cinematic hover overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: hovered
+            ? 'linear-gradient(to top, oklch(0.04 0.004 48 / 65%) 0%, oklch(0.04 0.004 48 / 20%) 45%, transparent 75%)'
+            : 'transparent',
+          transition: 'background 0.35s ease',
+        }}
+      />
 
-      {/* Favorite button — top right, on hover */}
-      <div className="absolute right-2 top-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+      {/* Favorite button — top right, fades in on hover */}
+      <div
+        className="absolute right-2 top-2"
+        style={{
+          opacity: hovered ? 1 : 0,
+          transform: hovered ? 'translateY(0)' : 'translateY(-4px)',
+          transition: 'opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+        }}
+      >
         <FavoriteButton photoId={photo.id} photoName={photo.name} folderId={folderId} />
       </div>
 
       {/* Photo name — slides up from bottom on hover */}
-      <div className="absolute inset-x-0 bottom-0 translate-y-full bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 transition-transform duration-300 ease-out group-hover:translate-y-0">
+      <div
+        className="absolute inset-x-0 bottom-0 p-3"
+        style={{
+          background: 'linear-gradient(to top, oklch(0 0 0 / 85%) 0%, oklch(0 0 0 / 50%) 50%, transparent 100%)',
+          transform: hovered ? 'translateY(0)' : 'translateY(100%)',
+          transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+        }}
+      >
         <p className="truncate text-xs font-medium text-white/90 drop-shadow-sm">{photo.name}</p>
       </div>
     </div>

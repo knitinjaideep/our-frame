@@ -2,11 +2,10 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/* dark-only — no light/dark switching */
 
 /* ─────────────────────────────────────────────
    THEME BRIDGE — Tailwind v4 token mapping
-   Maps CSS vars → Tailwind color utilities
    ───────────────────────────────────────────── */
 @theme inline {
   --color-background:                var(--background);
@@ -14,9 +13,8 @@
   --font-sans:                       var(--font-sans);
   --font-mono:                       var(--font-geist-mono);
   --font-serif:                      var(--font-serif);
-  --font-heading:                    var(--font-heading);
+  --font-heading:                    var(--font-serif);
 
-  /* Core semantic tokens */
   --color-card:                      var(--card);
   --color-card-foreground:           var(--card-foreground);
   --color-popover:                   var(--popover);
@@ -34,7 +32,6 @@
   --color-input:                     var(--input);
   --color-ring:                      var(--ring);
 
-  /* Sidebar tokens */
   --color-sidebar:                   var(--sidebar);
   --color-sidebar-foreground:        var(--sidebar-foreground);
   --color-sidebar-primary:           var(--sidebar-primary);
@@ -44,14 +41,12 @@
   --color-sidebar-border:            var(--sidebar-border);
   --color-sidebar-ring:              var(--sidebar-ring);
 
-  /* Chart tokens */
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
 
-  /* Border radius scale */
   --radius-sm:   calc(var(--radius) * 0.5);
   --radius-md:   calc(var(--radius) * 0.75);
   --radius-lg:   var(--radius);
@@ -62,152 +57,56 @@
 }
 
 /* ═══════════════════════════════════════════════════════
-   LIGHT MODE — Warm Memory Book
-   Feeling: premium family photo album, warm cream paper,
-   soft natural daylight, editorial but intimate
+   SINGLE THEME — Warm Cinematic Dark
    ═══════════════════════════════════════════════════════ */
 :root {
-  /* ── Base surfaces ── */
-  --background:               oklch(0.974 0.006 74);    /* #F6F3EF — warm ivory */
-  --foreground:               oklch(0.195 0.012 58);    /* #2C2C28 — deep warm charcoal */
+  /* ── Base surfaces — deep espresso-brown ── */
+  --background:               oklch(0.118 0.010 46);
+  --foreground:               oklch(0.948 0.012 72);  /* warm ivory */
 
-  /* ── Cards & elevated surfaces ── */
-  --card:                     oklch(0.995 0.003 72);    /* #FEFCFA — near-white card */
-  --card-foreground:          oklch(0.195 0.012 58);
-
-  /* ── Popovers / dropdowns ── */
-  --popover:                  oklch(0.998 0.002 72);
-  --popover-foreground:       oklch(0.195 0.012 58);
-
-  /* ── Primary — warm sand/tan (brand accent on buttons) ── */
-  --primary:                  oklch(0.64 0.085 62);     /* #C8A97E — warm gold/tan */
-  --primary-foreground:       oklch(0.995 0.003 72);    /* near-white on primary buttons */
-
-  /* ── Secondary — warm parchment ── */
-  --secondary:                oklch(0.915 0.018 70);    /* #E8DED2 — warm beige */
-  --secondary-foreground:     oklch(0.28 0.015 58);
-
-  /* ── Muted surfaces and text ── */
-  --muted:                    oklch(0.935 0.014 72);    /* #EFE7DE — warm parchment */
-  --muted-foreground:         oklch(0.455 0.022 62);    /* #6F6A63 — warm medium gray */
-
-  /* ── Accent — warm sand ── */
-  --accent:                   oklch(0.875 0.028 72);    /* #D6C3A3 — muted sand */
-  --accent-foreground:        oklch(0.22 0.012 55);
-
-  /* ── Destructive ── */
-  --destructive:              oklch(0.577 0.245 27.325);
-
-  /* ── Borders and inputs ── */
-  --border:                   oklch(0.895 0.018 70);    /* #E5DCD3 — soft warm border */
-  --input:                    oklch(0.895 0.018 70);
-  --ring:                     oklch(0.64 0.085 62);     /* same as primary */
-
-  /* ── Border radius base ── */
-  --radius: 0.75rem;
-
-  /* ── Sidebar — slightly warmer than main bg ── */
-  --sidebar:                  oklch(0.965 0.008 73);    /* slightly creamier panel */
-  --sidebar-foreground:       oklch(0.195 0.012 58);
-  --sidebar-primary:          oklch(0.64 0.085 62);
-  --sidebar-primary-foreground: oklch(0.995 0.003 72);
-  --sidebar-accent:           oklch(0.930 0.014 72);
-  --sidebar-accent-foreground: oklch(0.22 0.012 55);
-  --sidebar-border:           oklch(0.895 0.018 70);
-  --sidebar-ring:             oklch(0.64 0.085 62);
-
-  /* ── Charts (warm amber scale) ── */
-  --chart-1: oklch(0.72 0.12 58);
-  --chart-2: oklch(0.60 0.09 52);
-  --chart-3: oklch(0.48 0.07 47);
-  --chart-4: oklch(0.38 0.05 42);
-  --chart-5: oklch(0.28 0.03 37);
-
-  /* ════════════════════════════════
-     APP-SPECIFIC DESIGN TOKENS
-     ════════════════════════════════ */
-
-  /* Photo viewer — dark overlay for immersive viewing */
-  --photo-overlay:            oklch(0.07 0 0 / 90%);
-
-  /* Hero gradient — warm vignette on photo slideshow */
-  --hero-gradient-from:       oklch(0.07 0 0 / 68%);
-  --hero-gradient-mid:        oklch(0.07 0 0 / 0%);
-  --hero-gradient-to:         oklch(0.07 0 0 / 14%);
-
-  /* Surface overlays */
-  --surface-overlay:          oklch(0.974 0.006 74 / 82%);
-  --surface-overlay-dark:     oklch(0.195 0.012 58 / 6%);
-
-  /* Skeleton shimmer — warm cream pulse */
-  --skeleton-base:            oklch(0.930 0.012 72);
-  --skeleton-shine:           oklch(0.965 0.007 74);
-
-  /* ── Warm gold brand accent ── */
-  --amber:                    oklch(0.66 0.13 60);      /* warm gold */
-  --amber-subtle:             oklch(0.66 0.13 60 / 10%);
-  --amber-muted:              oklch(0.66 0.13 60 / 16%);
-  --amber-border:             oklch(0.66 0.13 60 / 38%);
-  --amber-hover:              oklch(0.66 0.13 60 / 24%);
-
-  /* ── Card shadow — soft, diffused, warm ── */
-  --shadow-card:              0 2px 8px oklch(0.195 0.012 58 / 6%), 0 1px 3px oklch(0.195 0.012 58 / 8%);
-  --shadow-card-hover:        0 8px 24px oklch(0.195 0.012 58 / 10%), 0 2px 6px oklch(0.195 0.012 58 / 8%);
-  --shadow-photo:             0 4px 20px oklch(0.195 0.012 58 / 14%);
-}
-
-/* ═══════════════════════════════════════════════════════
-   DARK MODE — Warm Cinematic Evening
-   Feeling: warm charcoal studio, immersive photo viewing,
-   soft luxury, quiet and elegant
-   NOT: cold black, blue-black, corporate dark
-   ═══════════════════════════════════════════════════════ */
-.dark {
-  /* ── Base surfaces — deep warm charcoal ── */
-  --background:               oklch(0.128 0.007 48);    /* #1A1816 — warm dark base */
-  --foreground:               oklch(0.942 0.010 68);    /* #F5F3F0 — warm near-white */
-
-  /* ── Cards — slightly lifted warm surface ── */
-  --card:                     oklch(0.162 0.008 48);    /* #23201D — cocoa charcoal */
-  --card-foreground:          oklch(0.942 0.010 68);
+  /* ── Cards — slightly warmer than bg ── */
+  --card:                     oklch(0.155 0.012 48);
+  --card-foreground:          oklch(0.948 0.012 72);
 
   /* ── Popovers ── */
-  --popover:                  oklch(0.175 0.008 48);
-  --popover-foreground:       oklch(0.942 0.010 68);
+  --popover:                  oklch(0.168 0.011 48);
+  --popover-foreground:       oklch(0.948 0.012 72);
 
-  /* ── Primary — warm muted gold ── */
-  --primary:                  oklch(0.72 0.105 62);     /* #D6B98C — warm bronze gold */
-  --primary-foreground:       oklch(0.128 0.007 48);    /* dark bg on gold buttons */
+  /* ── Primary — rich bronze-gold ── */
+  --primary:                  oklch(0.70 0.145 58);
+  --primary-foreground:       oklch(0.118 0.010 46);
 
-  /* ── Secondary — warm raised surface ── */
-  --secondary:                oklch(0.218 0.009 48);    /* #3A342F — warm dark taupe */
-  --secondary-foreground:     oklch(0.942 0.010 68);
+  /* ── Secondary — warm espresso surface ── */
+  --secondary:                oklch(0.210 0.012 48);
+  --secondary-foreground:     oklch(0.948 0.012 72);
 
-  /* ── Muted ── */
-  --muted:                    oklch(0.192 0.009 48);    /* #2A2622 — warm dark surface */
-  --muted-foreground:         oklch(0.708 0.018 62);    /* #B8B2AA — warm light gray */
+  /* ── Muted — warm taupe ── */
+  --muted:                    oklch(0.185 0.012 48);
+  --muted-foreground:         oklch(0.695 0.022 60);
 
-  /* ── Accent — warm bronze ── */
-  --accent:                   oklch(0.218 0.009 48);
-  --accent-foreground:        oklch(0.942 0.010 68);
+  /* ── Accent ── */
+  --accent:                   oklch(0.210 0.012 48);
+  --accent-foreground:        oklch(0.948 0.012 72);
 
   /* ── Destructive ── */
   --destructive:              oklch(0.704 0.191 22.216);
 
-  /* ── Borders — subtle warm white ── */
+  /* ── Borders ── */
   --border:                   oklch(1 0 0 / 7%);
   --input:                    oklch(1 0 0 / 9%);
-  --ring:                     oklch(0.72 0.105 62);
+  --ring:                     oklch(0.70 0.145 58);
 
-  /* ── Sidebar — slightly different tone ── */
-  --sidebar:                  oklch(0.145 0.007 48);    /* #1E1C19 — warm sidebar */
-  --sidebar-foreground:       oklch(0.942 0.010 68);
-  --sidebar-primary:          oklch(0.72 0.105 62);
-  --sidebar-primary-foreground: oklch(0.128 0.007 48);
-  --sidebar-accent:           oklch(0.192 0.009 48);
-  --sidebar-accent-foreground: oklch(0.942 0.010 68);
+  --radius: 0.75rem;
+
+  /* ── Sidebar ── */
+  --sidebar:                  oklch(0.138 0.010 46);
+  --sidebar-foreground:       oklch(0.948 0.012 72);
+  --sidebar-primary:          oklch(0.70 0.145 58);
+  --sidebar-primary-foreground: oklch(0.118 0.010 46);
+  --sidebar-accent:           oklch(0.185 0.012 48);
+  --sidebar-accent-foreground: oklch(0.948 0.012 72);
   --sidebar-border:           oklch(1 0 0 / 6%);
-  --sidebar-ring:             oklch(0.72 0.105 62);
+  --sidebar-ring:             oklch(0.70 0.145 58);
 
   /* ── Charts ── */
   --chart-1: oklch(0.87 0.018 68);
@@ -216,41 +115,35 @@
   --chart-4: oklch(0.36 0.016 53);
   --chart-5: oklch(0.26 0.010 48);
 
-  /* ════════════════════════════════
-     APP-SPECIFIC DESIGN TOKENS (dark)
-     ════════════════════════════════ */
-
-  /* Photo viewer — deeper immersive overlay */
+  /* ── App-specific tokens ── */
   --photo-overlay:            oklch(0.04 0 0 / 95%);
-
-  /* Hero gradient — cinematic warm vignette */
-  --hero-gradient-from:       oklch(0.04 0 0 / 82%);
-  --hero-gradient-mid:        oklch(0.04 0 0 / 0%);
-  --hero-gradient-to:         oklch(0.04 0 0 / 22%);
-
-  /* Surface overlays */
-  --surface-overlay:          oklch(0.128 0.007 48 / 88%);
-  --surface-overlay-dark:     oklch(0 0 0 / 45%);
-
-  /* Skeleton shimmer — warm charcoal pulse */
   --skeleton-base:            oklch(0.192 0.009 48);
   --skeleton-shine:           oklch(0.225 0.009 50);
 
-  /* ── Warm gold brand accent (slightly brighter in dark) ── */
-  --amber:                    oklch(0.74 0.130 63);
-  --amber-subtle:             oklch(0.74 0.130 63 / 10%);
-  --amber-muted:              oklch(0.74 0.130 63 / 16%);
-  --amber-border:             oklch(0.74 0.130 63 / 32%);
-  --amber-hover:              oklch(0.74 0.130 63 / 22%);
+  /* ── Rich metallic gold accent ── */
+  /* Deeper, warmer, more bronze-gold than flat yellow */
+  --amber:                    oklch(0.70 0.145 58);
+  --amber-bright:             oklch(0.80 0.140 66);
+  --amber-subtle:             oklch(0.70 0.145 58 / 10%);
+  --amber-muted:              oklch(0.70 0.145 58 / 18%);
+  --amber-border:             oklch(0.70 0.145 58 / 28%);
+  --amber-hover:              oklch(0.70 0.145 58 / 24%);
+  /* Gold gradient stops for metallic shimmer */
+  --gold-shadow:              oklch(0.52 0.110 52);
+  --gold-mid:                 oklch(0.70 0.145 58);
+  --gold-highlight:           oklch(0.84 0.135 70);
 
-  /* ── Card shadows — warm glow ── */
+  /* ── Shadows ── */
   --shadow-card:              0 2px 8px oklch(0 0 0 / 30%), 0 1px 3px oklch(0 0 0 / 20%);
   --shadow-card-hover:        0 8px 32px oklch(0 0 0 / 40%), 0 2px 8px oklch(0 0 0 / 28%);
   --shadow-photo:             0 4px 24px oklch(0 0 0 / 50%);
+
+  /* ── Layout ── */
+  --topbar-height: 3.25rem;  /* top nav height — all breakpoints */
 }
 
 /* ═══════════════════════════════════════════════════════
-   BASE STYLES — Global warm resets
+   BASE STYLES
    ═══════════════════════════════════════════════════════ */
 @layer base {
   * {
@@ -259,7 +152,6 @@
 
   html {
     @apply font-sans;
-    /* Smooth, comfortable reading */
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -267,20 +159,22 @@
 
   body {
     @apply bg-background text-foreground;
-    transition: background-color 0.25s ease, color 0.2s ease;
+    /* Persistent ambient golden glow — top of page bleeds down */
+    background-image:
+      radial-gradient(ellipse 90% 35% at 50% 0%, oklch(0.70 0.145 58 / 9%) 0%, transparent 100%),
+      radial-gradient(ellipse 60% 22% at 18% 0%, oklch(0.65 0.120 55 / 7%) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 22% at 82% 0%, oklch(0.65 0.120 55 / 6%) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 12% at 50% 0%, oklch(0.84 0.135 70 / 4%) 0%, transparent 60%);
   }
 
-  /* Prevent transition flash on images */
   img {
     transition: none !important;
   }
 
-  /* Headings use heading font variable */
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading;
   }
 
-  /* Selection color — warm amber tint */
   ::selection {
     background: var(--amber-muted);
     color: var(--foreground);
@@ -288,40 +182,121 @@
 }
 
 /* ═══════════════════════════════════════════════════════
-   TYPOGRAPHY SCALE — editorial and warm
+   TYPOGRAPHY SCALE
    ═══════════════════════════════════════════════════════ */
 @layer base {
-  /* Page-level hero headings — can opt into serif via .font-serif */
+  /* Hero / splash display — large serif italic */
   .text-display {
-    font-size: clamp(2rem, 5vw, 3.5rem);
-    line-height: 1.1;
-    letter-spacing: -0.025em;
+    font-size: clamp(3.5rem, 9vw, 7.5rem);
+    line-height: 0.92;
+    letter-spacing: -0.015em;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 600;
   }
 
-  /* Section headings */
+  /* Section-level display — medium serif italic */
+  .text-display-sm {
+    font-size: clamp(1.9rem, 3.8vw, 2.75rem);
+    line-height: 1.04;
+    letter-spacing: -0.01em;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 500;
+  }
+
+  /* Section headings — clean sans, strong weight */
   .text-section-heading {
     font-size: 1.25rem;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: -0.01em;
     color: var(--foreground);
   }
 
-  /* Eyebrow labels — small caps style */
+  /* Eyebrow label — all-caps, tracked, small */
   .text-eyebrow {
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.24em;
     text-transform: uppercase;
     color: var(--muted-foreground);
+  }
+
+  /* Eyebrow in gold */
+  .text-eyebrow-gold {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--amber);
   }
 }
 
 /* ═══════════════════════════════════════════════════════
-   SKELETON SHIMMER — warm, smooth
+   CONTENT LAYOUT SYSTEM
    ═══════════════════════════════════════════════════════ */
+.content-padding {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+@media (min-width: 768px) {
+  .content-padding {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+@media (min-width: 1024px) {
+  .content-padding {
+    padding-left: 2.5rem;
+    padding-right: 2.5rem;
+  }
+}
+@media (min-width: 1280px) {
+  .content-padding {
+    padding-left: 3rem;
+    padding-right: 3rem;
+  }
+}
+@media (min-width: 1536px) {
+  .content-padding {
+    padding-left: 3.5rem;
+    padding-right: 3.5rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   HERO SLIDESHOW
+   Top nav overlays the hero — hero fills full viewport,
+   text sits above the nav via z-index layering.
+   ═══════════════════════════════════════════════════════ */
+.hero-slideshow {
+  /* Subtract topbar so hero fills from below the nav */
+  height: calc(100dvh - var(--topbar-height));
+}
+@media (min-width: 1024px) {
+  .hero-slideshow {
+    /* On large screens the nav overlays the hero with glass effect */
+    height: 100dvh;
+    margin-top: calc(-1 * var(--topbar-height));
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════ */
+@keyframes kenBurns {
+  0%   { transform: scale(1.0); }
+  100% { transform: scale(1.10); }
+}
+
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
   100% { background-position:  200% 0; }
+}
+
+@keyframes goldShimmer {
+  0%   { background-position: -250% center; }
+  100% { background-position:  250% center; }
 }
 
 .skeleton-shimmer {
@@ -335,8 +310,44 @@
   animation: shimmer 1.8s ease-in-out infinite;
 }
 
+/* ── Gold shimmer text — metallic, restrained ── */
+.text-gold {
+  color: var(--amber);
+}
+
+.text-gold-shimmer {
+  background: linear-gradient(
+    105deg,
+    var(--gold-shadow)    0%,
+    var(--gold-mid)       30%,
+    var(--gold-highlight) 50%,
+    var(--gold-mid)       70%,
+    var(--gold-shadow)    100%
+  );
+  background-size: 250% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: goldShimmer 5s ease-in-out infinite;
+}
+
+/* Static metallic gold gradient (no animation) for headings */
+.text-gold-gradient {
+  background: linear-gradient(
+    135deg,
+    var(--gold-shadow)    0%,
+    var(--gold-mid)       40%,
+    var(--gold-highlight) 60%,
+    var(--gold-mid)       80%,
+    var(--gold-shadow)    100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
 /* ═══════════════════════════════════════════════════════
-   SCROLLBAR — tasteful, theme-aware
+   SCROLLBAR
    ═══════════════════════════════════════════════════════ */
 ::-webkit-scrollbar        { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track  { background: transparent; }
@@ -344,19 +355,631 @@
 ::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); opacity: 0.5; }
 
 /* ═══════════════════════════════════════════════════════
-   PHOTO LIGHTBOX OVERRIDE
-   Always show lightbox in a dark cinematic environment,
-   regardless of current app theme
+   LIGHTBOX
    ═══════════════════════════════════════════════════════ */
 .yarl__root {
   --yarl__color_backdrop: oklch(0.04 0 0 / 96%);
 }
 
 /* ═══════════════════════════════════════════════════════
-   UTILITY CLASSES — warm design system helpers
+   TOP NAV — single premium navigation bar, all breakpoints
+   ═══════════════════════════════════════════════════════ */
+.top-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: var(--topbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.25rem;
+  background: oklch(0.10 0.006 48 / 82%);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  border-bottom: 1px solid oklch(1 0 0 / 6%);
+  /* Gold shimmer along bottom edge + warm downward glow */
+  box-shadow:
+    0 1px 0 oklch(0.70 0.145 58 / 18%),
+    0 4px 32px oklch(0 0 0 / 22%),
+    0 8px 48px oklch(0.70 0.145 58 / 4%);
+}
+
+/* Faint warm gradient wash across the bar */
+.top-nav::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    oklch(0.70 0.145 58 / 3%) 0%,
+    transparent 30%,
+    transparent 70%,
+    oklch(0.70 0.145 58 / 2%) 100%
+  );
+  pointer-events: none;
+}
+
+/* ── Logo ── */
+.top-nav__logo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  text-decoration: none;
+  flex-shrink: 0;
+  z-index: 1;
+  line-height: 1;
+}
+
+.top-nav__wordmark {
+  font-size: 1.15rem;
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  /* Inherits text-gold-shimmer class applied inline */
+}
+
+/* Surname beneath wordmark — very small, tracked, restrained */
+.top-nav__family {
+  font-size: 0.52rem;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: oklch(0.70 0.145 58 / 55%);
+  line-height: 1;
+}
+
+/* ── Desktop nav links ── */
+.top-nav__links {
+  display: none;
+  align-items: center;
+  gap: 0;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+@media (min-width: 768px) {
+  .top-nav__links {
+    display: flex;
+  }
+}
+
+.top-nav__link {
+  position: relative;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 0.9rem;
+  height: var(--topbar-height);
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: oklch(1 0 0 / 38%);
+  text-decoration: none;
+  transition: color 0.22s ease, background 0.22s ease;
+  white-space: nowrap;
+  border-radius: 0.45rem;
+  margin: 0 0.05rem;
+}
+.top-nav__link:hover {
+  color: oklch(0.10 0.010 46);
+  background: linear-gradient(
+    135deg,
+    oklch(0.80 0.130 64 / 92%) 0%,
+    oklch(0.70 0.145 58 / 95%) 50%,
+    oklch(0.62 0.115 52 / 90%) 100%
+  );
+  box-shadow:
+    0 0 14px oklch(0.70 0.145 58 / 30%),
+    inset 0 1px 0 oklch(0.84 0.135 70 / 40%);
+}
+.top-nav__link[data-active] {
+  color: oklch(1 0 0 / 88%);
+}
+
+/* Gold underline — animated via framer-motion layoutId */
+.top-nav__active-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0.45rem;
+  right: 0.45rem;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    oklch(0.70 0.145 58 / 40%),
+    oklch(0.84 0.135 70)  30%,
+    oklch(0.90 0.120 72)  50%,
+    oklch(0.84 0.135 70)  70%,
+    oklch(0.70 0.145 58 / 40%)
+  );
+  box-shadow: 0 0 10px oklch(0.70 0.145 58 / 55%), 0 0 20px oklch(0.70 0.145 58 / 20%);
+}
+
+/* ── Dropdown host — positions the flyout ── */
+.top-nav__dropdown-host {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Button-style nav link (for dropdown triggers) */
+.top-nav__link--btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  /* inherits .top-nav__link */
+}
+.top-nav__link--btn-active {
+  color: oklch(1 0 0 / 88%);
+}
+
+/* Chevron icon inside dropdown trigger */
+.top-nav__chevron {
+  width: 0.7rem;
+  height: 0.7rem;
+  opacity: 0.45;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  flex-shrink: 0;
+}
+.top-nav__link--btn:hover .top-nav__chevron {
+  opacity: 0.55;
+  color: oklch(0.10 0.010 46);
+}
+
+/* ── Flyout dropdown panel ── */
+.nav-dropdown {
+  position: absolute;
+  top: calc(var(--topbar-height) - 0.15rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  min-width: 14rem;
+  border-radius: 1rem;
+  background: oklch(0.12 0.008 48 / 97%);
+  backdrop-filter: blur(32px) saturate(1.3);
+  -webkit-backdrop-filter: blur(32px) saturate(1.3);
+  border: 1px solid oklch(1 0 0 / 9%);
+  box-shadow:
+    0 12px 48px oklch(0 0 0 / 55%),
+    0 2px 12px oklch(0 0 0 / 30%),
+    inset 0 1px 0 oklch(1 0 0 / 6%),
+    0 0 0 1px oklch(0.70 0.145 58 / 6%);
+  padding: 0.5rem 0;
+  overflow: hidden;
+}
+
+/* Faint gold line at top of dropdown */
+.nav-dropdown::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 1.25rem;
+  right: 1.25rem;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    oklch(0.72 0.105 62 / 40%) 30%,
+    oklch(0.72 0.105 62 / 40%) 70%,
+    transparent
+  );
+}
+
+.nav-dropdown__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.65rem 1.1rem;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.nav-dropdown__item:hover {
+  background: oklch(1 0 0 / 4%);
+}
+.nav-dropdown__item:hover .nav-dropdown__label {
+  color: oklch(1 0 0 / 90%);
+}
+
+.nav-dropdown__eyebrow {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--amber);
+  opacity: 0.7;
+}
+
+.nav-dropdown__label {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: oklch(1 0 0 / 72%);
+  transition: color 0.15s ease;
+  letter-spacing: 0.01em;
+}
+
+/* ── Mobile hamburger ── */
+.top-nav__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.6rem;
+  background: oklch(1 0 0 / 5%);
+  border: 1px solid oklch(1 0 0 / 8%);
+  cursor: pointer;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+  z-index: 1;
+}
+.top-nav__toggle:hover {
+  background: oklch(1 0 0 / 10%);
+}
+@media (min-width: 768px) {
+  .top-nav__toggle {
+    display: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MOBILE COMPACT MENU — drops from top-right corner
+   ═══════════════════════════════════════════════════════ */
+.mobile-menu {
+  position: fixed;
+  top: calc(var(--topbar-height) + 0.5rem);
+  right: 0.75rem;
+  z-index: 45;
+  width: 12rem;
+  border-radius: 1.1rem;
+  background: oklch(0.13 0.007 48 / 98%);
+  backdrop-filter: blur(32px) saturate(1.2);
+  -webkit-backdrop-filter: blur(32px) saturate(1.2);
+  border: 1px solid oklch(1 0 0 / 8%);
+  box-shadow:
+    0 8px 40px oklch(0 0 0 / 50%),
+    0 2px 12px oklch(0 0 0 / 30%),
+    inset 0 1px 0 oklch(1 0 0 / 6%);
+  padding: 0.4rem 0;
+  overflow: hidden;
+}
+
+/* Amber accent line at top */
+.mobile-menu::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 1.25rem;
+  right: 1.25rem;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    oklch(0.72 0.105 62 / 45%) 30%,
+    oklch(0.72 0.105 62 / 45%) 70%,
+    transparent
+  );
+}
+
+.mobile-menu__nav {
+  display: flex;
+  flex-direction: column;
+  padding: 0.2rem 0;
+}
+
+.mobile-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.mobile-menu__item:hover {
+  background: oklch(1 0 0 / 4%);
+}
+
+.mobile-menu__label {
+  font-size: 0.875rem;
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+}
+
+.mobile-menu__active-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 6px oklch(0.72 0.105 62 / 60%);
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════
+   ALBUM CARD — levitation + golden glow on hover
    ═══════════════════════════════════════════════════════ */
 
-/* Warm card shadow — use instead of Tailwind shadow-* */
+/* Outer wrapper — overflow visible so glow bleeds outside card */
+.album-card-wrap {
+  position: relative;
+  /* padding so glow has room */
+  padding: 2px;
+}
+
+/* Golden glow orb — behind the card */
+.album-card-glow {
+  position: absolute;
+  inset: -22px;
+  z-index: 0;
+  border-radius: 2rem;
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 90%,
+    oklch(0.70 0.145 58 / 28%) 0%,
+    oklch(0.70 0.145 58 / 10%) 45%,
+    transparent 70%
+  );
+  filter: blur(16px);
+  pointer-events: none;
+}
+
+.album-card {
+  position: relative;
+  z-index: 1;
+  display: block;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  text-decoration: none;
+  background: var(--card);
+  will-change: transform;
+  /* Focus ring */
+  outline: none;
+}
+.album-card:focus-visible {
+  box-shadow: 0 0 0 2px var(--amber), 0 0 0 4px oklch(0 0 0 / 40%);
+}
+
+/* Cover image wrapper — 4/3 aspect */
+.album-card__img-wrap {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--muted);
+}
+
+/* Title overlaid on image bottom */
+.album-card__overlay-title {
+  position: absolute;
+  inset-x: 0;
+  bottom: 0;
+  padding: 1rem 1.1rem 0.9rem;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.album-card__name {
+  font-size: 0.92rem;
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  color: oklch(0.97 0.010 72);
+  /* Subtle text shadow for legibility */
+  text-shadow: 0 1px 8px oklch(0 0 0 / 60%);
+}
+
+/* ── Gold shimmer border — applied to cards/images on hover ── */
+/* Used as a pseudo-element or wrapper trick via JS hovered state */
+.gold-frame-edge {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(oklch(0.06 0.008 48), oklch(0.06 0.008 48)) padding-box,
+    linear-gradient(
+      145deg,
+      oklch(0.70 0.145 58 / 0%)   0%,
+      oklch(0.84 0.135 70 / 50%) 25%,
+      oklch(0.90 0.120 72 / 70%) 50%,
+      oklch(0.84 0.135 70 / 50%) 75%,
+      oklch(0.70 0.145 58 / 0%) 100%
+    ) border-box;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.album-card:hover .gold-frame-edge {
+  opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════
+   ALBUM COVER FALLBACK — elegant placeholder for missing covers
+   ═══════════════════════════════════════════════════════ */
+.album-fallback {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.album-fallback__grad {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    145deg,
+    oklch(0.14 0.015 50) 0%,
+    oklch(0.11 0.010 48) 40%,
+    oklch(0.09 0.008 46) 100%
+  );
+}
+
+/* Inset frame outline — a subtle frame motif */
+.album-fallback__frame {
+  position: absolute;
+  inset: 14%;
+  border: 1px solid oklch(0.70 0.145 58 / 12%);
+  border-radius: 2px;
+}
+
+/* Cinematic icon motif — no letter */
+.album-fallback__icon {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+}
+
+/* Subtle grain */
+.album-fallback__grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════
+   ALBUMS WORLD GRID — editorial 3-world overview
+   ═══════════════════════════════════════════════════════ */
+.worlds-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+@media (min-width: 640px) {
+  .worlds-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+/* The world card itself */
+.world-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 22rem;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  text-decoration: none;
+  border: 1px solid oklch(1 0 0 / 8%);
+  will-change: transform;
+}
+@media (min-width: 640px) {
+  .world-card {
+    min-height: 26rem;
+  }
+}
+
+/* Background fill */
+.world-card__bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* Glow orb behind card on hover */
+.world-card__glow {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* SVG noise overlay — adds subtle texture */
+.world-card__noise {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+/* Content layer */
+.world-card__content {
+  position: relative;
+  z-index: 3;
+  padding: 1.75rem;
+  /* Gradient from bottom so text is legible */
+  background: linear-gradient(
+    to top,
+    oklch(0.06 0.006 48 / 85%) 0%,
+    oklch(0.06 0.006 48 / 40%) 55%,
+    transparent 100%
+  );
+}
+
+.world-card__eyebrow {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+  opacity: 0.85;
+}
+
+.world-card__title {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-style: italic;
+  font-weight: 600;
+  color: oklch(0.96 0.012 72);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.6rem;
+}
+
+.world-card__desc {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: oklch(0.85 0.010 65);
+  max-width: 22rem;
+}
+
+/* Accent line at card bottom */
+.world-card__accent-line {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* Arrow hint — bottom-right */
+.world-card__arrow {
+  position: absolute;
+  bottom: 1.5rem;
+  right: 1.75rem;
+  z-index: 4;
+  font-size: 1.1rem;
+  font-weight: 300;
+}
+
+/* ═══════════════════════════════════════════════════════
+   UTILITY CLASSES
+   ═══════════════════════════════════════════════════════ */
 .shadow-warm {
   box-shadow: var(--shadow-card);
 }
@@ -364,12 +987,10 @@
   box-shadow: var(--shadow-card-hover);
 }
 
-/* Amber accent text */
 .text-amber {
   color: var(--amber);
 }
 
-/* Amber subtle background */
 .bg-amber-subtle {
   background-color: var(--amber-subtle);
 }
@@ -380,17 +1001,55 @@
   border-color: var(--amber-border);
 }
 
-/* Section divider — warm, quiet */
-.divider-warm {
-  border-top: 1px solid var(--border);
-  opacity: 0.8;
-}
-
-/* Photo grid hover — consistent across grids */
 .photo-hover {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 .photo-hover:hover {
   transform: scale(1.02);
   box-shadow: var(--shadow-card-hover);
+}
+
+/* ═══════════════════════════════════════════════════════
+   CARD HOVER — warm gold light turns on behind card
+   ═══════════════════════════════════════════════════════ */
+.card-lift {
+  transition:
+    transform 0.42s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-lift:hover {
+  transform: translateY(-6px) scale(1.008);
+  box-shadow:
+    0 16px 48px oklch(0 0 0 / 50%),
+    0 4px 16px oklch(0 0 0 / 30%),
+    0 0 0 1px oklch(0.70 0.145 58 / 12%),
+    0 0 40px oklch(0.70 0.145 58 / 8%);
+}
+
+/* Album card glow — intensifies the existing .album-card-glow on hover */
+.album-card-wrap:hover .album-card-glow {
+  opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════
+   ALBUM GRID — uniform tile sizing in strips
+   ═══════════════════════════════════════════════════════ */
+.album-strip {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 0.5rem;
+  scrollbar-width: none;
+}
+.album-strip::-webkit-scrollbar { display: none; }
+
+.album-strip__tile {
+  flex: 0 0 15rem;
+  scroll-snap-align: start;
+}
+@media (min-width: 768px) {
+  .album-strip__tile {
+    flex: 0 0 17rem;
+  }
 }

@@ -3,8 +3,7 @@ import { Geist } from "next/font/google";
 import { Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/layout/providers";
-import { ThemeProvider } from "@/components/providers/theme-provider";
-import { Sidebar } from "@/components/layout/sidebar";
+import { TopNav } from "@/components/layout/top-nav";
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -12,7 +11,6 @@ const geistSans = Geist({
   display: "swap",
 });
 
-// Playfair Display — optional serif for hero moments, section accents
 const playfairDisplay = Playfair_Display({
   variable: "--font-serif",
   subsets: ["latin"],
@@ -34,26 +32,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${playfairDisplay.variable}`}
-      suppressHydrationWarning
+      className={`dark ${geistSans.variable} ${playfairDisplay.variable}`}
     >
       <body className="min-h-screen bg-background text-foreground antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange={false}
-        >
-          <Providers>
-            <div className="flex min-h-screen">
-              <Sidebar />
-              {/* Pages control their own padding — allows full-bleed hero sections */}
-              <main className="flex-1 overflow-y-auto">
-                {children}
-              </main>
-            </div>
-          </Providers>
-        </ThemeProvider>
+        <Providers>
+          <TopNav />
+          <main className="min-h-screen pt-[var(--topbar-height)]">
+            {children}
+          </main>
+        </Providers>
       </body>
     </html>
   );

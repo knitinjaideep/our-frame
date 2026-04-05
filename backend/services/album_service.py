@@ -1,20 +1,21 @@
 """
-Album service: syncs Drive folder data into DB and serves album responses.
-Google Drive remains the source of truth; DB is a cache + enrichment layer.
+Album service: DB-first reads.
+
+Google Drive sync is handled by sync_service (on startup + manual trigger).
+This service only reads from the DB and does a targeted shallow sync when
+a user opens a specific album detail page (to keep photo lists fresh).
 """
 from __future__ import annotations
 
-from datetime import datetime
 from sqlmodel import Session
 
-from core.config import settings
-from core.exceptions import ReauthRequired
 from models.album import DriveAlbum
 from models.photo import DrivePhoto
 from repositories import album_repo, photo_repo
 from schemas.album import AlbumSummary, AlbumDetail, AlbumsListResponse
 from schemas.photo import PhotoResponse
-from services.drive_service import list_children
+from services.sync_service import sync_folder_shallow
+from core.exceptions import ReauthRequired, DriveError
 
 
 def _photo_url(photo_id: str, size: int = 600) -> str:
@@ -49,99 +50,9 @@ def _to_album_summary(album: DriveAlbum) -> AlbumSummary:
     )
 
 
-def sync_album(session: Session, folder_id: str, parent_id: str | None = None) -> DriveAlbum:
-    """
-    Fetch one folder's children from Drive, cache albums + photos in DB.
-    Returns the DriveAlbum record.
-    """
-    data = list_children(folder_id)
-
-    # Upsert sub-folders as albums
-    for f in data["folders"]:
-        album_repo.upsert(
-            session,
-            DriveAlbum(
-                id=f["id"],
-                name=f["name"],
-                parent_id=folder_id,
-                last_synced=datetime.utcnow(),
-            ),
-        )
-
-    # Upsert photos
-    cover_photo_id = None
-    for idx, p in enumerate(data["files"]):
-        created = None
-        if p.get("createdTime"):
-            try:
-                created = datetime.fromisoformat(p["createdTime"].replace("Z", "+00:00"))
-            except Exception:
-                pass
-
-        photo = DrivePhoto(
-            id=p["id"],
-            name=p["name"],
-            mime_type=p["mimeType"],
-            parent_folder_id=folder_id,
-            created_time=created,
-            size=int(p["size"]) if p.get("size") else None,
-            width=p.get("width"),
-            height=p.get("height"),
-            web_view_link=p.get("webViewLink"),
-        )
-        photo_repo.upsert(session, photo)
-        if idx == 0:
-            cover_photo_id = p["id"]
-
-    # Upsert this album itself
-    album = album_repo.upsert(
-        session,
-        DriveAlbum(
-            id=folder_id,
-            name="",           # caller sets name if known
-            parent_id=parent_id,
-            cover_photo_id=cover_photo_id,
-            photo_count=len(data["files"]),
-            last_synced=datetime.utcnow(),
-        ),
-    )
-    return album
-
-
 def get_root_albums(session: Session) -> AlbumsListResponse:
-    root_id = settings.effective_root_folder
-
-    # Sync from Drive, then return from DB
-    try:
-        data = list_children(root_id)
-        for f in data["folders"]:
-            album_repo.upsert(
-                session,
-                DriveAlbum(
-                    id=f["id"],
-                    name=f["name"],
-                    parent_id=None,
-                    last_synced=datetime.utcnow(),
-                ),
-            )
-    except ReauthRequired:
-        pass  # serve stale cache if Drive is unavailable
-
+    """Return root-level albums from DB (excluded folders filtered out)."""
     albums = album_repo.get_root_albums(session)
-
-    # Backfill cover photos for albums that don't have one yet
-    for album in albums:
-        if not album.cover_photo_id:
-            try:
-                children = list_children(album.id)
-                if children["files"]:
-                    first = children["files"][0]
-                    album.cover_photo_id = first["id"]
-                    album.photo_count = len(children["files"])
-                    album_repo.upsert(session, album)
-            except Exception:
-                pass
-
     summaries = [_to_album_summary(a) for a in albums]
     return AlbumsListResponse(albums=summaries, total=len(summaries))
 
@@ -151,56 +62,16 @@ def get_album_detail(
     album_id: str,
     fav_ids: set[str],
 ) -> AlbumDetail:
-    """Sync one album from Drive and return detail response."""
+    """
+    Return album detail from DB.
+    Triggers a shallow sync of just this folder to keep photos fresh.
+    Falls back gracefully to stale cache if Drive is unreachable.
+    """
+    # Shallow sync this specific album on open (bounded cost — one folder)
     try:
-        data = list_children(album_id)
-
-        # Update sub-albums
-        for f in data["folders"]:
-            album_repo.upsert(
-                session,
-                DriveAlbum(id=f["id"], name=f["name"], parent_id=album_id),
-            )
-
-        # Update photos
-        cover_id = None
-        for idx, p in enumerate(data["files"]):
-            created = None
-            if p.get("createdTime"):
-                try:
-                    created = datetime.fromisoformat(p["createdTime"].replace("Z", "+00:00"))
-                except Exception:
-                    pass
-            dr = DrivePhoto(
-                id=p["id"],
-                name=p["name"],
-                mime_type=p["mimeType"],
-                parent_folder_id=album_id,
-                created_time=created,
-                size=int(p["size"]) if p.get("size") else None,
-                width=p.get("width"),
-                height=p.get("height"),
-                web_view_link=p.get("webViewLink"),
-            )
-            photo_repo.upsert(session, dr)
-            if idx == 0:
-                cover_id = p["id"]
-
-        # Update album record
-        existing = album_repo.get_by_id(session, album_id)
-        name = existing.name if existing else ""
-        album_repo.upsert(
-            session,
-            DriveAlbum(
-                id=album_id,
-                name=name,
-                cover_photo_id=cover_id,
-                photo_count=len(data["files"]),
-                last_synced=datetime.utcnow(),
-            ),
-        )
-    except Exception:
-        pass  # fall through to cached data
+        sync_folder_shallow(session, album_id)
+    except (ReauthRequired, DriveError):
+        pass  # serve stale cache
 
     album = album_repo.get_by_id(session, album_id)
     photos = photo_repo.get_by_folder(session, album_id)

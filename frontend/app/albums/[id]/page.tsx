@@ -14,9 +14,10 @@ export default function AlbumDetailPage({ params }: { params: Promise<{ id: stri
   const { data, isLoading, error } = useAlbumDetail(id)
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-8 md:px-10 lg:px-14 space-y-8 pb-16">
+    <div className="content-padding py-8 pb-20 max-w-screen-2xl mx-auto">
+
       {/* ── Breadcrumb ── */}
-      <nav className="flex items-center gap-1.5 text-sm" aria-label="Breadcrumb">
+      <nav className="flex items-center gap-1.5 text-sm mb-6" aria-label="Breadcrumb">
         <Link
           href="/"
           className="text-muted-foreground transition-colors hover:text-foreground"
@@ -33,29 +34,35 @@ export default function AlbumDetailPage({ params }: { params: Promise<{ id: stri
         {data?.album && (
           <>
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-            <span className="text-foreground font-medium">{data.album.name}</span>
+            <span
+              className="font-medium"
+              style={{ color: 'oklch(0.96 0.012 72)' }}
+            >
+              {data.album.name}
+            </span>
           </>
         )}
       </nav>
 
       {/* ── Page header ── */}
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-          {data?.album.name ?? (isLoading ? '' : 'Album')}
-        </h1>
-        {data && (
-          <p className="mt-1 text-sm text-muted-foreground">
-            {data.photos.length} {data.photos.length === 1 ? 'photo' : 'photos'}
-            {data.subfolders.length > 0 && ` · ${data.subfolders.length} sub-album${data.subfolders.length !== 1 ? 's' : ''}`}
-          </p>
-        )}
-        {isLoading && (
-          <div className="mt-1 h-4 w-40 rounded skeleton-shimmer" />
+      <div className="mb-10">
+        {isLoading ? (
+          <div className="h-8 w-56 rounded skeleton-shimmer" />
+        ) : (
+          <>
+            <p className="text-eyebrow-gold mb-2">Album</p>
+            <h1
+              className="font-serif text-display-sm"
+              style={{ color: 'oklch(0.96 0.012 72)' }}
+            >
+              {data?.album.name ?? 'Album'}
+            </h1>
+          </>
         )}
       </div>
 
       {error && (
-        <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-5 py-4 text-sm text-destructive">
+        <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-5 py-4 text-sm text-destructive mb-8">
           Failed to load this album.
         </div>
       )}
@@ -65,9 +72,11 @@ export default function AlbumDetailPage({ params }: { params: Promise<{ id: stri
         <AlbumGridSkeleton count={4} />
       ) : (
         data?.subfolders && data.subfolders.length > 0 && (
-          <section className="space-y-4">
-            <SectionHeader title="Sub-albums" eyebrow="Inside this album" />
-            <AlbumGrid albums={data.subfolders} />
+          <section className="mb-12">
+            <SectionHeader title="Inside this Album" eyebrow="Sub-albums" />
+            <div className="mt-4">
+              <AlbumGrid albums={data.subfolders} />
+            </div>
           </section>
         )
       )}
@@ -76,8 +85,11 @@ export default function AlbumDetailPage({ params }: { params: Promise<{ id: stri
       {isLoading ? (
         <PhotoGridSkeleton count={12} />
       ) : (
-        <PhotoGrid photos={data?.photos ?? []} folderId={id} />
+        data?.photos && data.photos.length > 0 && (
+          <PhotoGrid photos={data.photos} folderId={id} />
+        )
       )}
+
     </div>
   )
 }

@@ -4,6 +4,9 @@ export interface Album {
   cover_photo_id: string | null
   photo_count: number | null
   thumbnail_url: string | null
+  // Phase 1 additions — may be absent from older cached responses
+  excluded?: boolean
+  section?: string | null
 }
 
 export interface Photo {
@@ -43,8 +46,6 @@ export interface ThrowbackGroup {
 
 export interface HomeFeed {
   hero_photos: Photo[]
-  recent_albums: Album[]
-  featured_albums: Album[]
   throwbacks: ThrowbackGroup[]
   stats: MemoryStats
 }
@@ -63,4 +64,17 @@ export interface AlbumsListResponse {
 export interface FavoritesListResponse {
   favorites: Favorite[]
   total: number
+}
+
+export interface SectionsResponse {
+  featured_child: Album[]
+  travel: Album[]
+  photography: Album[]
+}
+
+export interface SectionMapping {
+  id: number | null
+  folder_id: string
+  section_key: 'child' | 'travel' | 'photography'
+  label: string | null
 }

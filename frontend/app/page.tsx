@@ -1,101 +1,359 @@
 'use client'
+import { useRef } from 'react'
+import { motion, useInView, useReducedMotion } from 'framer-motion'
+import Link from 'next/link'
+import { ArrowRight, Clock, Play } from 'lucide-react'
 import { useHomeFeed } from '@/hooks/use-home-feed'
-import { useFavorites } from '@/hooks/use-favorites'
+import { useSections } from '@/hooks/use-sections'
 import { HeroSlideshow } from '@/components/home/hero-slideshow'
-import { AlbumGrid } from '@/components/albums/album-grid'
-import { AlbumGridSkeleton } from '@/components/albums/album-grid-skeleton'
-import { MemoryStrip } from '@/components/home/memory-strip'
-import { FavoritesStrip } from '@/components/home/favorites-strip'
 import { PhotoGrid } from '@/components/photos/photo-grid'
-import { SectionHeader } from '@/components/ui/section-header'
-import { Clock } from 'lucide-react'
+import { AlbumCard } from '@/components/albums/album-card'
+import { AlbumGridSkeleton } from '@/components/albums/album-grid-skeleton'
+
+/* ── Fade-in on scroll ── */
+function SectionReveal({
+  children,
+  delay = 0,
+}: {
+  children: React.ReactNode
+  delay?: number
+}) {
+  const ref    = useRef<HTMLDivElement>(null)
+  const inView = useInView(ref, { once: true, margin: '-80px 0px' })
+  const reduce = useReducedMotion()
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: reduce ? 0 : 22 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.8, delay, ease: [0.16, 1, 0.3, 1] }}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+/* ── Section divider ── */
+function Divider() {
+  return (
+    <div className="content-padding my-20" aria-hidden="true">
+      <div
+        className="h-px"
+        style={{
+          background:
+            'linear-gradient(to right, transparent, var(--border) 20%, var(--border) 80%, transparent)',
+        }}
+      />
+    </div>
+  )
+}
+
+/* ── Editorial section header ── */
+function SectionHead({
+  eyebrow,
+  title,
+  href,
+  linkLabel = 'View all',
+}: {
+  eyebrow: string
+  title: string
+  href: string
+  linkLabel?: string
+}) {
+  return (
+    <div className="flex items-end justify-between mb-10">
+      <div className="space-y-1.5">
+        <p className="text-eyebrow-gold">{eyebrow}</p>
+        <h2
+          className="font-serif leading-[0.95]"
+          style={{
+            fontSize: 'clamp(1.7rem, 3.2vw, 2.5rem)',
+            fontStyle: 'italic',
+            fontWeight: 500,
+            color: 'var(--foreground)',
+          }}
+        >
+          {title}
+        </h2>
+      </div>
+      <Link
+        href={href}
+        className="flex items-center gap-1.5 text-xs font-medium tracking-[0.12em] uppercase transition-colors hover:text-foreground shrink-0"
+        style={{ color: 'var(--muted-foreground)' }}
+      >
+        {linkLabel}
+        <ArrowRight className="h-3 w-3" />
+      </Link>
+    </div>
+  )
+}
 
 export default function HomePage() {
-  const { data, isLoading, error } = useHomeFeed()
-  const { data: favData } = useFavorites()
+  const { data, isLoading: feedLoading, error } = useHomeFeed()
+  const { data: sections, isLoading: sectLoading } = useSections()
 
-  const hasFavorites = (favData?.total ?? 0) > 0
   const hasThrowbacks = (data?.throwbacks ?? []).length > 0
+
+  /* Pull first 4 albums from each section for the homepage strips */
+  const arjunAlbums   = (sections?.featured_child ?? []).slice(0, 4)
+  const travelAlbums  = (sections?.travel         ?? []).slice(0, 4)
+  const photoAlbums   = (sections?.photography    ?? []).slice(0, 4)
+
+  const hasArjun      = arjunAlbums.length > 0
+  const hasTravel     = travelAlbums.length > 0
+  const hasPhoto      = photoAlbums.length > 0
 
   return (
     <div>
-      {/* ── Hero — full-bleed, touches sidebar edge ── */}
+      {/* ── 1. Hero ── */}
       <HeroSlideshow
         photos={data?.hero_photos ?? []}
         familyName="Kotcherlakota"
       />
 
-      {/* ── Padded content below the fold ── */}
-      <div className="mx-auto max-w-7xl px-5 py-12 md:px-10 lg:px-14 space-y-16 pb-24">
+      {/* ── Below-fold ── */}
+      <div className="pt-28 pb-48">
 
-        {/* ── Auth / error banner ── */}
+        {/* Auth / error banner */}
         {error && (
-          <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-5 py-4">
-            <p className="text-sm text-destructive">
-              Could not load your memories.{' '}
-              {(error as Error).message?.includes('auth') ? (
-                <a
-                  href={`${process.env.NEXT_PUBLIC_API_BASE}/auth/start`}
-                  className="underline underline-offset-2"
-                >
-                  Sign in with Google
-                </a>
-              ) : (
-                <button onClick={() => window.location.reload()} className="underline underline-offset-2">
-                  Try again
-                </button>
-              )}
-            </p>
+          <div className="content-padding mb-16">
+            <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-5 py-4">
+              <p className="text-sm text-destructive">
+                Could not load your memories.{' '}
+                {(error as Error).message?.includes('auth') ? (
+                  <a
+                    href={`${process.env.NEXT_PUBLIC_API_BASE}/auth/start`}
+                    className="underline underline-offset-2"
+                  >
+                    Sign in with Google
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="underline underline-offset-2"
+                  >
+                    Try again
+                  </button>
+                )}
+              </p>
+            </div>
           </div>
         )}
 
-        {/* ── Memory strip — slim stats bar ── */}
-        {data?.stats && <MemoryStrip stats={data.stats} />}
-
-        {/* ── Featured Albums ── */}
-        <section className="space-y-6">
-          <SectionHeader
-            title="Albums"
-            eyebrow="Your Collection"
-          />
-          {isLoading ? (
-            <AlbumGridSkeleton count={8} />
-          ) : (
-            <AlbumGrid albums={data?.featured_albums ?? []} />
-          )}
-        </section>
-
-        {/* ── Favorites — only renders if there are any ── */}
-        {hasFavorites && (
-          <FavoritesStrip favorites={favData!.favorites} />
+        {/* ── 2. Our Albums — Arjun ── */}
+        {(hasArjun || sectLoading) && (
+          <SectionReveal>
+            <section className="content-padding">
+              <SectionHead
+                eyebrow="Growing Up, Frame by Frame"
+                title="Arjun"
+                href="/arjun"
+                linkLabel="All albums"
+              />
+              {sectLoading ? (
+                <AlbumGridSkeleton count={4} />
+              ) : (
+                <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
+                  {arjunAlbums.map((album) => (
+                    <AlbumCard key={album.id} album={album} />
+                  ))}
+                </div>
+              )}
+            </section>
+          </SectionReveal>
         )}
 
-        {/* ── On This Day ── */}
-        {hasThrowbacks && (
-          <section className="space-y-8">
-            <SectionHeader
-              title="On This Day"
-              eyebrow="From the Archives"
-              subtitle="A look back through the years"
-            />
-            <div className="space-y-10">
-              {data!.throwbacks.map((group) => (
-                <div key={group.year} className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--amber)' }} />
-                    <p
-                      className="text-sm font-semibold tracking-wide"
-                      style={{ color: 'var(--amber)' }}
-                    >
-                      {group.label}
-                    </p>
-                    <div className="flex-1 border-t border-border" />
-                  </div>
-                  <PhotoGrid photos={group.photos} />
+        {hasArjun && <Divider />}
+
+        {/* ── 3. Family Travel ── */}
+        {(hasTravel || sectLoading) && (
+          <SectionReveal delay={0.04}>
+            <section className="content-padding">
+              <SectionHead
+                eyebrow="Stories From Everywhere"
+                title="Family Travel"
+                href="/travel"
+                linkLabel="All albums"
+              />
+              {sectLoading ? (
+                <AlbumGridSkeleton count={4} />
+              ) : (
+                <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
+                  {travelAlbums.map((album) => (
+                    <AlbumCard key={album.id} album={album} />
+                  ))}
                 </div>
+              )}
+            </section>
+          </SectionReveal>
+        )}
+
+        {hasTravel && <Divider />}
+
+        {/* ── 4. Photography ── */}
+        {(hasPhoto || sectLoading) && (
+          <SectionReveal delay={0.04}>
+            <section className="content-padding">
+              <SectionHead
+                eyebrow="Our Story in Frames"
+                title="Photography"
+                href="/photography"
+                linkLabel="All albums"
+              />
+              {sectLoading ? (
+                <AlbumGridSkeleton count={4} />
+              ) : (
+                <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
+                  {photoAlbums.map((album) => (
+                    <AlbumCard key={album.id} album={album} />
+                  ))}
+                </div>
+              )}
+            </section>
+          </SectionReveal>
+        )}
+
+        <Divider />
+
+        {/* ── 5. Stories in Motion — Videos ── */}
+        <SectionReveal delay={0.04}>
+          <section className="content-padding">
+            <SectionHead
+              eyebrow="Stories in Motion"
+              title="Family Films"
+              href="/videos"
+              linkLabel="All videos"
+            />
+            {/* Video tiles — cinematic placeholder cards when no videos are present */}
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                { label: 'Arjun Films',  eyebrow: 'Growing Up',    href: '/videos/arjun'   },
+                { label: 'Travel Films', eyebrow: 'On the Road',   href: '/videos/travel'  },
+                { label: 'Stories',      eyebrow: 'Film Diary',    href: '/videos/stories' },
+              ].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="group relative flex flex-col justify-end overflow-hidden rounded-2xl"
+                  style={{
+                    aspectRatio: '16 / 9',
+                    background: 'linear-gradient(145deg, oklch(0.14 0.015 50) 0%, oklch(0.09 0.008 46) 100%)',
+                    border: '1px solid oklch(1 0 0 / 7%)',
+                    transition: 'border-color 0.3s ease, box-shadow 0.4s ease',
+                    boxShadow: '0 2px 12px oklch(0 0 0 / 30%)',
+                  }}
+                >
+                  {/* Ambient gold glow on hover */}
+                  <div
+                    className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100"
+                    style={{
+                      transition: 'opacity 0.4s ease',
+                      background: 'radial-gradient(ellipse 70% 60% at 50% 100%, oklch(0.70 0.145 58 / 18%) 0%, transparent 70%)',
+                    }}
+                  />
+                  {/* Gold shimmer border on hover */}
+                  <div
+                    className="absolute inset-0 pointer-events-none rounded-2xl opacity-0 group-hover:opacity-100"
+                    style={{
+                      transition: 'opacity 0.35s ease',
+                      boxShadow: '0 0 0 1px oklch(0.70 0.145 58 / 28%), 0 8px 32px oklch(0 0 0 / 40%)',
+                    }}
+                  />
+                  {/* Play button */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div
+                      className="flex h-14 w-14 items-center justify-center rounded-full backdrop-blur-sm transition-all duration-300 group-hover:scale-110"
+                      style={{
+                        background: 'oklch(0.70 0.145 58 / 14%)',
+                        border: '1px solid oklch(0.70 0.145 58 / 30%)',
+                        boxShadow: '0 0 24px oklch(0.70 0.145 58 / 20%)',
+                      }}
+                    >
+                      <Play
+                        className="h-5 w-5"
+                        style={{ color: 'var(--amber)', fill: 'var(--amber)', marginLeft: '2px' }}
+                      />
+                    </div>
+                  </div>
+                  {/* Bottom label */}
+                  <div
+                    className="relative z-10 p-5"
+                    style={{
+                      background: 'linear-gradient(to top, oklch(0.06 0.006 48 / 85%) 0%, transparent 100%)',
+                    }}
+                  >
+                    <p className="text-eyebrow-gold mb-1">{item.eyebrow}</p>
+                    <p
+                      className="font-serif font-medium"
+                      style={{ fontSize: '1.05rem', fontStyle: 'italic', color: 'oklch(0.97 0.010 72)' }}
+                    >
+                      {item.label}
+                    </p>
+                  </div>
+                </Link>
               ))}
             </div>
           </section>
+        </SectionReveal>
+
+        <Divider />
+
+        {/* ── 6. Memories — On This Day ── */}
+        {hasThrowbacks && (
+          <SectionReveal delay={0.05}>
+            <section className="content-padding">
+              <div className="space-y-2 mb-14">
+                <p className="text-eyebrow-gold">Moments That Stay</p>
+                <h2
+                  className="font-serif leading-[0.95]"
+                  style={{
+                    fontSize: 'clamp(2rem, 4vw, 3rem)',
+                    fontStyle: 'italic',
+                    fontWeight: 500,
+                    color: 'var(--foreground)',
+                  }}
+                >
+                  On This Day
+                </h2>
+                <p className="font-sans text-sm" style={{ color: 'var(--muted-foreground)', maxWidth: '32rem' }}>
+                  A look back through the years — moments that happened on this day.
+                </p>
+              </div>
+
+              <div className="space-y-20">
+                {data!.throwbacks.map((group, i) => (
+                  <SectionReveal key={group.year} delay={i * 0.06}>
+                    <div className="space-y-8">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2.5">
+                          <Clock className="h-3 w-3 shrink-0" style={{ color: 'var(--amber)', opacity: 0.7 }} />
+                          <p
+                            className="font-sans text-[11px] font-semibold tracking-[0.22em] uppercase"
+                            style={{ color: 'var(--amber)' }}
+                          >
+                            {group.label}
+                          </p>
+                        </div>
+                        <div
+                          className="flex-1 h-px"
+                          style={{ background: 'linear-gradient(to right, var(--border), transparent)' }}
+                          aria-hidden="true"
+                        />
+                        <span
+                          className="font-sans text-[10px] tabular-nums"
+                          style={{ color: 'var(--muted-foreground)', opacity: 0.45 }}
+                        >
+                          {group.year}
+                        </span>
+                      </div>
+                      <PhotoGrid photos={group.photos} />
+                    </div>
+                  </SectionReveal>
+                ))}
+              </div>
+            </section>
+          </SectionReveal>
         )}
       </div>
     </div>
