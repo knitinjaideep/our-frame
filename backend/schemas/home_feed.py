@@ -1,7 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel
 from .photo import PhotoResponse
-from .album import AlbumSummary
 
 
 class MemoryStats(BaseModel):
@@ -20,7 +19,5 @@ class ThrowbackGroup(BaseModel):
 
 class HomeFeedResponse(BaseModel):
     hero_photos: list[PhotoResponse]
-    recent_albums: list[AlbumSummary]
-    featured_albums: list[AlbumSummary]
     throwbacks: list[ThrowbackGroup]
     stats: MemoryStats

@@ -3,31 +3,30 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 
-/* ── The three editorial worlds ── */
+/* ── The three photo worlds ── */
 const WORLDS = [
   {
     href: '/arjun',
-    eyebrow: 'Growing Up',
+    eyebrow: 'Growing Up, Frame by Frame',
     title: 'Arjun',
     description: 'Every milestone, every laugh. A chapter written in light.',
-    accentColor: 'oklch(0.70 0.145 58)',   /* gold */
-    /* gradient wash on the fallback bg */
+    accentColor: 'oklch(0.70 0.145 58)',
     gradient: 'linear-gradient(135deg, oklch(0.13 0.018 48) 0%, oklch(0.20 0.025 55) 60%, oklch(0.16 0.022 52) 100%)',
   },
   {
     href: '/travel',
-    eyebrow: 'Adventures Together',
+    eyebrow: 'Stories From Everywhere',
     title: 'Family Travel',
     description: 'Roads taken, cities explored, memories carried home.',
-    accentColor: 'oklch(0.65 0.130 200)',  /* teal-ish */
+    accentColor: 'oklch(0.65 0.130 200)',
     gradient: 'linear-gradient(135deg, oklch(0.12 0.015 210) 0%, oklch(0.19 0.022 200) 60%, oklch(0.14 0.018 205) 100%)',
   },
   {
     href: '/photography',
-    eyebrow: 'Portfolio',
+    eyebrow: 'Our Story in Frames',
     title: 'The Lens',
     description: 'Stills that hold a world. Photography as a personal archive.',
-    accentColor: 'oklch(0.62 0.095 300)',  /* soft violet */
+    accentColor: 'oklch(0.62 0.095 300)',
     gradient: 'linear-gradient(135deg, oklch(0.12 0.012 295) 0%, oklch(0.18 0.018 300) 60%, oklch(0.13 0.015 305) 100%)',
   },
 ] as const
@@ -62,10 +61,7 @@ function WorldCard({
           transition: 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1)',
         } as React.CSSProperties}
       >
-        {/* Background gradient fill */}
         <div className="world-card__bg" style={{ background: world.gradient }} />
-
-        {/* Golden glow orb behind card on hover */}
         <div
           className="world-card__glow"
           style={{
@@ -74,16 +70,9 @@ function WorldCard({
             transition: 'opacity 0.45s ease',
           }}
         />
-
-        {/* Subtle noise/texture overlay */}
         <div className="world-card__noise" />
-
-        {/* Content */}
         <div className="world-card__content">
-          <p
-            className="world-card__eyebrow"
-            style={{ color: world.accentColor }}
-          >
+          <p className="world-card__eyebrow" style={{ color: world.accentColor }}>
             {world.eyebrow}
           </p>
           <h2 className="world-card__title font-serif">{world.title}</h2>
@@ -98,8 +87,6 @@ function WorldCard({
             {world.description}
           </p>
         </div>
-
-        {/* Accent line at bottom edge */}
         <div
           className="world-card__accent-line"
           style={{
@@ -108,8 +95,6 @@ function WorldCard({
             transition: 'opacity 0.35s ease',
           }}
         />
-
-        {/* Arrow hint */}
         <div
           className="world-card__arrow"
           style={{
@@ -126,26 +111,24 @@ function WorldCard({
   )
 }
 
-export default function AlbumsPage() {
+export default function PhotosPage() {
   return (
     <div className="content-padding py-12 pb-24 max-w-6xl">
-      {/* ── Page header ── */}
       <motion.div
         className="mb-12"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       >
-        <p className="text-eyebrow-gold mb-3">Collection</p>
+        <p className="text-eyebrow-gold mb-3">Our Story in Frames</p>
         <h1 className="text-display-sm font-serif text-foreground">
-          Our Albums
+          Photos
         </h1>
         <p className="mt-3 text-sm text-muted-foreground max-w-md leading-relaxed">
           Three worlds. Every frame we have captured together.
         </p>
       </motion.div>
 
-      {/* ── World cards ── */}
       <div className="worlds-grid">
         {WORLDS.map((world, i) => (
           <WorldCard key={world.href} world={world} index={i} />

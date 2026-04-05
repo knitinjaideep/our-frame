@@ -12,4 +12,10 @@ export const queryKeys = {
   authStatus: {
     all: ['auth-status'] as const,
   },
+  sections: {
+    all: ['sections'] as const,
+  },
+  sectionMappings: {
+    all: ['section-mappings'] as const,
+  },
 } as const

@@ -1,18 +1,23 @@
 """
-Assembles the home feed response from cached DB data + Drive sync.
+Assembles the home feed response from DB data.
+
+Sync is handled by sync_service (startup + manual trigger).
+This service is read-only — it simply queries the DB.
+
+excluded albums are filtered out by the repository layer.
+
+Phase 2 shape: hero_photos + throwbacks + stats only.
+Favorites are fetched separately by the frontend hook.
 """
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from sqlmodel import Session
 
-from core.config import settings
 from repositories import album_repo, photo_repo, favorites_repo
 from schemas.home_feed import HomeFeedResponse, MemoryStats, ThrowbackGroup
 from schemas.photo import PhotoResponse
-from schemas.album import AlbumSummary
 from models.photo import DrivePhoto
-from models.album import DriveAlbum
 
 
 def _photo_url(photo_id: str, size: int = 600) -> str:
@@ -37,46 +42,58 @@ def _to_photo_resp(p: DrivePhoto, fav_ids: set[str]) -> PhotoResponse:
     )
 
 
-def _to_album_summary(a: DriveAlbum) -> AlbumSummary:
-    return AlbumSummary(
-        id=a.id,
-        name=a.name,
-        cover_photo_id=a.cover_photo_id,
-        photo_count=a.photo_count,
-        thumbnail_url=_photo_url(a.cover_photo_id) if a.cover_photo_id else None,
-    )
+def _is_hero_worthy(p: DrivePhoto) -> bool:
+    """
+    Filter for hero-quality photos:
+    - Images only (no video in the hero slideshow)
+    - At least 800px wide (no tiny thumbnails stretched full-screen)
+    """
+    if p.mime_type and p.mime_type.startswith("video/"):
+        return False
+    if p.width and p.width < 800:
+        return False
+    return True
+
+
+def _hero_score(p: DrivePhoto) -> float:
+    """
+    Score a photo for hero candidacy. Higher = better.
+    Rewards landscape orientation and larger resolution.
+    """
+    if p.width and p.height and p.height > 0:
+        aspect = p.width / p.height
+        # 16:9 landscape ≈ 1.78 scores best; square/portrait penalised
+        landscape_bonus = min(aspect / 1.5, 1.5)
+    else:
+        landscape_bonus = 0.5
+    size_bonus = min((p.width or 0) / 2000, 1.0)
+    return landscape_bonus + size_bonus
 
 
 def get_home_feed(session: Session) -> HomeFeedResponse:
     fav_ids = favorites_repo.get_all_photo_ids(session)
-    albums = album_repo.get_root_albums(session)
+    albums = album_repo.get_root_albums(session)  # excluded already filtered
 
-    # Hero: pick up to 15 photos from albums that have a cover
-    hero_photos: list[PhotoResponse] = []
+    # ── Hero photos ──────────────────────────────────────────────────────────
+    # Collect candidates from albums that have a cover photo,
+    # cap at 4 per album for variety, score by landscape preference.
+    hero_candidates: list[DrivePhoto] = []
     for album in albums:
-        if album.cover_photo_id and len(hero_photos) < 15:
-            photos = photo_repo.get_by_folder(session, album.id)
-            for p in photos[:3]:
-                if len(hero_photos) >= 15:
-                    break
-                hero_photos.append(_to_photo_resp(p, fav_ids))
+        if not album.cover_photo_id:
+            continue
+        photos = photo_repo.get_by_folder(session, album.id)
+        worthy = [p for p in photos if _is_hero_worthy(p)]
+        worthy.sort(key=_hero_score, reverse=True)
+        hero_candidates.extend(worthy[:4])
 
-    # Featured albums: those with cover photos, up to 6
-    featured = [a for a in albums if a.cover_photo_id][:6]
+    hero_candidates.sort(key=_hero_score, reverse=True)
+    hero_photos = [_to_photo_resp(p, fav_ids) for p in hero_candidates[:15]]
 
-    # Recent albums: last synced, up to 4
-    recent = sorted(
-        [a for a in albums if a.last_synced],
-        key=lambda a: a.last_synced,
-        reverse=True,
-    )[:4]
-
-    # Throwbacks: photos from same month+day in prior years
+    # ── Throwbacks: same month+day in prior years ─────────────────────────────
     now = datetime.now(tz=timezone.utc)
     throwback_photos_raw = photo_repo.get_by_month_day(session, now.month, now.day)
     current_year = now.year
 
-    # Group by year, exclude current year
     year_groups: dict[int, list[DrivePhoto]] = {}
     for p in throwback_photos_raw:
         if p.created_time and p.created_time.year < current_year:
@@ -95,9 +112,9 @@ def get_home_feed(session: Session) -> HomeFeedResponse:
             )
         )
 
-    # Stats
+    # ── Stats ─────────────────────────────────────────────────────────────────
     all_photos = photo_repo.count_all(session)
-    all_albums = album_repo.count_all(session)
+    all_albums_count = album_repo.count_all(session)
     all_favs = len(fav_ids)
 
     years = [
@@ -111,7 +128,7 @@ def get_home_feed(session: Session) -> HomeFeedResponse:
 
     stats = MemoryStats(
         total_photos=all_photos,
-        total_albums=all_albums,
+        total_albums=all_albums_count,
         total_favorites=all_favs,
         oldest_year=oldest,
         newest_year=newest,
@@ -119,8 +136,6 @@ def get_home_feed(session: Session) -> HomeFeedResponse:
 
     return HomeFeedResponse(
         hero_photos=hero_photos,
-        recent_albums=[_to_album_summary(a) for a in recent],
-        featured_albums=[_to_album_summary(a) for a in featured],
         throwbacks=throwbacks,
         stats=stats,
     )

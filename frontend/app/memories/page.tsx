@@ -10,9 +10,9 @@ export default function MemoriesPage() {
   const throwbacks = data?.throwbacks ?? []
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-8 md:px-10 lg:px-14 space-y-10 pb-16">
+    <div className="content-padding py-8 space-y-10 pb-16 max-w-7xl">
       <PageHeader
-        title="Memories"
+        title="Moments That Stay"
         description="Photos from this day in past years"
         icon={<Sparkles className="h-5 w-5" />}
       />

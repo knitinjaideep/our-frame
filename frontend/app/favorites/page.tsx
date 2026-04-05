@@ -23,9 +23,9 @@ export default function FavoritesPage() {
   }))
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-8 md:px-10 lg:px-14 space-y-8 pb-16">
+    <div className="content-padding py-8 space-y-8 pb-16 max-w-7xl">
       <PageHeader
-        title="Favorites"
+        title="The Ones We Love"
         description={
           data
             ? `${data.total} saved photo${data.total !== 1 ? 's' : ''}`
