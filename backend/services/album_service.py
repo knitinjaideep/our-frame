@@ -46,7 +46,35 @@ def _to_album_summary(album: DriveAlbum) -> AlbumSummary:
         name=album.name,
         cover_photo_id=album.cover_photo_id,
         photo_count=album.photo_count,
+        child_count=album.child_count,
         thumbnail_url=_photo_url(album.cover_photo_id) if album.cover_photo_id else None,
+    )
+
+
+def _resolve_cover(session: Session, album_id: str, depth: int = 0) -> str | None:
+    """Find a cover photo ID for an album, recursing into subfolders (max depth 3)."""
+    if depth > 3:
+        return None
+    photos = photo_repo.get_by_folder(session, album_id)
+    if photos:
+        return photos[0].id
+    children = album_repo.get_by_parent(session, album_id)
+    for child in children:
+        cover = _resolve_cover(session, child.id, depth + 1)
+        if cover:
+            return cover
+    return None
+
+
+def _to_album_summary_with_resolved_cover(session: Session, album: DriveAlbum) -> AlbumSummary:
+    cover_id = album.cover_photo_id or _resolve_cover(session, album.id)
+    return AlbumSummary(
+        id=album.id,
+        name=album.name,
+        cover_photo_id=cover_id,
+        photo_count=album.photo_count,
+        child_count=album.child_count,
+        thumbnail_url=_photo_url(cover_id) if cover_id else None,
     )
 
 
@@ -54,6 +82,17 @@ def get_root_albums(session: Session) -> AlbumsListResponse:
     """Return root-level albums from DB (excluded folders filtered out)."""
     albums = album_repo.get_root_albums(session)
     summaries = [_to_album_summary(a) for a in albums]
+    return AlbumsListResponse(albums=summaries, total=len(summaries))
+
+
+def get_root_buckets(session: Session) -> AlbumsListResponse:
+    """
+    Return root-level Drive folders as buckets — the source of truth for
+    top-level navigation. Uses recursive cover resolution so each bucket
+    gets its own distinct thumbnail instead of all sharing the same one.
+    """
+    albums = album_repo.get_root_albums(session)
+    summaries = [_to_album_summary_with_resolved_cover(session, a) for a in albums]
     return AlbumsListResponse(albums=summaries, total=len(summaries))
 
 

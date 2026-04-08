@@ -26,10 +26,10 @@ export default function AlbumDetailPage({ params }: { params: Promise<{ id: stri
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
         <Link
-          href="/albums"
+          href="/photos"
           className="text-muted-foreground transition-colors hover:text-foreground"
         >
-          Albums
+          Photos
         </Link>
         {data?.album && (
           <>

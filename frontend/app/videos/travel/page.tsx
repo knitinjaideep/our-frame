@@ -2,7 +2,7 @@
 import { useSections } from '@/hooks/use-sections'
 import { SectionWorldPage } from '@/components/sections/section-world-page'
 
-export default function TravelPage() {
+export default function VideosTravelPage() {
   const { data, isLoading, error } = useSections()
 
   return (
@@ -10,10 +10,10 @@ export default function TravelPage() {
       albums={data?.travel ?? []}
       isLoading={isLoading}
       error={error}
-      eyebrow="Stories From Everywhere"
-      heading="Travel"
-      description="Roads taken, cities explored, memories carried home."
-      emptyMessage="No travel albums found. Map a Google Drive folder to this section in Settings."
+      eyebrow="On the Road"
+      heading="Travel Films"
+      description="Places we have been. Moments that moved us."
+      emptyMessage="No travel video albums found. Map a Google Drive folder to this section in Settings."
       accentColor="amber"
     />
   )

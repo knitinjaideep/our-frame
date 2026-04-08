@@ -2,18 +2,18 @@
 import { useSections } from '@/hooks/use-sections'
 import { SectionWorldPage } from '@/components/sections/section-world-page'
 
-export default function TravelPage() {
+export default function VideosArjunPage() {
   const { data, isLoading, error } = useSections()
 
   return (
     <SectionWorldPage
-      albums={data?.travel ?? []}
+      albums={data?.featured_child ?? []}
       isLoading={isLoading}
       error={error}
-      eyebrow="Stories From Everywhere"
-      heading="Travel"
-      description="Roads taken, cities explored, memories carried home."
-      emptyMessage="No travel albums found. Map a Google Drive folder to this section in Settings."
+      eyebrow="Growing Up"
+      heading="Arjun Films"
+      description="Every laugh, every first. His story in motion."
+      emptyMessage="No Arjun video albums found. Map a Google Drive folder to this section in Settings."
       accentColor="amber"
     />
   )

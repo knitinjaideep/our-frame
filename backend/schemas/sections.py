@@ -5,4 +5,5 @@ from .album import AlbumSummary
 class SectionsResponse(BaseModel):
     featured_child: list[AlbumSummary]
     travel: list[AlbumSummary]
-    photography: list[AlbumSummary]
+    milestones: list[AlbumSummary]
+    life: list[AlbumSummary]

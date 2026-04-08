@@ -27,28 +27,35 @@ from models.section_mapping import SectionMapping
 
 # ── Keyword fallback rules ────────────────────────────────────────────────────
 _ARJUN_RE = re.compile(
-    r"\b(arjun|baby|infant|toddler|kid|kids|son|little|first)\b",
+    r"\b(arjun|baby|infant|toddler|kid|kids|son|little|first|newborn|month)\b",
     re.IGNORECASE,
 )
 
 _TRAVEL_RE = re.compile(
     r"\b(travel|trip|vacation|holiday|tour|journey|visit|adventure|"
     r"india|usa|europe|japan|thailand|bali|mexico|beach|mountain|"
-    r"dubai|paris|london|new york|tokyo|singapore|hawaii|abroad)\b",
+    r"dubai|paris|london|new york|tokyo|singapore|hawaii|abroad|weekend)\b",
     re.IGNORECASE,
 )
 
-_PHOTOGRAPHY_RE = re.compile(
-    r"\b(photography|photos?|portfolio|shoots?|street|landscape|"
-    r"architecture|nature|wildlife|black\s*&?\s*white|monochrome|"
-    r"macro|portrait|wedding|event|concert|studio)\b",
+_MILESTONES_RE = re.compile(
+    r"\b(milestone|engagement|wedding|shower|birthday|anniversary|graduation|"
+    r"birth|pregnancy|proposal|ceremony|celebration|debut|first day)\b",
+    re.IGNORECASE,
+)
+
+_LIFE_RE = re.compile(
+    r"\b(life|friends?|family|sister|brother|mom|dad|parents?|random|"
+    r"everyday|moments?|people|portrait|home|holiday|christmas|diwali|"
+    r"photography|street|landscape|nature|studio)\b",
     re.IGNORECASE,
 )
 
 _KEYWORD_MAP: dict[str, re.Pattern] = {
     "child": _ARJUN_RE,
     "travel": _TRAVEL_RE,
-    "photography": _PHOTOGRAPHY_RE,
+    "milestones": _MILESTONES_RE,
+    "life": _LIFE_RE,
 }
 
 
@@ -78,6 +85,7 @@ def _to_summary(session: Session, album: DriveAlbum) -> AlbumSummary:
         name=album.name,
         cover_photo_id=cover_id,
         photo_count=album.photo_count,
+        child_count=album.child_count,
         thumbnail_url=_photo_url(cover_id) if cover_id else None,
     )
 
@@ -116,25 +124,71 @@ def _classify_album(
     return None
 
 
+def _get_root_section(session: Session, album: DriveAlbum, explicit: dict[str, str]) -> str | None:
+    """
+    Walk up to the root parent and classify by its name.
+    This supports nested structures like: root → Arjun → First Year → photos
+    where 'First Year' should inherit the 'child' section from 'Arjun'.
+    """
+    # First try classifying this album directly
+    key = _classify_album(album, explicit)
+    if key:
+        return key
+
+    # Walk up to find the root parent and classify by it
+    current = album
+    while current.parent_id is not None:
+        parent = album_repo.get_by_id(session, current.parent_id)
+        if parent is None:
+            break
+        key = _classify_album(parent, explicit)
+        if key:
+            return key
+        current = parent
+
+    return None
+
+
 def get_sections(session: Session) -> SectionsResponse:
-    all_albums = album_repo.get_root_albums(session)  # excluded already filtered
+    from sqlmodel import select as sql_select
+    all_albums = list(session.exec(
+        sql_select(DriveAlbum).where(DriveAlbum.excluded == False)  # noqa: E712
+    ).all())
     explicit = _get_explicit_mappings(session)
 
     result: dict[str, list[AlbumSummary]] = {
         "child": [],
         "travel": [],
-        "photography": [],
+        "milestones": [],
+        "life": [],
     }
 
+    # Root-level container folders — skip these, surface their children instead
+    root_ids = {a.id for a in all_albums if a.parent_id is None}
+
     for album in all_albums:
-        key = _classify_album(album, explicit)
+        # Skip root containers — their sub-albums will be shown instead
+        if album.id in root_ids:
+            continue
+
+        key = _get_root_section(session, album, explicit)
         if key and key in result:
             result[key].append(_to_summary(session, album))
+
+    # Fallback: if no sub-albums found for a section, show root containers
+    for section_key in ("child", "travel", "milestones", "life"):
+        if not result[section_key]:
+            for album in all_albums:
+                if album.id in root_ids:
+                    key = _classify_album(album, explicit)
+                    if key == section_key:
+                        result[section_key].append(_to_summary(session, album))
 
     return SectionsResponse(
         featured_child=result["child"],
         travel=result["travel"],
-        photography=result["photography"],
+        milestones=result["milestones"],
+        life=result["life"],
     )
 
 

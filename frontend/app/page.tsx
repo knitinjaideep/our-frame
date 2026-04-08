@@ -4,11 +4,12 @@ import { motion, useInView, useReducedMotion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowRight, Clock, Play } from 'lucide-react'
 import { useHomeFeed } from '@/hooks/use-home-feed'
-import { useSections } from '@/hooks/use-sections'
+import { useRootBuckets } from '@/hooks/use-root-buckets'
 import { HeroSlideshow } from '@/components/home/hero-slideshow'
 import { PhotoGrid } from '@/components/photos/photo-grid'
-import { AlbumCard } from '@/components/albums/album-card'
 import { AlbumGridSkeleton } from '@/components/albums/album-grid-skeleton'
+import { BucketCard } from '@/components/buckets/bucket-card'
+import { BUCKETS } from '@/lib/buckets'
 
 /* ── Fade-in on scroll ── */
 function SectionReveal({
@@ -90,19 +91,18 @@ function SectionHead({
 }
 
 export default function HomePage() {
-  const { data, isLoading: feedLoading, error } = useHomeFeed()
-  const { data: sections, isLoading: sectLoading } = useSections()
+  const { data, error } = useHomeFeed()
+  const { data: bucketsData, isLoading: bucketsLoading } = useRootBuckets()
 
   const hasThrowbacks = (data?.throwbacks ?? []).length > 0
 
-  /* Pull first 4 albums from each section for the homepage strips */
-  const arjunAlbums   = (sections?.featured_child ?? []).slice(0, 4)
-  const travelAlbums  = (sections?.travel         ?? []).slice(0, 4)
-  const photoAlbums   = (sections?.photography    ?? []).slice(0, 4)
-
-  const hasArjun      = arjunAlbums.length > 0
-  const hasTravel     = travelAlbums.length > 0
-  const hasPhoto      = photoAlbums.length > 0
+  // Merge Drive data (name, thumbnail) with per-bucket display metadata
+  const allBuckets = bucketsData?.albums ?? []
+  const buckets = BUCKETS.map(meta => ({
+    ...meta,
+    album: allBuckets.find(a => a.id === meta.id) ?? null,
+  }))
+  const hasBuckets = !bucketsLoading && buckets.some(b => b.album !== null)
 
   return (
     <div>
@@ -141,72 +141,22 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* ── 2. Our Albums — Arjun ── */}
-        {(hasArjun || sectLoading) && (
+        {/* ── 2. Photo buckets from Drive ── */}
+        {(hasBuckets || bucketsLoading) && (
           <SectionReveal>
             <section className="content-padding">
               <SectionHead
-                eyebrow="Growing Up, Frame by Frame"
-                title="Arjun"
-                href="/arjun"
-                linkLabel="All albums"
-              />
-              {sectLoading ? (
-                <AlbumGridSkeleton count={4} />
-              ) : (
-                <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
-                  {arjunAlbums.map((album) => (
-                    <AlbumCard key={album.id} album={album} />
-                  ))}
-                </div>
-              )}
-            </section>
-          </SectionReveal>
-        )}
-
-        {hasArjun && <Divider />}
-
-        {/* ── 3. Family Travel ── */}
-        {(hasTravel || sectLoading) && (
-          <SectionReveal delay={0.04}>
-            <section className="content-padding">
-              <SectionHead
-                eyebrow="Stories From Everywhere"
-                title="Family Travel"
-                href="/travel"
-                linkLabel="All albums"
-              />
-              {sectLoading ? (
-                <AlbumGridSkeleton count={4} />
-              ) : (
-                <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
-                  {travelAlbums.map((album) => (
-                    <AlbumCard key={album.id} album={album} />
-                  ))}
-                </div>
-              )}
-            </section>
-          </SectionReveal>
-        )}
-
-        {hasTravel && <Divider />}
-
-        {/* ── 4. Photography ── */}
-        {(hasPhoto || sectLoading) && (
-          <SectionReveal delay={0.04}>
-            <section className="content-padding">
-              <SectionHead
                 eyebrow="Our Story in Frames"
-                title="Photography"
-                href="/photography"
-                linkLabel="All albums"
+                title="Photos"
+                href="/photos"
+                linkLabel="Browse all"
               />
-              {sectLoading ? (
+              {bucketsLoading ? (
                 <AlbumGridSkeleton count={4} />
               ) : (
-                <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
-                  {photoAlbums.map((album) => (
-                    <AlbumCard key={album.id} album={album} />
+                <div className="worlds-grid">
+                  {buckets.map((bucket, i) => (
+                    <BucketCard key={bucket.id} {...bucket} index={i} />
                   ))}
                 </div>
               )}
@@ -216,7 +166,7 @@ export default function HomePage() {
 
         <Divider />
 
-        {/* ── 5. Stories in Motion — Videos ── */}
+        {/* ── 6. Stories in Motion — Videos ── */}
         <SectionReveal delay={0.04}>
           <section className="content-padding">
             <SectionHead
@@ -226,11 +176,12 @@ export default function HomePage() {
               linkLabel="All videos"
             />
             {/* Video tiles — cinematic placeholder cards when no videos are present */}
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                { label: 'Arjun Films',  eyebrow: 'Growing Up',    href: '/videos/arjun'   },
-                { label: 'Travel Films', eyebrow: 'On the Road',   href: '/videos/travel'  },
-                { label: 'Stories',      eyebrow: 'Film Diary',    href: '/videos/stories' },
+                { label: 'Arjun',           eyebrow: 'Growing Up',   href: '/videos/arjun'      },
+                { label: 'Travel Films',    eyebrow: 'On the Road',  href: '/videos/travel'     },
+                { label: 'Family Moments',  eyebrow: 'Everyday',     href: '/videos/family'     },
+                { label: 'Highlights',      eyebrow: 'The Big Days', href: '/videos/highlights' },
               ].map((item) => (
                 <Link
                   key={item.href}
@@ -299,7 +250,7 @@ export default function HomePage() {
 
         <Divider />
 
-        {/* ── 6. Memories — On This Day ── */}
+        {/* ── 7. Memories — On This Day ── */}
         {hasThrowbacks && (
           <SectionReveal delay={0.05}>
             <section className="content-padding">
