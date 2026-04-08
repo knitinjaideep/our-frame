@@ -59,3 +59,7 @@ export function previewUrl(photoId: string, width = 1600): string {
 export function downloadUrl(photoId: string): string {
   return `${API_BASE}/drive/file/${encodeURIComponent(photoId)}/download`
 }
+
+export function videoStreamUrl(fileId: string): string {
+  return `${API_BASE}/drive/file/${encodeURIComponent(fileId)}/stream`
+}

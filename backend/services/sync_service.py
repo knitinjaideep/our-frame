@@ -227,13 +227,27 @@ def sync_root(session: Session) -> dict:
             logger.warning("sync_root: skipping folder %s: %s", f["id"], e)
 
     # Sync sub-albums (root → album → sub-album) so nested photos are loaded
+    sub_sub_folder_ids: list[str] = []
     for sub_id in sub_folder_ids:
         try:
             result = sync_folder_shallow(session, sub_id)
             total_photos += result["photos_synced"]
             total_folders += result["folders_synced"]
+            # Collect one more level for deep structures like Videos/Arjun/...
+            grandchildren = album_repo.get_by_parent(session, sub_id)
+            sub_sub_folder_ids.extend(c.id for c in grandchildren)
         except (ReauthRequired, DriveError) as e:
             logger.warning("sync_root: skipping sub-folder %s: %s", sub_id, e)
+
+    # Sync one more level deep (root → album → sub-album → sub-sub-album)
+    # This covers structures like Videos/Arjun/2024/video.mp4
+    for sub_sub_id in sub_sub_folder_ids:
+        try:
+            result = sync_folder_shallow(session, sub_sub_id)
+            total_photos += result["photos_synced"]
+            total_folders += result["folders_synced"]
+        except (ReauthRequired, DriveError) as e:
+            logger.warning("sync_root: skipping sub-sub-folder %s: %s", sub_sub_id, e)
 
     logger.info(
         "sync_root: done — %d folders, %d photos synced",

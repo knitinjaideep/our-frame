@@ -29,12 +29,13 @@ def _preview_url(photo_id: str, width: int = 1600) -> str:
 
 
 def _to_photo_resp(p: DrivePhoto, fav_ids: set[str]) -> PhotoResponse:
+    is_video = p.mime_type and p.mime_type.startswith("video/")
     return PhotoResponse(
         id=p.id,
         name=p.name,
         mime_type=p.mime_type,
         created_time=p.created_time,
-        thumbnail_url=_photo_url(p.id),
+        thumbnail_url=None if is_video else _photo_url(p.id),
         preview_url=_preview_url(p.id),
         is_favorite=p.id in fav_ids,
         width=p.width,

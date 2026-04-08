@@ -15,8 +15,12 @@ export const queryKeys = {
   },
   sections: {
     all: ['sections'] as const,
+    videos: (key: string) => ['sections', 'videos', key] as const,
   },
   sectionMappings: {
     all: ['section-mappings'] as const,
+  },
+  slideshow: {
+    all: ['slideshow'] as const,
   },
 } as const

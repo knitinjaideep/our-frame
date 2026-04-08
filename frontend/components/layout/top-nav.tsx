@@ -14,7 +14,9 @@ const PHOTOS_ITEMS = [
 ] as const
 
 const VIDEOS_ITEMS = [
-  { href: '/videos', label: 'All Videos', eyebrow: 'Browse' },
+  { href: '/videos',                label: 'All Videos',    eyebrow: 'Browse'        },
+  { href: '/videos/arjun',          label: 'Arjun',         eyebrow: 'Growing Up'    },
+  { href: '/videos/family-travel',  label: 'Family Travel', eyebrow: 'On the Road'   },
 ] as const
 
 type NavDropdownKey = 'photos' | 'videos' | null
@@ -86,7 +88,9 @@ export function TopNav() {
     { href: '/albums/1xbcuOKAcRofSo0KwjEykYV3rXnmAmd8J',            label: 'Travel',     group: 'Photos' },
     { href: '/albums/1fyt_9BebLuyEyx7w8El1Bo4Nfs9h-59A',            label: 'Milestones', group: 'Photos' },
     { href: '/albums/1PMDy1-M23ZRkPxuaQ8IL3y_BorDEiepb',            label: 'Life',       group: 'Photos' },
-    { href: '/videos',                                               label: 'Videos',     group: 'Videos' },
+    { href: '/videos',                                               label: 'Videos',         group: 'Videos' },
+    { href: '/videos/arjun',                                         label: 'Arjun',          group: 'Videos' },
+    { href: '/videos/family-travel',                                 label: 'Family Travel',  group: 'Videos' },
     { href: '/favorites',                                            label: 'Favorites',  group: null     },
     { href: '/memories',                                             label: 'Memories',   group: null     },
   ] as const

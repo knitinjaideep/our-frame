@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowRight, Clock, Play } from 'lucide-react'
 import { useHomeFeed } from '@/hooks/use-home-feed'
 import { useRootBuckets } from '@/hooks/use-root-buckets'
+import { useSlideshow } from '@/hooks/use-slideshow'
 import { HeroSlideshow } from '@/components/home/hero-slideshow'
 import { PhotoGrid } from '@/components/photos/photo-grid'
 import { AlbumGridSkeleton } from '@/components/albums/album-grid-skeleton'
@@ -92,6 +93,7 @@ function SectionHead({
 
 export default function HomePage() {
   const { data, error } = useHomeFeed()
+  const { data: slideshowPhotos } = useSlideshow()
   const { data: bucketsData, isLoading: bucketsLoading } = useRootBuckets()
 
   const hasThrowbacks = (data?.throwbacks ?? []).length > 0
@@ -108,7 +110,7 @@ export default function HomePage() {
     <div>
       {/* ── 1. Hero ── */}
       <HeroSlideshow
-        photos={data?.hero_photos ?? []}
+        photos={slideshowPhotos ?? []}
         familyName="Kotcherlakota"
       />
 
@@ -176,12 +178,10 @@ export default function HomePage() {
               linkLabel="All videos"
             />
             {/* Video tiles — cinematic placeholder cards when no videos are present */}
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2">
               {[
-                { label: 'Arjun',           eyebrow: 'Growing Up',   href: '/videos/arjun'      },
-                { label: 'Travel Films',    eyebrow: 'On the Road',  href: '/videos/travel'     },
-                { label: 'Family Moments',  eyebrow: 'Everyday',     href: '/videos/family'     },
-                { label: 'Highlights',      eyebrow: 'The Big Days', href: '/videos/highlights' },
+                { label: 'Arjun',           eyebrow: 'Growing Up',   href: '/videos/arjun'          },
+                { label: 'Family Travel',   eyebrow: 'On the Road',  href: '/videos/family-travel'  },
               ].map((item) => (
                 <Link
                   key={item.href}

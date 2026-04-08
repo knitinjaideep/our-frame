@@ -2,10 +2,11 @@
 
 from typing import Optional
 import os
+import mimetypes
 from io import BytesIO
 
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse, Response
 from googleapiclient.errors import HttpError
 from PIL import Image
 
@@ -137,8 +138,9 @@ def list_children(parentId: Optional[str] = None):
 @router.get("/file/{file_id}/thumbnail")
 def thumbnail(file_id: str, s: int = Query(600, ge=64, le=2000)):
   """
-  Returns a JPEG thumbnail (max size s×s) for a Drive file.
-  Used by thumbSrc(photo, size) on the frontend.
+  Returns a JPEG thumbnail (max size s×s) for a Drive image file.
+  Only called for image files — video files have thumbnail_url=None
+  and are served via /stream instead.
 
   HEIC/HEIF & other formats are handled via open_image(), which should
   be configured with pillow-heif in drive/image_utils.py.
@@ -254,5 +256,65 @@ def download(file_id: str):
     media_type=mime,
     headers={
       "Content-Disposition": f'attachment; filename="{filename}"'
+    },
+  )
+
+
+# ---------------------------
+# GET /drive/file/{id}/stream
+# ---------------------------
+
+@router.get("/file/{file_id}/stream")
+def stream_video(file_id: str, request: Request):
+  """
+  Stream a video file with HTTP range request support so browsers can
+  seek, scrub, and play without downloading the whole file first.
+  """
+  svc, reauth = _ensure_drive()
+  if reauth is not None:
+    return reauth
+
+  try:
+    meta = svc.files().get(fileId=file_id, fields="name,mimeType,size").execute()
+    raw = download_file_bytes(svc, file_id)
+  except HttpError as e:
+    raise HTTPException(status_code=502, detail=f"Drive download error: {e}")
+
+  mime = meta.get("mimeType", "video/mp4")
+  total = len(raw)
+
+  range_header = request.headers.get("range")
+  if range_header:
+    # Parse "bytes=start-end"
+    try:
+      byte_range = range_header.replace("bytes=", "").strip()
+      start_str, end_str = byte_range.split("-")
+      start = int(start_str)
+      end = int(end_str) if end_str else total - 1
+    except Exception:
+      raise HTTPException(status_code=400, detail="Invalid Range header")
+
+    end = min(end, total - 1)
+    chunk = raw[start : end + 1]
+    return Response(
+      content=chunk,
+      status_code=206,
+      media_type=mime,
+      headers={
+        "Content-Range": f"bytes {start}-{end}/{total}",
+        "Accept-Ranges": "bytes",
+        "Content-Length": str(len(chunk)),
+        "Cache-Control": "public, max-age=3600",
+      },
+    )
+
+  return Response(
+    content=raw,
+    status_code=200,
+    media_type=mime,
+    headers={
+      "Accept-Ranges": "bytes",
+      "Content-Length": str(total),
+      "Cache-Control": "public, max-age=3600",
     },
   )

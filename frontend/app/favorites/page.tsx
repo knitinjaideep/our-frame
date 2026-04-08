@@ -13,7 +13,7 @@ export default function FavoritesPage() {
   const photos: Photo[] = (data?.favorites ?? []).map((f) => ({
     id: f.photo_id,
     name: f.photo_name,
-    mime_type: 'image/jpeg',
+    mime_type: f.mime_type,
     created_time: f.favorited_at,
     thumbnail_url: f.thumbnail_url,
     preview_url: f.preview_url,

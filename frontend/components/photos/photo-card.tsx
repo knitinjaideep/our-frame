@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { Play } from 'lucide-react'
 import { mediaUrl } from '@/lib/api-client'
 import { FavoriteButton } from './favorite-button'
 import type { Photo } from '@/types'
@@ -14,6 +15,7 @@ interface PhotoCardProps {
 export function PhotoCard({ photo, folderId, priority = false, onClick }: PhotoCardProps) {
   const [loaded, setLoaded] = useState(false)
   const [hovered, setHovered] = useState(false)
+  const isVideo = photo.mime_type?.startsWith('video/')
 
   return (
     <div
@@ -30,22 +32,32 @@ export function PhotoCard({ photo, folderId, priority = false, onClick }: PhotoC
       onMouseLeave={() => setHovered(false)}
       onClick={onClick}
     >
-      {/* Skeleton shimmer */}
-      {!loaded && (
+      {/* Skeleton shimmer for images while loading */}
+      {!loaded && !isVideo && (
         <div className="absolute inset-0 skeleton-shimmer" />
       )}
 
-      <img
-        src={mediaUrl(photo.thumbnail_url)}
-        alt={photo.name}
-        loading={priority ? 'eager' : 'lazy'}
-        onLoad={() => setLoaded(true)}
-        className={`h-full w-full object-cover ${loaded ? 'opacity-100' : 'opacity-0'}`}
-        style={{
-          transform: hovered ? 'scale(1.06)' : 'scale(1)',
-          transition: 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease',
-        }}
-      />
+      {/* Dark base for videos (no thumbnail) */}
+      {isVideo && (
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(135deg, oklch(0.11 0.012 48) 0%, oklch(0.08 0.006 46) 100%)' }}
+        />
+      )}
+
+      {photo.thumbnail_url && (
+        <img
+          src={mediaUrl(photo.thumbnail_url)}
+          alt={photo.name}
+          loading={priority ? 'eager' : 'lazy'}
+          onLoad={() => setLoaded(true)}
+          className={`h-full w-full object-cover ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          style={{
+            transform: hovered ? 'scale(1.06)' : 'scale(1)',
+            transition: 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease',
+          }}
+        />
+      )}
 
       {/* Warm cinematic hover overlay */}
       <div
@@ -57,6 +69,24 @@ export function PhotoCard({ photo, folderId, priority = false, onClick }: PhotoC
           transition: 'background 0.35s ease',
         }}
       />
+
+      {/* Play icon overlay for videos */}
+      {isVideo && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-full backdrop-blur-sm"
+            style={{
+              background: 'oklch(0.70 0.145 58 / 20%)',
+              border: '1px solid oklch(0.70 0.145 58 / 45%)',
+              boxShadow: '0 0 20px oklch(0.70 0.145 58 / 25%)',
+              transform: hovered ? 'scale(1.15)' : 'scale(1)',
+              transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+            <Play className="h-4 w-4" style={{ color: 'var(--amber)', fill: 'var(--amber)', marginLeft: '2px' }} />
+          </div>
+        </div>
+      )}
 
       {/* Favorite button — top right, fades in on hover */}
       <div
