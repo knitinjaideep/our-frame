@@ -9,7 +9,7 @@ import { mediaUrl } from '@/lib/api-client'
 const VIDEO_BUCKETS = [
   {
     href: '/videos/arjun',
-    sectionKey: 'featured_child' as const,
+    sectionKey: 'arjun_videos' as const,
     eyebrow: 'Growing Up',
     title: 'Arjun',
     description: 'Every laugh, every first. His story in motion.',
@@ -17,31 +17,13 @@ const VIDEO_BUCKETS = [
     gradient: 'linear-gradient(135deg, oklch(0.13 0.018 48) 0%, oklch(0.20 0.025 55) 60%, oklch(0.16 0.022 52) 100%)',
   },
   {
-    href: '/videos/travel',
-    sectionKey: 'travel' as const,
+    href: '/videos/family-travel',
+    sectionKey: 'family_travel_videos' as const,
     eyebrow: 'On the Road',
-    title: 'Travel Films',
+    title: 'Family Travel',
     description: 'Places we have been. Moments that moved us.',
     accentColor: 'oklch(0.65 0.130 200)',
     gradient: 'linear-gradient(135deg, oklch(0.12 0.015 210) 0%, oklch(0.19 0.022 200) 60%, oklch(0.14 0.018 205) 100%)',
-  },
-  {
-    href: '/videos/family',
-    sectionKey: 'life' as const,
-    eyebrow: 'Everyday Life',
-    title: 'Family Moments',
-    description: 'The in-between moments. The ones we almost missed.',
-    accentColor: 'oklch(0.62 0.095 300)',
-    gradient: 'linear-gradient(135deg, oklch(0.12 0.012 295) 0%, oklch(0.18 0.018 300) 60%, oklch(0.13 0.015 305) 100%)',
-  },
-  {
-    href: '/videos/highlights',
-    sectionKey: 'milestones' as const,
-    eyebrow: 'The Big Days',
-    title: 'Highlights',
-    description: 'Milestones, celebrations, the moments that anchor us.',
-    accentColor: 'oklch(0.72 0.14 350)',
-    gradient: 'linear-gradient(135deg, oklch(0.12 0.015 345) 0%, oklch(0.19 0.020 355) 60%, oklch(0.14 0.016 350) 100%)',
   },
 ] as const
 
@@ -178,11 +160,8 @@ function VideoBucketCard({
 export default function VideosPage() {
   const { data } = useSections()
 
-  // Pick the first album's thumbnail from the matching section as a background
-  const getThumbnail = (key: (typeof VIDEO_BUCKETS)[number]['sectionKey']) => {
-    const albums = data?.[key] ?? []
-    return albums[0]?.thumbnail_url ?? null
-  }
+  // Video buckets use gradient backgrounds (no section thumbnail needed)
+  const getThumbnail = (_key: (typeof VIDEO_BUCKETS)[number]['sectionKey']) => null
 
   return (
     <div className="content-padding py-12 pb-24 max-w-6xl">
@@ -195,7 +174,7 @@ export default function VideosPage() {
         <p className="text-eyebrow-gold mb-3">Stories in Motion</p>
         <h1 className="text-display-sm font-serif text-foreground">Videos</h1>
         <p className="mt-3 text-sm text-muted-foreground max-w-md leading-relaxed">
-          Four chapters. Every film we have made together.
+          Every film we have made together — growing up and on the road.
         </p>
       </motion.div>
 

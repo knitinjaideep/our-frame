@@ -15,7 +15,7 @@ export interface Photo {
   name: string
   mime_type: string
   created_time: string | null
-  thumbnail_url: string
+  thumbnail_url: string | null
   preview_url: string
   is_favorite: boolean
   width: number | null
@@ -27,8 +27,9 @@ export interface Favorite {
   photo_name: string
   folder_id: string | null
   favorited_at: string
-  thumbnail_url: string
+  thumbnail_url: string | null
   preview_url: string
+  mime_type: string
 }
 
 export interface MemoryStats {
@@ -72,6 +73,13 @@ export interface SectionsResponse {
   travel: Album[]
   milestones: Album[]
   life: Album[]
+  arjun_videos: Album[]
+  family_travel_videos: Album[]
+}
+
+export interface VideoFilesResponse {
+  videos: Photo[]
+  total: number
 }
 
 export interface SectionMapping {

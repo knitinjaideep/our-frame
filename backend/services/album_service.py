@@ -27,12 +27,13 @@ def _preview_url(photo_id: str, width: int = 1600) -> str:
 
 
 def _to_photo_response(p: DrivePhoto, fav_ids: set[str]) -> PhotoResponse:
+    is_video = p.mime_type and p.mime_type.startswith("video/")
     return PhotoResponse(
         id=p.id,
         name=p.name,
         mime_type=p.mime_type,
         created_time=p.created_time,
-        thumbnail_url=_photo_url(p.id),
+        thumbnail_url=None if is_video else _photo_url(p.id),
         preview_url=_preview_url(p.id),
         is_favorite=p.id in fav_ids,
         width=p.width,
@@ -96,6 +97,31 @@ def get_root_buckets(session: Session) -> AlbumsListResponse:
     return AlbumsListResponse(albums=summaries, total=len(summaries))
 
 
+_STRUCTURAL_FOLDERS = {"photos", "videos"}
+
+
+def _is_structural(album: DriveAlbum) -> bool:
+    """True for Drive folders that are internal structure (Photos, Videos) — not real albums."""
+    return album.name.lower() in _STRUCTURAL_FOLDERS
+
+
+def _flatten_subfolders(session: Session, parent_id: str) -> list[DriveAlbum]:
+    """
+    Return the real sub-albums for a parent, skipping structural Photos/Videos
+    folders and surfacing their children instead.
+    e.g. Arjun → [Photos, Videos] → flattened to children of Photos + children of Videos
+    """
+    direct = album_repo.get_by_parent(session, parent_id)
+    result: list[DriveAlbum] = []
+    for a in direct:
+        if _is_structural(a):
+            # Flatten: include this structural folder's children instead
+            result.extend(album_repo.get_by_parent(session, a.id))
+        else:
+            result.append(a)
+    return result
+
+
 def get_album_detail(
     session: Session,
     album_id: str,
@@ -105,6 +131,9 @@ def get_album_detail(
     Return album detail from DB.
     Triggers a shallow sync of just this folder to keep photos fresh.
     Falls back gracefully to stale cache if Drive is unreachable.
+
+    Structural sub-folders named "Photos" or "Videos" are NOT shown in the UI;
+    their children are merged directly into the subfolders list.
     """
     # Shallow sync this specific album on open (bounded cost — one folder)
     try:
@@ -114,7 +143,7 @@ def get_album_detail(
 
     album = album_repo.get_by_id(session, album_id)
     photos = photo_repo.get_by_folder(session, album_id)
-    subfolders_raw = album_repo.get_by_parent(session, album_id)
+    subfolders_flat = _flatten_subfolders(session, album_id)
 
     album_summary = _to_album_summary(album) if album else AlbumSummary(
         id=album_id, name="Album", cover_photo_id=None, photo_count=None, thumbnail_url=None
@@ -123,5 +152,5 @@ def get_album_detail(
     return AlbumDetail(
         album=album_summary,
         photos=[_to_photo_response(p, fav_ids) for p in photos],
-        subfolders=[_to_album_summary(a) for a in subfolders_raw],
+        subfolders=[_to_album_summary_with_resolved_cover(session, a) for a in subfolders_flat],
     )

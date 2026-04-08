@@ -2,9 +2,10 @@
 import { useState } from 'react'
 import Lightbox from 'yet-another-react-lightbox'
 import Download from 'yet-another-react-lightbox/plugins/download'
+import Video from 'yet-another-react-lightbox/plugins/video'
 import 'yet-another-react-lightbox/styles.css'
 import { PhotoCard } from './photo-card'
-import { mediaUrl, downloadUrl, previewUrl } from '@/lib/api-client'
+import { mediaUrl, downloadUrl, previewUrl, videoStreamUrl } from '@/lib/api-client'
 import type { Photo } from '@/types'
 
 interface PhotoGridProps {
@@ -15,13 +16,27 @@ interface PhotoGridProps {
 export function PhotoGrid({ photos, folderId }: PhotoGridProps) {
   const [lightboxIndex, setLightboxIndex] = useState(-1)
 
-  const slides = photos.map((p) => ({
-    src: mediaUrl(previewUrl(p.id)),
-    download: downloadUrl(p.id),
-    alt: p.name,
-    width: p.width ?? undefined,
-    height: p.height ?? undefined,
-  }))
+  const slides = photos.map((p) => {
+    const isVideo = p.mime_type?.startsWith('video/')
+    if (isVideo) {
+      return {
+        type: 'video' as const,
+        sources: [{ src: videoStreamUrl(p.id), type: p.mime_type }],
+        download: downloadUrl(p.id),
+        poster: p.thumbnail_url ? mediaUrl(p.thumbnail_url) : undefined,
+        alt: p.name,
+        width: p.width ?? undefined,
+        height: p.height ?? undefined,
+      }
+    }
+    return {
+      src: mediaUrl(previewUrl(p.id)),
+      download: downloadUrl(p.id),
+      alt: p.name,
+      width: p.width ?? undefined,
+      height: p.height ?? undefined,
+    }
+  })
 
   if (photos.length === 0) {
     return (
@@ -51,7 +66,7 @@ export function PhotoGrid({ photos, folderId }: PhotoGridProps) {
         index={lightboxIndex}
         close={() => setLightboxIndex(-1)}
         slides={slides}
-        plugins={[Download]}
+        plugins={[Download, Video]}
         styles={{ container: { backgroundColor: 'rgba(0,0,0,0.96)' } }}
       />
     </>

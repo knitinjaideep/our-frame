@@ -20,7 +20,8 @@ from sqlmodel import Session, select
 
 from repositories import album_repo, photo_repo
 from schemas.album import AlbumSummary
-from schemas.sections import SectionsResponse
+from schemas.photo import PhotoResponse
+from schemas.sections import SectionsResponse, VideoFilesResponse
 from models.album import DriveAlbum
 from models.section_mapping import SectionMapping
 
@@ -149,6 +150,53 @@ def _get_root_section(session: Session, album: DriveAlbum, explicit: dict[str, s
     return None
 
 
+def _get_root_parent(session: Session, album: DriveAlbum) -> DriveAlbum:
+    """Walk up to the root (parent_id is None) and return it."""
+    current = album
+    while current.parent_id is not None:
+        parent = album_repo.get_by_id(session, current.parent_id)
+        if parent is None:
+            break
+        current = parent
+    return current
+
+
+def _get_video_sections(session: Session, all_albums: list[DriveAlbum]) -> dict[str, list[AlbumSummary]]:
+    """
+    Find all folders named 'Videos' (case-insensitive) anywhere in the tree.
+    Each one is bucketed based on the name of its root ancestor:
+      - root ancestor 'Arjun'        → arjun_videos
+      - root ancestor 'Travel' or folder named 'Family Travel' → family_travel_videos
+
+    This supports structures like:
+      our-frame/Arjun/Videos/       → arjun_videos
+      our-frame/Videos/Arjun/       → arjun_videos
+      our-frame/Videos/FamilyTravel/ → family_travel_videos
+    """
+    result: dict[str, list[AlbumSummary]] = {
+        "arjun_videos": [],
+        "family_travel_videos": [],
+    }
+
+    for album in all_albums:
+        name_lower = album.name.lower()
+
+        # Case 1: this folder IS a "Videos" folder → bucket by its root ancestor
+        if name_lower == "videos":
+            root = _get_root_parent(session, album)
+            root_name = root.name.lower()
+            if "arjun" in root_name:
+                result["arjun_videos"].append(_to_summary(session, album))
+            elif "travel" in root_name:
+                result["family_travel_videos"].append(_to_summary(session, album))
+
+        # Case 2: folder named "Family Travel" (direct or nested) → family_travel_videos
+        elif "family travel" in name_lower:
+            result["family_travel_videos"].append(_to_summary(session, album))
+
+    return result
+
+
 def get_sections(session: Session) -> SectionsResponse:
     from sqlmodel import select as sql_select
     all_albums = list(session.exec(
@@ -184,12 +232,52 @@ def get_sections(session: Session) -> SectionsResponse:
                     if key == section_key:
                         result[section_key].append(_to_summary(session, album))
 
+    video_sections = _get_video_sections(session, all_albums)
+
     return SectionsResponse(
         featured_child=result["child"],
         travel=result["travel"],
         milestones=result["milestones"],
         life=result["life"],
+        arjun_videos=video_sections["arjun_videos"],
+        family_travel_videos=video_sections["family_travel_videos"],
     )
+
+
+def get_video_files(
+    session: Session,
+    section_key: str,
+    fav_ids: set[str],
+) -> VideoFilesResponse:
+    """
+    Return the actual video files (not album cards) for a video section.
+    Collects all video-mime files from every album in the given section.
+    """
+    from sqlmodel import select as sql_select
+    all_albums = list(session.exec(
+        sql_select(DriveAlbum).where(DriveAlbum.excluded == False)  # noqa: E712
+    ).all())
+    video_sections = _get_video_sections(session, all_albums)
+    section_albums = video_sections.get(section_key, [])
+
+    videos: list[PhotoResponse] = []
+    for album_summary in section_albums:
+        files = photo_repo.get_by_folder(session, album_summary.id)
+        for p in files:
+            if p.mime_type and p.mime_type.startswith("video/"):
+                videos.append(PhotoResponse(
+                    id=p.id,
+                    name=p.name,
+                    mime_type=p.mime_type,
+                    created_time=p.created_time,
+                    thumbnail_url=None,
+                    preview_url=f"/drive/file/{p.id}/preview?w=1600",
+                    is_favorite=p.id in fav_ids,
+                    width=p.width,
+                    height=p.height,
+                ))
+
+    return VideoFilesResponse(videos=videos, total=len(videos))
 
 
 # ── Section mapping management ────────────────────────────────────────────────

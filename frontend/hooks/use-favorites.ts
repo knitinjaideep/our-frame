@@ -23,12 +23,18 @@ export function useToggleFavorite() {
   const add = useMutation({
     mutationFn: (vars: { photo_id: string; photo_name: string; folder_id?: string }) =>
       apiClient.post('/favorites', vars),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.favorites.all }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.favorites.all })
+      qc.invalidateQueries({ queryKey: queryKeys.slideshow.all })
+    },
   })
 
   const remove = useMutation({
     mutationFn: (photo_id: string) => apiClient.delete(`/favorites/${photo_id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.favorites.all }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.favorites.all })
+      qc.invalidateQueries({ queryKey: queryKeys.slideshow.all })
+    },
   })
 
   return { add, remove }

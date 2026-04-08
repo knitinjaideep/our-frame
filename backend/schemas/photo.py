@@ -8,7 +8,7 @@ class PhotoResponse(BaseModel):
     name: str
     mime_type: str
     created_time: Optional[datetime]
-    thumbnail_url: str
+    thumbnail_url: Optional[str]
     preview_url: str
     is_favorite: bool = False
     width: Optional[int] = None

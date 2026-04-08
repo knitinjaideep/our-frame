@@ -14,8 +14,9 @@ class FavoriteResponse(BaseModel):
     photo_name: str
     folder_id: Optional[str]
     favorited_at: datetime
-    thumbnail_url: str
+    thumbnail_url: Optional[str]
     preview_url: str
+    mime_type: str = "image/jpeg"
 
 
 class FavoritesListResponse(BaseModel):
