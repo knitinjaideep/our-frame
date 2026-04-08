@@ -15,6 +15,16 @@ def list_albums(session: Session = Depends(get_db)):
     return album_service.get_root_albums(session)
 
 
+@router.get("/buckets", response_model=AlbumsListResponse)
+def list_root_buckets(session: Session = Depends(get_db)):
+    """
+    Returns the actual top-level Drive folders as navigation buckets.
+    These are the source of truth for the /photos page and homepage.
+    Each bucket gets its own cover resolved recursively from its contents.
+    """
+    return album_service.get_root_buckets(session)
+
+
 @router.get("/{album_id}", response_model=AlbumDetail)
 def get_album(
     album_id: str,

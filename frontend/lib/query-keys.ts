@@ -2,6 +2,7 @@ export const queryKeys = {
   albums: {
     all: ['albums'] as const,
     detail: (id: string) => ['albums', id] as const,
+    buckets: ['albums', 'buckets'] as const,
   },
   favorites: {
     all: ['favorites'] as const,

@@ -7,15 +7,14 @@ import { useState, useRef } from 'react'
 
 /* ── Nav information architecture ── */
 const PHOTOS_ITEMS = [
-  { href: '/arjun',       label: 'Arjun',          eyebrow: 'Growing Up'         },
-  { href: '/travel',      label: 'Family Travel',   eyebrow: 'Adventures Together' },
-  { href: '/photography', label: 'The Lens',         eyebrow: 'Portfolio'          },
+  { href: '/albums/1JMutj12MQTZcbkhzBE1W8pH0TCt2GxVf', label: 'Arjun',      eyebrow: 'Growing Up'        },
+  { href: '/albums/1xbcuOKAcRofSo0KwjEykYV3rXnmAmd8J', label: 'Travel',     eyebrow: 'Adventures'        },
+  { href: '/albums/1fyt_9BebLuyEyx7w8El1Bo4Nfs9h-59A', label: 'Milestones', eyebrow: 'Anchor Memories'   },
+  { href: '/albums/1PMDy1-M23ZRkPxuaQ8IL3y_BorDEiepb', label: 'Life',       eyebrow: 'People & Moments'  },
 ] as const
 
 const VIDEOS_ITEMS = [
-  { href: '/videos/arjun',       label: 'Arjun Films',    eyebrow: 'Growing Up'    },
-  { href: '/videos/travel',      label: 'Travel Films',   eyebrow: 'On the Road'   },
-  { href: '/videos/stories',     label: 'Stories',        eyebrow: 'Film Diary'    },
+  { href: '/videos', label: 'All Videos', eyebrow: 'Browse' },
 ] as const
 
 type NavDropdownKey = 'photos' | 'videos' | null
@@ -68,8 +67,8 @@ export function TopNav() {
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
 
-  const photosActive = isActive('/photos') || PHOTOS_ITEMS.some((i) => isActive(i.href))
-  const videosActive = VIDEOS_ITEMS.some((i) => isActive(i.href))
+  const photosActive = isActive('/photos') || isActive('/albums')
+  const videosActive = isActive('/videos')
 
   const openDropdown = (key: NavDropdownKey) => {
     if (leaveTimer.current) clearTimeout(leaveTimer.current)
@@ -81,12 +80,15 @@ export function TopNav() {
 
   /* Mobile: all items flattened */
   const allMobileItems = [
-    { href: '/',            label: 'Home',           group: null },
-    { href: '/arjun',       label: 'Arjun',          group: 'Photos' },
-    { href: '/travel',      label: 'Family Travel',  group: 'Photos' },
-    { href: '/photography', label: 'The Lens',       group: 'Photos' },
-    { href: '/favorites',   label: 'Favorites',      group: null },
-    { href: '/memories',    label: 'Memories',       group: null },
+    { href: '/',                                                     label: 'Home',       group: null     },
+    { href: '/photos',                                               label: 'Photos',     group: 'Photos' },
+    { href: '/albums/1JMutj12MQTZcbkhzBE1W8pH0TCt2GxVf',            label: 'Arjun',      group: 'Photos' },
+    { href: '/albums/1xbcuOKAcRofSo0KwjEykYV3rXnmAmd8J',            label: 'Travel',     group: 'Photos' },
+    { href: '/albums/1fyt_9BebLuyEyx7w8El1Bo4Nfs9h-59A',            label: 'Milestones', group: 'Photos' },
+    { href: '/albums/1PMDy1-M23ZRkPxuaQ8IL3y_BorDEiepb',            label: 'Life',       group: 'Photos' },
+    { href: '/videos',                                               label: 'Videos',     group: 'Videos' },
+    { href: '/favorites',                                            label: 'Favorites',  group: null     },
+    { href: '/memories',                                             label: 'Memories',   group: null     },
   ] as const
 
   return (
@@ -122,7 +124,8 @@ export function TopNav() {
             onMouseEnter={() => openDropdown('photos')}
             onMouseLeave={scheduleClose}
           >
-            <button
+            <Link
+              href="/photos"
               className={`top-nav__link top-nav__link--btn${photosActive ? ' top-nav__link--btn-active' : ''}`}
               aria-expanded={activeDropdown === 'photos'}
             >
@@ -137,7 +140,7 @@ export function TopNav() {
                 <motion.span className="top-nav__active-bar" layoutId="active-bar"
                   transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }} />
               )}
-            </button>
+            </Link>
             <AnimatePresence>
               {activeDropdown === 'photos' && (
                 <NavDropdown

@@ -3,6 +3,7 @@ export interface Album {
   name: string
   cover_photo_id: string | null
   photo_count: number | null
+  child_count: number | null
   thumbnail_url: string | null
   // Phase 1 additions — may be absent from older cached responses
   excluded?: boolean
@@ -69,12 +70,13 @@ export interface FavoritesListResponse {
 export interface SectionsResponse {
   featured_child: Album[]
   travel: Album[]
-  photography: Album[]
+  milestones: Album[]
+  life: Album[]
 }
 
 export interface SectionMapping {
   id: number | null
   folder_id: string
-  section_key: 'child' | 'travel' | 'photography'
+  section_key: 'child' | 'travel' | 'milestones' | 'life'
   label: string | null
 }

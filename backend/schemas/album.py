@@ -8,6 +8,7 @@ class AlbumSummary(BaseModel):
     name: str
     cover_photo_id: Optional[str]
     photo_count: Optional[int]
+    child_count: Optional[int]
     thumbnail_url: Optional[str]
 
 

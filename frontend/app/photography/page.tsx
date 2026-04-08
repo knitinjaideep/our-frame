@@ -1,20 +1,6 @@
 'use client'
-import { useSections } from '@/hooks/use-sections'
-import { SectionWorldPage } from '@/components/sections/section-world-page'
+import { redirect } from 'next/navigation'
 
-export default function PhotographyPage() {
-  const { data, isLoading, error } = useSections()
-
-  return (
-    <SectionWorldPage
-      albums={data?.photography ?? []}
-      isLoading={isLoading}
-      error={error}
-      eyebrow="Our Story in Frames"
-      heading="The Lens"
-      description="Stills that hold a world. Photography as a personal archive."
-      emptyMessage="No photography albums found. Map a Google Drive folder to this section in Settings."
-      accentColor="muted"
-    />
-  )
+export default function PhotographyRedirect() {
+  redirect('/life')
 }

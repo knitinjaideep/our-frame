@@ -5,9 +5,10 @@ Stored in DB so the mapping is configurable without code changes.
 A folder mapped here takes precedence over keyword-based auto-categorization.
 
 section_key values used by the app:
-  "child"       — child/Arjun world
-  "travel"      — travel world
-  "photography" — photography world
+  "child"       — Arjun / growing up
+  "travel"      — travel & adventures
+  "milestones"  — life events (wedding, engagement, birthdays)
+  "life"        — everything else (friends, family, photography)
 """
 from datetime import datetime
 from typing import Optional
