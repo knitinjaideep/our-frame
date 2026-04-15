@@ -1,10 +1,8 @@
 'use client'
 import { useState } from 'react'
-import Lightbox from 'yet-another-react-lightbox'
-import Download from 'yet-another-react-lightbox/plugins/download'
 import Video from 'yet-another-react-lightbox/plugins/video'
-import 'yet-another-react-lightbox/styles.css'
 import { PhotoCard } from './photo-card'
+import { ResilientLightbox, type LightboxSlide } from './resilient-lightbox'
 import { mediaUrl, downloadUrl, previewUrl, videoStreamUrl } from '@/lib/api-client'
 import type { Photo } from '@/types'
 
@@ -16,7 +14,7 @@ interface PhotoGridProps {
 export function PhotoGrid({ photos, folderId }: PhotoGridProps) {
   const [lightboxIndex, setLightboxIndex] = useState(-1)
 
-  const slides = photos.map((p) => {
+  const slides: LightboxSlide[] = photos.map((p) => {
     const isVideo = p.mime_type?.startsWith('video/')
     if (isVideo) {
       return {
@@ -35,6 +33,7 @@ export function PhotoGrid({ photos, folderId }: PhotoGridProps) {
       alt: p.name,
       width: p.width ?? undefined,
       height: p.height ?? undefined,
+      photoId: p.id,
     }
   })
 
@@ -61,13 +60,11 @@ export function PhotoGrid({ photos, folderId }: PhotoGridProps) {
         ))}
       </div>
 
-      <Lightbox
+      <ResilientLightbox
         open={lightboxIndex >= 0}
         index={lightboxIndex}
-        close={() => setLightboxIndex(-1)}
         slides={slides}
-        plugins={[Download, Video]}
-        styles={{ container: { backgroundColor: 'rgba(0,0,0,0.96)' } }}
+        onClose={() => setLightboxIndex(-1)}
       />
     </>
   )

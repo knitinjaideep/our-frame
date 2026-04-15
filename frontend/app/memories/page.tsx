@@ -10,7 +10,7 @@ export default function MemoriesPage() {
   const throwbacks = data?.throwbacks ?? []
 
   return (
-    <div className="content-padding py-8 space-y-10 pb-16 max-w-7xl">
+    <div className="content-padding py-8 space-y-10 pb-16">
       <PageHeader
         title="Moments That Stay"
         description="Photos from this day in past years"

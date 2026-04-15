@@ -23,7 +23,7 @@ export default function FavoritesPage() {
   }))
 
   return (
-    <div className="content-padding py-8 space-y-8 pb-16 max-w-7xl">
+    <div className="content-padding py-8 space-y-8 pb-16">
       <PageHeader
         title="The Ones We Love"
         description={
