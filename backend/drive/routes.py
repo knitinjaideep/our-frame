@@ -2,6 +2,8 @@
 
 from typing import Optional
 import os
+import logging
+import time
 import mimetypes
 from io import BytesIO
 
@@ -14,6 +16,32 @@ from config import ROOT_FOLDER_ID as CONFIG_ROOT_ID
 from .service import get_drive_service, download_file_bytes, ReauthRequired
 from .image_utils import open_image, to_jpeg_bytes
 from responses import reauth_json
+
+logger = logging.getLogger(__name__)
+
+
+def _download_with_retry(svc, file_id: str, max_attempts: int = 3) -> bytes:
+    """
+    Download file bytes from Drive with retry on transient errors (429, 500, 503).
+    Raises HttpError if all attempts fail.
+    """
+    last_exc = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return download_file_bytes(svc, file_id)
+        except HttpError as e:
+            status = e.resp.status if hasattr(e, 'resp') else 0
+            if status in (429, 500, 503) and attempt < max_attempts:
+                wait = 2 ** (attempt - 1)  # 1s, 2s backoff
+                logger.warning(
+                    "[drive] transient error %s for file_id=%s attempt=%d/%d — retrying in %ds",
+                    status, file_id, attempt, max_attempts, wait,
+                )
+                time.sleep(wait)
+                last_exc = e
+                continue
+            raise
+    raise last_exc  # type: ignore[misc]
 
 router = APIRouter()
 
@@ -149,9 +177,12 @@ def thumbnail(file_id: str, s: int = Query(600, ge=64, le=2000)):
   if reauth is not None:
     return reauth
 
+  logger.debug("[drive] thumbnail request file_id=%s size=%d", file_id, s)
+
   try:
-    raw = download_file_bytes(svc, file_id)
+    raw = _download_with_retry(svc, file_id)
   except HttpError as e:
+    logger.error("[drive] thumbnail download FAILED file_id=%s error=%s", file_id, e)
     raise HTTPException(status_code=502, detail=f"Drive download error: {e}")
 
   try:
@@ -159,8 +190,10 @@ def thumbnail(file_id: str, s: int = Query(600, ge=64, le=2000)):
     img.thumbnail((s, s))
     jpeg_bytes = to_jpeg_bytes(img, quality=80)
   except Exception as e:
+    logger.error("[drive] thumbnail processing FAILED file_id=%s error=%s", file_id, e)
     raise HTTPException(status_code=500, detail=f"thumbnail failed: {e}")
 
+  logger.debug("[drive] thumbnail OK file_id=%s", file_id)
   return StreamingResponse(
     jpeg_bytes,
     media_type="image/jpeg",
@@ -176,7 +209,7 @@ def thumbnail(file_id: str, s: int = Query(600, ge=64, le=2000)):
 def preview(file_id: str, w: int = Query(1600, ge=400, le=4096)):
   """
   Larger JPEG preview for the lightbox.
-  Frontend calls previewSrc(photo, 1600) for this.
+  Frontend calls previewUrl(photo.id, 1600) for this.
 
   HEIC/HEIF & other formats are handled via open_image().
   """
@@ -184,9 +217,12 @@ def preview(file_id: str, w: int = Query(1600, ge=400, le=4096)):
   if reauth is not None:
     return reauth
 
+  logger.debug("[drive] preview request file_id=%s width=%d", file_id, w)
+
   try:
-    raw = download_file_bytes(svc, file_id)
+    raw = _download_with_retry(svc, file_id)
   except HttpError as e:
+    logger.error("[drive] preview download FAILED file_id=%s error=%s", file_id, e)
     raise HTTPException(status_code=502, detail=f"Drive download error: {e}")
 
   try:
@@ -196,13 +232,31 @@ def preview(file_id: str, w: int = Query(1600, ge=400, le=4096)):
       img = img.resize((w, h), Image.LANCZOS)
     jpeg_bytes = to_jpeg_bytes(img, quality=85)
   except Exception as e:
+    logger.error("[drive] preview processing FAILED file_id=%s mime_hint=%s error=%s",
+                 file_id, _sniff_format(raw[:16]), e)
     raise HTTPException(status_code=500, detail=f"preview failed: {e}")
 
+  logger.debug("[drive] preview OK file_id=%s", file_id)
   return StreamingResponse(
     jpeg_bytes,
     media_type="image/jpeg",
     headers={"Cache-Control": "public, max-age=31536000"},
   )
+
+
+def _sniff_format(header: bytes) -> str:
+  """Return a quick file-format hint from the first 16 bytes (for logging)."""
+  if header[:4] == b'\x00\x00\x00\x18' or header[4:8] in (b'ftyp', b'heic', b'heix', b'mif1'):
+    return "heic/heif"
+  if header[:8] == b'\x89PNG\r\n\x1a\n':
+    return "png"
+  if header[:3] == b'\xff\xd8\xff':
+    return "jpeg"
+  if header[:4] in (b'RIFF', b'WEBP'):
+    return "webp"
+  if header[:2] in (b'BM',):
+    return "bmp"
+  return f"unknown({header[:4].hex()})"
 
 
 # ---------------------------

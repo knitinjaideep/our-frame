@@ -1,6 +1,4 @@
 'use client'
-import { useRef } from 'react'
-import { motion, useInView, useReducedMotion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowRight, Clock, Play } from 'lucide-react'
 import { useHomeFeed } from '@/hooks/use-home-feed'
@@ -10,31 +8,8 @@ import { HeroSlideshow } from '@/components/home/hero-slideshow'
 import { PhotoGrid } from '@/components/photos/photo-grid'
 import { AlbumGridSkeleton } from '@/components/albums/album-grid-skeleton'
 import { BucketCard } from '@/components/buckets/bucket-card'
+import { SectionReveal } from '@/components/ui/section-reveal'
 import { BUCKETS } from '@/lib/buckets'
-
-/* ── Fade-in on scroll ── */
-function SectionReveal({
-  children,
-  delay = 0,
-}: {
-  children: React.ReactNode
-  delay?: number
-}) {
-  const ref    = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { once: true, margin: '-80px 0px' })
-  const reduce = useReducedMotion()
-
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: reduce ? 0 : 22 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.8, delay, ease: [0.16, 1, 0.3, 1] }}
-    >
-      {children}
-    </motion.div>
-  )
-}
 
 /* ── Section divider ── */
 function Divider() {

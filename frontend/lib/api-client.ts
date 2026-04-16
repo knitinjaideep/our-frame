@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000'
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000'
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -54,6 +54,10 @@ export function thumbnailUrl(photoId: string, size = 600): string {
 
 export function previewUrl(photoId: string, width = 1600): string {
   return `${API_BASE}/drive/file/${encodeURIComponent(photoId)}/preview?w=${width}`
+}
+
+export function contentUrl(photoId: string): string {
+  return `${API_BASE}/drive/file/${encodeURIComponent(photoId)}/content`
 }
 
 export function downloadUrl(photoId: string): string {

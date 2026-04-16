@@ -7,7 +7,7 @@ A private family photo vault powered by Google Drive. Browse albums, save favori
 ## Features
 
 - **Google Drive Integration** — Your existing Drive folder structure becomes your album library. No migration needed.
-- **Full-Window Hero Slideshow** — Cinematic, full-viewport crossfade carousel on the home page with a Ken Burns effect.
+- **Full-Window Hero Slideshow** — Cinematic, full-viewport crossfade carousel with a Ken Burns effect.
 - **Albums** — Nested folder browsing with cover images, sub-album support, and a full lightbox viewer.
 - **Favorites** — Heart any photo. Revisit your curated collection from the home page or the Favorites view.
 - **On This Day** — Photos from this month and day in past years surface automatically.
@@ -20,68 +20,52 @@ A private family photo vault powered by Google Drive. Browse albums, save favori
 
 ## Tech Stack
 
-| Layer            | Technology                                             |
-|------------------|--------------------------------------------------------|
-| Frontend         | Next.js 16, React 19, TypeScript, Tailwind CSS v4      |
-| UI Components    | shadcn/ui, Lucide React, Framer Motion                 |
-| Data Fetching    | TanStack Query (React Query) v5                        |
-| Backend          | FastAPI, Uvicorn, Python 3.11+                         |
-| Database         | SQLite via SQLModel + SQLAlchemy 2                     |
-| Auth             | Google OAuth 2.0                                       |
-| Storage          | Google Drive API (read-only)                           |
-| Image Processing | Pillow, pillow-heif (HEIC/HEIF)                        |
-| AI (optional)    | OpenAI API, LangChain                                  |
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js (App Router), React 19, TypeScript, Tailwind CSS v4 |
+| UI Components | shadcn/ui, Lucide React, Framer Motion |
+| Data Fetching | TanStack Query (React Query) v5 |
+| Backend | FastAPI, Uvicorn, Python 3.11+ |
+| Database | SQLite via SQLModel + SQLAlchemy 2 |
+| Auth | Google OAuth 2.0 |
+| Storage | Google Drive API (read-only) |
+| Image Processing | Pillow, pillow-heif (HEIC/HEIF) |
+| AI (optional) | OpenAI API, LangChain |
 
 ---
 
-## Project Structure
+## Architecture
+
+The app is split into two services that run together:
+
+- **Backend** — FastAPI Python server. Reads your Google Drive, caches metadata in SQLite, serves a REST API, and proxies image files with HEIC conversion and thumbnail resizing.
+- **Frontend** — Next.js app. Consumes the backend API and renders the editorial UI.
+
+The backend reads your Drive folder structure: each subfolder inside your root Drive folder becomes an album. Photo metadata is stored locally in `backend/data/ourframe.db` for fast queries.
 
 ```
 our-frame/
 ├── backend/
-│   ├── api/                    # Versioned API routes
-│   │   ├── albums/             # GET /albums, GET /albums/:id
-│   │   ├── favorites/          # GET/POST/DELETE /favorites
-│   │   ├── home/               # GET /home/feed
-│   │   └── drive/              # Drive proxy routes
+│   ├── api/                    # Versioned API routes (albums, favorites, home, drive)
 │   ├── auth/                   # Google OAuth routes
-│   │   └── routes.py           # /auth/start, /auth/callback, /auth/status
-│   ├── core/
-│   │   ├── config.py           # Pydantic settings (loads from .env)
-│   │   └── database.py         # SQLModel session + DB init
+│   ├── core/                   # Config (Pydantic settings) + DB session
 │   ├── models/                 # SQLModel table definitions
-│   ├── repositories/           # Data access layer (queries)
+│   ├── repositories/           # Data access layer
 │   ├── schemas/                # Pydantic response models
 │   ├── services/               # Business logic
-│   │   └── home_feed_service.py  # Assembles the home page feed
 │   ├── drive/                  # Drive API wrapper + image utils
 │   ├── data/                   # SQLite DB + cache (gitignored)
 │   ├── main.py                 # FastAPI app entry point
-│   ├── requirements.txt
-│   └── .env                    # Local secrets (not committed)
+│   └── requirements.txt
 │
-├── frontend/                   # Next.js 16 app (the real frontend)
-│   ├── app/                    # Next.js App Router pages
-│   │   ├── page.tsx            # Home page
-│   │   ├── layout.tsx          # Root layout (sidebar + providers)
-│   │   ├── globals.css         # Tailwind v4 + design tokens
-│   │   ├── albums/             # /albums and /albums/[id]
-│   │   ├── favorites/          # /favorites
-│   │   ├── memories/           # /memories (throwbacks)
-│   │   └── search/             # /search (coming soon)
-│   ├── components/
-│   │   ├── home/               # HeroSlideshow, MemoryStrip, FavoritesStrip
-│   │   ├── albums/             # AlbumCard, AlbumGrid, skeletons
-│   │   ├── photos/             # PhotoCard, PhotoGrid, FavoriteButton, skeletons
-│   │   ├── layout/             # Sidebar, Providers
-│   │   ├── ui/                 # SectionHeader, Button, Badge, Skeleton
-│   │   └── providers/          # ThemeProvider
-│   ├── hooks/                  # useHomeFeed, useAlbums, useFavorites
-│   ├── lib/                    # api-client, query-keys, utils
-│   ├── types/                  # TypeScript interfaces
-│   ├── DESIGN_SYSTEM.md        # Design language reference
-│   └── package.json
+├── frontend/                   # Next.js app
+│   ├── app/                    # App Router pages (home, albums, favorites, memories)
+│   ├── components/             # UI components
+│   ├── hooks/                  # React Query hooks
+│   ├── lib/                    # API client, query keys, utils
+│   └── types/                  # TypeScript interfaces
 │
+├── docs/                       # Deeper documentation
 └── package.json                # Root scripts (runs both services)
 ```
 
@@ -185,29 +169,6 @@ npm run dev:frontend   # Next.js on http://localhost:3000
 
 ---
 
-## How Google Drive Integration Works
-
-The backend reads your Drive folder structure using the Google Drive API:
-
-1. **Folders → Albums**: Each subfolder inside your root Drive folder becomes an album.
-2. **Photos**: Image files inside folders are fetched, cached, and served via FastAPI with HEIC conversion and thumbnail resizing.
-3. **Sync**: The backend stores album/photo metadata in a local SQLite database (`backend/data/ourframe.db`) for fast queries.
-4. **Home feed**: The `/home/feed` endpoint assembles hero photos, featured albums, recent albums, throwbacks, and stats in a single call.
-
----
-
-## How Auth Works
-
-Authentication uses Google OAuth 2.0:
-
-- `GET /auth/start` — redirects the user to Google's consent screen
-- `GET /auth/callback` — receives the authorization code, exchanges it for tokens, saves `token.json`, and redirects to the frontend
-- `GET /auth/status` — returns `{ authenticated: bool }` — used by the frontend to check login state
-
-The frontend automatically redirects to `/auth/start` on any `401` response.
-
----
-
 ## Building for Production
 
 ```bash
@@ -215,48 +176,19 @@ npm run build          # Builds Next.js frontend to frontend/.next/
 npm run start:backend  # Runs FastAPI without hot reload
 ```
 
-For production, serve the Next.js app with `npm start` (inside `frontend/`) and run FastAPI behind a reverse proxy (Nginx or Caddy). Both services can run on the same host.
+For production, serve the Next.js app with `npm start` (inside `frontend/`) and run FastAPI behind a reverse proxy (Nginx or Caddy).
 
 ---
 
-## API Reference
+## Troubleshooting
 
-### Auth
-
-| Method | Endpoint          | Description                        |
-|--------|-------------------|------------------------------------|
-| GET    | `/auth/start`     | Initiate Google OAuth flow         |
-| GET    | `/auth/callback`  | OAuth redirect handler             |
-| GET    | `/auth/status`    | Check if authenticated             |
-
-### Home
-
-| Method | Endpoint        | Description                                        |
-|--------|-----------------|---------------------------------------------------|
-| GET    | `/home/feed`    | Hero photos, albums, throwbacks, stats             |
-
-### Albums
-
-| Method | Endpoint            | Description                        |
-|--------|---------------------|------------------------------------|
-| GET    | `/albums`           | List all root albums               |
-| GET    | `/albums/:id`       | Album detail + photos + sub-albums |
-
-### Favorites
-
-| Method | Endpoint            | Description                        |
-|--------|---------------------|------------------------------------|
-| GET    | `/favorites`        | List all favorited photos          |
-| POST   | `/favorites`        | Add a photo to favorites           |
-| DELETE | `/favorites/:id`    | Remove a photo from favorites      |
-
-### Drive (media proxy)
-
-| Method | Endpoint                            | Description                      |
-|--------|-------------------------------------|----------------------------------|
-| GET    | `/drive/file/:id/thumbnail?s=<px>`  | Thumbnail (64–2000px)            |
-| GET    | `/drive/file/:id/preview?w=<px>`    | Preview (400–4096px)             |
-| GET    | `/drive/file/:id/download`          | Original file download           |
+| Issue | Fix |
+|---|---|
+| "Google OAuth not configured" | Check `backend/.env` has valid credentials and restart the backend |
+| Frontend shows auth error | Navigate to `http://localhost:8000/auth/start` and complete the OAuth flow |
+| `No local token.json` | The OAuth flow didn't complete — try `/auth/start` again |
+| Photos not loading | Check the Drive API is enabled and the root folder ID is correct |
+| HEIC photos blank | Ensure `pillow-heif` is installed: `pip install pillow-heif` |
 
 ---
 
@@ -271,15 +203,14 @@ For production, serve the Next.js app with `npm start` (inside `frontend/`) and 
 
 ---
 
-## Troubleshooting
+## Documentation
 
-| Issue | Fix |
-|-------|-----|
-| "Google OAuth not configured" | Check `backend/.env` has valid credentials and restart the backend |
-| Frontend shows auth error | Navigate to `http://localhost:8000/auth/start` and complete the OAuth flow |
-| `No local token.json` | The OAuth flow didn't complete — try `/auth/start` again |
-| Photos not loading | Check the Drive API is enabled and the root folder ID is correct |
-| HEIC photos blank | Ensure `pillow-heif` is installed: `pip install pillow-heif` |
+| Doc | Description |
+|---|---|
+| [docs/api.md](docs/api.md) | Full REST API reference |
+| [docs/frontend.md](docs/frontend.md) | Frontend architecture, components, hooks, and types |
+| [docs/design-system.md](docs/design-system.md) | Design tokens, typography, color palette, and component recipes |
+| [frontend/README.md](frontend/README.md) | Frontend quick-start |
 
 ---
 

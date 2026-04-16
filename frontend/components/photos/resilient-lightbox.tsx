@@ -4,21 +4,24 @@
  *
  * Wraps yet-another-react-lightbox with a custom image slide renderer that:
  *  1. Shows a spinner while the image loads
- *  2. On first failure: retries the same URL once
- *  3. On second failure: retries with a cache-busting query param
- *  4. On third failure: falls back to a large thumbnail URL (if photoId is available)
- *  5. Shows a clean error state with a manual retry button after all fallbacks fail
+ *  2. On first failure: retries the same URL once (in case of transient network glitch)
+ *  3. On second failure: retries with a cache-busting query param (stale cache eviction)
+ *  4. On third failure: falls back to the content endpoint (raw bytes, no processing)
+ *  5. On fourth failure: falls back to a large thumbnail URL (re-encoded JPEG, different path)
+ *  6. Shows a clean error state with a manual retry button only after all fallbacks fail
  *
- * Navigation to a new slide always resets load state for that slide.
+ * Each fallback attempt is logged to the console so failing file IDs are easy to trace.
+ *
+ * Navigation to a new slide always remounts this component (key={photoId}).
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import Lightbox from 'yet-another-react-lightbox'
 import Download from 'yet-another-react-lightbox/plugins/download'
 import Video from 'yet-another-react-lightbox/plugins/video'
 import 'yet-another-react-lightbox/styles.css'
 import type { RenderSlideProps, SlideImage } from 'yet-another-react-lightbox'
-import { thumbnailUrl } from '@/lib/api-client'
+import { thumbnailUrl, contentUrl } from '@/lib/api-client'
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -29,21 +32,36 @@ function cacheBust(url: string): string {
   return `${url}${sep}_cb=${Date.now()}`
 }
 
-/** URL sequence to try for a given photo */
+/** Returns the ordered list of URLs to try for a given photo. */
 function buildFallbackChain(originalSrc: string, photoId?: string): string[] {
   const chain = [
-    originalSrc,           // 1. normal preview
-    originalSrc,           // 2. retry same URL
-    cacheBust(originalSrc), // 3. cache-busted
+    originalSrc,            // 1. normal preview
+    originalSrc,            // 2. retry same (transient network glitch)
+    cacheBust(originalSrc), // 3. cache-busted preview (evict stale cached 4xx/5xx)
   ]
   if (photoId) {
-    chain.push(thumbnailUrl(photoId, 1600)) // 4. large thumbnail
+    // 4. content endpoint — raw bytes, no server-side image processing
+    chain.push(contentUrl(photoId))
+    // 5. large thumbnail — re-encoded JPEG via different code path
+    chain.push(thumbnailUrl(photoId, 1600))
   }
   return chain
 }
 
+const FALLBACK_LABELS = [
+  'preview (attempt 1)',
+  'preview (attempt 2)',
+  'preview cache-busted',
+  'content endpoint',
+  'large thumbnail',
+]
+
 // ─────────────────────────────────────────────
 // Single image slide with retry logic
+//
+// KEY DESIGN: this component is given key={photoId ?? originalSrc} by the
+// parent renderer, so React fully unmounts/remounts it on every navigation.
+// This guarantees zero state leakage between photos.
 // ─────────────────────────────────────────────
 
 interface ImageSlideRendererProps {
@@ -60,42 +78,48 @@ function ImageSlideRenderer({ slide, offset, photoId }: ImageSlideRendererProps)
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
 
-  // When this component re-renders for a new slide (src changed), reset state
-  const prevOriginalSrc = useRef(originalSrc)
-  useEffect(() => {
-    if (prevOriginalSrc.current !== originalSrc) {
-      prevOriginalSrc.current = originalSrc
-      setAttemptIndex(0)
-      setLoaded(false)
-      setFailed(false)
-    }
-  }, [originalSrc])
-
   const currentSrc = chain[Math.min(attemptIndex, chain.length - 1)]
   const isRetrying = attemptIndex > 0 && !loaded && !failed
 
   const handleLoad = useCallback(() => {
+    if (attemptIndex > 0) {
+      console.info(
+        `[lightbox] ✓ file_id=${photoId ?? '?'} loaded via fallback: ${FALLBACK_LABELS[attemptIndex] ?? attemptIndex}`,
+      )
+    }
     setLoaded(true)
     setFailed(false)
-  }, [])
+  }, [attemptIndex, photoId])
 
   const handleError = useCallback(() => {
+    const label = FALLBACK_LABELS[attemptIndex] ?? `attempt ${attemptIndex}`
+    console.warn(
+      `[lightbox] ✗ file_id=${photoId ?? '?'} failed: ${label} | url=${currentSrc}`,
+    )
+
     setAttemptIndex((prev) => {
       const next = prev + 1
       if (next >= chain.length) {
+        console.error(
+          `[lightbox] ✗✗ file_id=${photoId ?? '?'} ALL fallbacks exhausted after ${chain.length} attempts`,
+        )
         setFailed(true)
         return prev
       }
+      console.info(
+        `[lightbox] → file_id=${photoId ?? '?'} trying fallback: ${FALLBACK_LABELS[next] ?? next}`,
+      )
       return next
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chain.length])
+  }, [chain.length, attemptIndex, currentSrc, photoId])
 
   const handleManualRetry = useCallback(() => {
+    console.info(`[lightbox] manual retry triggered for file_id=${photoId ?? '?'}`)
     setAttemptIndex(0)
     setLoaded(false)
     setFailed(false)
-  }, [])
+  }, [photoId])
 
   // Don't render image element for slides far off screen
   if (Math.abs(offset) > 1) return null
@@ -203,7 +227,7 @@ function ImageSlideRenderer({ slide, offset, photoId }: ImageSlideRendererProps)
       {!failed && currentSrc && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          key={`${originalSrc}::${attemptIndex}`}
+          key={`${photoId ?? originalSrc}::${attemptIndex}`}
           src={currentSrc}
           alt={slide.alt ?? ''}
           onLoad={handleLoad}
@@ -232,7 +256,7 @@ export interface ResilientImageSlide {
   alt?: string
   width?: number
   height?: number
-  /** Google Drive file ID — used for large-thumbnail fallback */
+  /** Google Drive file ID — used for content + thumbnail fallbacks */
   photoId?: string
 }
 
@@ -267,8 +291,13 @@ export function ResilientLightbox({ open, index, slides, onClose }: ResilientLig
           !('type' in s) && s.src === imageSlide.src,
       )
 
+      // KEY = photoId (or src as fallback) so React remounts on every navigation,
+      // preventing stale loaded/failed state from leaking between photos.
+      const stableKey = matchingSlide?.photoId ?? imageSlide.src ?? String(offset)
+
       return (
         <ImageSlideRenderer
+          key={stableKey}
           slide={imageSlide}
           offset={offset}
           photoId={matchingSlide?.photoId}

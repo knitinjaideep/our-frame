@@ -1,30 +1,14 @@
 'use client'
-import { useRef } from 'react'
-import { motion, useInView, useReducedMotion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { useRootBuckets } from '@/hooks/use-root-buckets'
 import { useAlbumDetail } from '@/hooks/use-albums'
 import { AlbumCard } from '@/components/albums/album-card'
 import { AlbumGridSkeleton } from '@/components/albums/album-grid-skeleton'
+import { SectionReveal } from '@/components/ui/section-reveal'
 import { BUCKETS } from '@/lib/buckets'
 import type { Album } from '@/types'
-
-function SectionReveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { once: true, margin: '-80px 0px' })
-  const reduce = useReducedMotion()
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: reduce ? 0 : 22 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.8, delay, ease: [0.16, 1, 0.3, 1] }}
-    >
-      {children}
-    </motion.div>
-  )
-}
 
 /** Albums strip for one bucket — loads subfolders from the album detail endpoint */
 function BucketAlbums({ bucketId, accentColor }: { bucketId: string; accentColor: string }) {

@@ -1,6 +1,5 @@
 'use client'
 import { useState } from 'react'
-import Video from 'yet-another-react-lightbox/plugins/video'
 import { PhotoCard } from './photo-card'
 import { ResilientLightbox, type LightboxSlide } from './resilient-lightbox'
 import { mediaUrl, downloadUrl, previewUrl, videoStreamUrl } from '@/lib/api-client'
