@@ -18,9 +18,8 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   })
 
   if (res.status === 401) {
-    if (typeof window !== 'undefined') {
-      window.location.href = `${API_BASE}/auth/start`
-    }
+    // Throw — let AuthGate / useCurrentUser handle the redirect to /login.
+    // Never redirect to the legacy /auth/start here.
     throw new ApiError(401, 'Unauthorized')
   }
 
@@ -39,6 +38,8 @@ export const apiClient = {
   get: <T>(path: string) => apiFetch<T>(path),
   post: <T>(path: string, body: unknown) =>
     apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+  patch: <T>(path: string, body: unknown) =>
+    apiFetch<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: (path: string) => apiFetch<void>(path, { method: 'DELETE' }),
 }
 

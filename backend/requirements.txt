@@ -18,6 +18,11 @@ pillow-heif
 # Additional utilities
 requests==2.31.0
 
+# Phase 1 — multi-user platform
+# Token encryption for DriveConnection.encrypted_*_token fields
+# Generate a key: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+cryptography>=42.0.0
+
 # AI (optional — only needed when ai_enabled=true)
 # openai>=1.0.0
 # langchain-openai 

@@ -3,7 +3,8 @@ import { Geist } from "next/font/google";
 import { Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/layout/providers";
-import { TopNav } from "@/components/layout/top-nav";
+import { ConditionalShell } from "@/components/layout/conditional-shell";
+import { AuthGate } from "@/components/auth/auth-gate";
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -36,10 +37,11 @@ export default function RootLayout({
     >
       <body className="min-h-screen bg-background text-foreground antialiased">
         <Providers>
-          <TopNav />
-          <main className="min-h-screen pt-[var(--topbar-height)]">
-            {children}
-          </main>
+          <AuthGate>
+            <ConditionalShell>
+              {children}
+            </ConditionalShell>
+          </AuthGate>
         </Providers>
       </body>
     </html>

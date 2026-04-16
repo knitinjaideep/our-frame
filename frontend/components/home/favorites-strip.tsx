@@ -28,7 +28,7 @@ function FavTile({ fav }: { fav: Favorite }) {
       onMouseLeave={() => setHovered(false)}
     >
       <img
-        src={mediaUrl(fav.thumbnail_url)}
+        src={mediaUrl(fav.thumbnail_url ?? '')}
         alt={fav.photo_name}
         loading="lazy"
         className="h-full w-full object-cover"

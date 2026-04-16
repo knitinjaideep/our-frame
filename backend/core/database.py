@@ -5,14 +5,19 @@ from .config import settings
 
 def _get_engine():
     db_url = settings.database_url
-    # Ensure the data/ directory exists for SQLite
+    connect_args = {}
+
     if db_url.startswith("sqlite:///"):
+        # Ensure the data/ directory exists for SQLite
         db_path = Path(db_url.replace("sqlite:///", ""))
         db_path.parent.mkdir(parents=True, exist_ok=True)
+        # SQLite requires this in a multithreaded FastAPI app
+        connect_args = {"check_same_thread": False}
+
     return create_engine(
         db_url,
         echo=settings.debug,
-        connect_args={"check_same_thread": False},
+        connect_args=connect_args,
     )
 
 

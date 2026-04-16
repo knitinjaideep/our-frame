@@ -5,6 +5,7 @@ __pycache__/
 dist/
 *.pyc
 *.sqlite
+*.db
 .mypy_cache/
 .vscode/
 .next/

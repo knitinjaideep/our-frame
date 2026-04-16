@@ -2,8 +2,9 @@
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { Menu, X, ChevronDown } from 'lucide-react'
+import { Menu, X, ChevronDown, Settings, LogOut, ShieldCheck } from 'lucide-react'
 import { useState, useRef } from 'react'
+import { useCurrentUser, useLogout } from '@/hooks/use-auth'
 
 /* ── Nav information architecture ── */
 const PHOTOS_ITEMS = [
@@ -56,6 +57,77 @@ function NavDropdown({
         </Link>
       ))}
     </motion.div>
+  )
+}
+
+function UserMenu() {
+  const { data: user } = useCurrentUser()
+  const logout = useLogout()
+  const [open, setOpen] = useState(false)
+
+  if (!user) return null
+
+  return (
+    <div className="relative" onMouseLeave={() => setOpen(false)}>
+      <button
+        onMouseEnter={() => setOpen(true)}
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 rounded-full overflow-hidden border border-border hover:border-primary/40 transition-colors"
+        aria-label="User menu"
+      >
+        {user.avatar_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={user.avatar_url} alt={user.display_name ?? ''} className="w-8 h-8 rounded-full" />
+        ) : (
+          <span className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs text-primary font-medium">
+            {(user.display_name ?? user.email)[0]?.toUpperCase()}
+          </span>
+        )}
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="absolute right-0 top-full mt-2 w-52 bg-popover border border-border rounded-xl shadow-lg overflow-hidden z-50"
+            initial={{ opacity: 0, y: -6, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.97 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="px-4 py-3 border-b border-border">
+              <p className="text-xs font-medium text-foreground truncate">{user.display_name}</p>
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+            </div>
+            <div className="py-1">
+              <Link
+                href="/settings"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
+              >
+                <Settings className="w-3.5 h-3.5 text-muted-foreground" />
+                Settings
+              </Link>
+              {user.is_platform_admin && (
+                <Link
+                  href="/admin"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground" />
+                  Admin
+                </Link>
+              )}
+              <button
+                onClick={() => logout.mutate()}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5 text-muted-foreground" />
+                Sign out
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }
 
@@ -207,6 +279,11 @@ export function TopNav() {
             )
           })}
         </nav>
+
+        {/* User menu */}
+        <div className="hidden lg:block">
+          <UserMenu />
+        </div>
 
         {/* Mobile hamburger */}
         <button
