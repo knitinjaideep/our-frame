@@ -1,6 +1,6 @@
 # Our Frame Media Cache State
 
-Status: Phase 2 complete
+Status: Phase 3 complete
 
 Last updated: 2026-08-22
 
@@ -35,7 +35,7 @@ Observed issue:
 | 0 | Planning | Complete | 1d6413a |
 | 1 | Data Model | Complete | b75621a |
 | 2 | Drive Metadata Sync | Complete | 1a1eff5 |
-| 3 | Local Photo Derivative Cache | Pending | |
+| 3 | Local Photo Derivative Cache | Complete | pending commit |
 | 4 | Video Posters | Pending | |
 | 5 | MP4 Video Derivatives | Pending | |
 | 6 | Processing Queue | Pending | |
@@ -47,7 +47,7 @@ Observed issue:
 
 ## Next Action
 
-Begin Phase 3 from `docs/media-cache/PROMPTS.md`: local photo derivative cache.
+Begin Phase 4 from `docs/media-cache/PROMPTS.md`: video posters.
 
 ## Completed Checks
 
@@ -65,6 +65,27 @@ Begin Phase 3 from `docs/media-cache/PROMPTS.md`: local photo derivative cache.
 - 2026-08-22: Phase 2 backend syntax check passed.
 - 2026-08-22: Phase 2 in-memory sync smoke check passed for a fake QuickTime video with thumbnail and duration metadata.
 - 2026-08-22: Phase 2 reviewer returned `REVIEW STATUS: PASS`.
+- 2026-08-22: Phase 3 added local media cache root config and gitignore entry for `backend/data/media-cache/`.
+- 2026-08-22: Phase 3 added photo derivative service for thumbnail, grid, and preview JPEG derivatives.
+- 2026-08-22: Phase 3 added `/media/file/{drive_file_id}/{kind}` route with cache-first serving and legacy Drive fallback.
+- 2026-08-22: Phase 3 backend syntax check passed.
+- 2026-08-22: Phase 3 synthetic in-memory derivative check passed and confirmed ready derivative reuse.
+- 2026-08-22: Phase 3 reviewer returned `REVIEW STATUS: FAIL` for two blockers: unauthenticated private media route and item-level ready status after only one derivative.
+- 2026-08-22: Phase 3 route now requires the existing app session and checks workspace owner/member access when `workspace_id` is present.
+- 2026-08-22: Phase 3 cached file responses now use private cache headers.
+- 2026-08-22: Phase 3 photo derivative generation now creates thumbnail, grid, and preview derivatives together before marking the item ready.
+- 2026-08-22: Phase 3 synthetic derivative check passed: one thumbnail request generated all three photo derivatives and item status became ready only after all three existed.
+- 2026-08-22: Phase 3 direct authorization check passed for owner, member, legacy authenticated user, and unrelated user denial.
+- 2026-08-22: Phase 3 second reviewer returned `REVIEW STATUS: FAIL` for two route/service consistency blockers: unknown Drive IDs could fall back to legacy routes, and workspace-authorized media was not the same row used for derivative generation.
+- 2026-08-22: Phase 3 route authorization now returns the exact authorized `MediaItem`; unknown Drive IDs return 404 before fallback and inaccessible workspace media returns 403.
+- 2026-08-22: Phase 3 derivative service now supports generation from an already-authorized `MediaItem`, so workspace-only media uses the same row for auth and derivative lookup.
+- 2026-08-22: Phase 3 route/service smoke check passed for unknown ID denial, workspace denial, workspace-only derivative generation, legacy authenticated access, and all three photo derivatives.
+- 2026-08-22: Phase 3 frontend production build passed with `npm run build`.
+- 2026-08-22: Phase 3 third reviewer returned `REVIEW STATUS: FAIL` for two privacy hardening issues: generation failures still redirected to legacy Drive routes, and local cache paths were scoped only by Drive file ID.
+- 2026-08-22: Phase 3 removed legacy fallback redirects from the authenticated media-cache route.
+- 2026-08-22: Phase 3 photo derivative storage keys now include the media item ID before the Drive file ID to avoid cross-workspace cache path sharing.
+- 2026-08-22: Phase 3 hardened smoke check passed for duplicate Drive IDs across workspace and legacy rows, scoped cache paths, unknown ID denial, and all three derivatives.
+- 2026-08-22: Phase 3 final hardening reviewer returned `REVIEW STATUS: PASS`.
 
 ## Phase 0 Planning Summary
 

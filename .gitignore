@@ -15,3 +15,6 @@ dist/
 client_secrets.json
 token.pickle
 token.json
+
+# Generated media derivatives
+backend/data/media-cache/

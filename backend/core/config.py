@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # App
     frontend_root: str = "http://localhost:3000"
     database_url: str = "sqlite:///./data/ourframe.db"
+    media_cache_root: str = "./data/media-cache"
     debug: bool = False
 
     # Session

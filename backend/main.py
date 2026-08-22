@@ -22,6 +22,7 @@ from api.home.routes import router as home_router
 from api.sections.routes import router as sections_router
 from api.sync.routes import router as sync_router
 from api.settings.routes import router as settings_router
+from api.media.routes import router as media_router
 
 # Phase 1 — platform foundation routers
 from api.auth.routes import router as auth_v2_router
@@ -102,6 +103,7 @@ app.include_router(home_router)
 app.include_router(sections_router)
 app.include_router(sync_router)
 app.include_router(settings_router)
+app.include_router(media_router)
 
 # ── Phase 1 — Platform foundation ────────────────────────────────────────────
 app.include_router(auth_v2_router)       # /api/auth/...
