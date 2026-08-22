@@ -29,7 +29,7 @@ export default function AlbumDetailPage({ params }: { params: Promise<{ id: stri
         {/* Breadcrumb */}
         <nav className="flex items-center gap-1.5 text-xs mb-5" aria-label="Breadcrumb">
           <Link
-            href="/"
+            href="/home"
             className="transition-colors"
             style={{ color: 'var(--muted-foreground)' }}
           >

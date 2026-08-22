@@ -316,7 +316,7 @@ export function TopNav() {
 
   /* Mobile: all items flattened */
   const allMobileItems = [
-    { href: '/',                                                     label: 'Home',       group: null     },
+    { href: '/home',                                                 label: 'Home',       group: null     },
     { href: '/photos',                                               label: 'Photos',     group: 'Photos' },
     { href: '/albums/1JMutj12MQTZcbkhzBE1W8pH0TCt2GxVf',            label: 'Arjun',      group: 'Photos' },
     { href: '/albums/1xbcuOKAcRofSo0KwjEykYV3rXnmAmd8J',            label: 'Travel',     group: 'Photos' },
@@ -334,7 +334,7 @@ export function TopNav() {
       {/* ── Top bar ── */}
       <header className="top-nav">
         {/* Brand wordmark — uses workspace name */}
-        <Link href="/" className="top-nav__logo" aria-label={`${brandName} — Home`}>
+        <Link href="/home" className="top-nav__logo" aria-label={`${brandName} — Home`}>
           <span className="top-nav__wordmark font-serif text-gold-shimmer">{brandName}</span>
           {familyLine && (
             <span className="top-nav__family font-sans">{familyLine}</span>
@@ -346,13 +346,13 @@ export function TopNav() {
 
           {/* Home — flat link */}
           <Link
-            href="/"
+            href="/home"
             className="top-nav__link"
-            aria-current={isActive('/') ? 'page' : undefined}
-            data-active={isActive('/') ? '' : undefined}
+            aria-current={isActive('/home') ? 'page' : undefined}
+            data-active={isActive('/home') ? '' : undefined}
           >
             Home
-            {isActive('/') && (
+            {isActive('/home') && (
               <motion.span className="top-nav__active-bar" layoutId="active-bar"
                 transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }} />
             )}
