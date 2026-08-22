@@ -38,7 +38,7 @@ Observed issue:
 | 3 | Local Photo Derivative Cache | Complete | bbd0ba5 |
 | 4 | Video Posters | Complete | 1840d01 |
 | 5 | MP4 Video Derivatives | Complete | 15b6ffc |
-| 6 | Processing Queue | Complete | pending commit |
+| 6 | Processing Queue | Complete | 056dcda |
 | 7 | Frontend Media URLs | Pending | |
 | 8 | API Response Compatibility | Pending | |
 | 9 | Local End-to-End Verification | Pending | |
