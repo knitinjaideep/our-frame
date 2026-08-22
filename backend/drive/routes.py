@@ -330,26 +330,46 @@ def stream_video(file_id: str, request: Request):
 
   try:
     meta = svc.files().get(fileId=file_id, fields="name,mimeType,size").execute()
-    raw = download_file_bytes(svc, file_id)
   except HttpError as e:
-    raise HTTPException(status_code=502, detail=f"Drive download error: {e}")
+    raise HTTPException(status_code=502, detail=f"Drive metadata error: {e}")
 
   mime = meta.get("mimeType", "video/mp4")
-  total = len(raw)
+  total = int(meta.get("size") or 0)
 
   range_header = request.headers.get("range")
-  if range_header:
+  if range_header and total > 0:
     # Parse "bytes=start-end"
     try:
       byte_range = range_header.replace("bytes=", "").strip()
       start_str, end_str = byte_range.split("-")
-      start = int(start_str)
-      end = int(end_str) if end_str else total - 1
+      if start_str:
+        start = int(start_str)
+        end = int(end_str) if end_str else total - 1
+      else:
+        # Suffix range: "bytes=-500" means the last 500 bytes.
+        suffix_len = int(end_str)
+        start = max(total - suffix_len, 0)
+        end = total - 1
     except Exception:
       raise HTTPException(status_code=400, detail="Invalid Range header")
 
+    if start >= total:
+      return Response(
+        status_code=416,
+        headers={
+          "Content-Range": f"bytes */{total}",
+          "Accept-Ranges": "bytes",
+        },
+      )
+
     end = min(end, total - 1)
-    chunk = raw[start : end + 1]
+    try:
+      media_req = svc.files().get_media(fileId=file_id)
+      media_req.headers["Range"] = f"bytes={start}-{end}"
+      chunk = media_req.execute()
+    except HttpError as e:
+      raise HTTPException(status_code=502, detail=f"Drive stream error: {e}")
+
     return Response(
       content=chunk,
       status_code=206,
@@ -361,6 +381,14 @@ def stream_video(file_id: str, request: Request):
         "Cache-Control": "public, max-age=3600",
       },
     )
+
+  try:
+    raw = download_file_bytes(svc, file_id)
+  except HttpError as e:
+    raise HTTPException(status_code=502, detail=f"Drive download error: {e}")
+
+  if total <= 0:
+    total = len(raw)
 
   return Response(
     content=raw,
