@@ -1,6 +1,6 @@
 # Our Frame Media Cache State
 
-Status: Phase 4 ready to commit
+Status: Phase 5 pending
 
 Last updated: 2026-08-22
 
@@ -36,7 +36,7 @@ Observed issue:
 | 1 | Data Model | Complete | b75621a |
 | 2 | Drive Metadata Sync | Complete | 1a1eff5 |
 | 3 | Local Photo Derivative Cache | Complete | bbd0ba5 |
-| 4 | Video Posters | Complete | pending |
+| 4 | Video Posters | Complete | 1840d01 |
 | 5 | MP4 Video Derivatives | Pending | |
 | 6 | Processing Queue | Pending | |
 | 7 | Frontend Media URLs | Pending | |
@@ -47,7 +47,7 @@ Observed issue:
 
 ## Next Action
 
-Commit Phase 4, record the commit SHA, then continue with Phase 5 MP4 video derivatives.
+Begin Phase 5 MP4 video derivative implementation.
 
 ## Completed Checks
 
