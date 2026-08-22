@@ -1,6 +1,6 @@
 # Our Frame Media Cache State
 
-Status: Phase 8 complete
+Status: Phase 9 complete
 
 Last updated: 2026-08-22
 
@@ -41,13 +41,13 @@ Observed issue:
 | 6 | Processing Queue | Complete | 056dcda |
 | 7 | Frontend Media URLs | Complete | d42cbab |
 | 8 | API Response Compatibility | Complete | bd29616 |
-| 9 | Local End-to-End Verification | Pending | |
+| 9 | Local End-to-End Verification | Complete | pending commit |
 | 10 | Documentation | Pending | |
 | 11 | Final Review | Pending | |
 
 ## Next Action
 
-Begin Phase 9 from `docs/media-cache/PROMPTS.md`: local end-to-end verification.
+Begin Phase 10 from `docs/media-cache/PROMPTS.md`: documentation.
 
 ## Completed Checks
 
@@ -126,6 +126,12 @@ Begin Phase 9 from `docs/media-cache/PROMPTS.md`: local end-to-end verification.
 - 2026-08-22: Phase 8 frontend media type union now matches backend values: `image`, `video`, or `unknown`.
 - 2026-08-22: Phase 8 favorite-create smoke check passed for video poster/playback/status fields and unknown media type handling.
 - 2026-08-22: Phase 8 second reviewer returned `REVIEW STATUS: PASS`.
+- 2026-08-22: Phase 9 verified local SQLite schema startup; current local DB contains 1459 `media_items` and 0 `media_derivatives` before processing.
+- 2026-08-22: Phase 9 verified routes are registered for `/media/file/{drive_file_id}/{kind}`, `/api/admin/media/queue`, `/api/admin/media/process`, and `/sync/media/status`.
+- 2026-08-22: Phase 9 backend syntax check passed for media derivative, queue, response, route, and schema files.
+- 2026-08-22: Phase 9 frontend production build passed with `npm run build`.
+- 2026-08-22: Phase 9 backend runtime check passed: `uvicorn main:app --host 127.0.0.1 --port 8000` started and `/health` returned `{"ok":true,"version":"2.0"}`.
+- 2026-08-22: Phase 9 did not process real Drive videos during automated verification to avoid long local transcoding without an explicit media target.
 
 ## Phase 0 Planning Summary
 
