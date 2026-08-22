@@ -6,12 +6,14 @@ from models.favorite import Favorite
 
 def _to_response(fav: Favorite, mime_type: str = "image/jpeg") -> FavoriteResponse:
     is_video = mime_type.startswith("video/")
+    poster_url = f"/media/file/{fav.photo_id}/poster" if is_video else None
     return FavoriteResponse(
         photo_id=fav.photo_id,
         photo_name=fav.photo_name,
         folder_id=fav.folder_id,
         favorited_at=fav.favorited_at,
-        thumbnail_url=None if is_video else f"/drive/file/{fav.photo_id}/thumbnail?s=600",
+        thumbnail_url=poster_url if is_video else f"/drive/file/{fav.photo_id}/thumbnail?s=600",
+        poster_url=poster_url,
         preview_url=f"/drive/file/{fav.photo_id}/preview?w=1600",
         mime_type=mime_type,
     )

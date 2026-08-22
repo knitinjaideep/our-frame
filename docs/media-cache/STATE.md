@@ -1,6 +1,6 @@
 # Our Frame Media Cache State
 
-Status: Phase 3 complete
+Status: Phase 4 ready to commit
 
 Last updated: 2026-08-22
 
@@ -36,7 +36,7 @@ Observed issue:
 | 1 | Data Model | Complete | b75621a |
 | 2 | Drive Metadata Sync | Complete | 1a1eff5 |
 | 3 | Local Photo Derivative Cache | Complete | bbd0ba5 |
-| 4 | Video Posters | Pending | |
+| 4 | Video Posters | Complete | pending |
 | 5 | MP4 Video Derivatives | Pending | |
 | 6 | Processing Queue | Pending | |
 | 7 | Frontend Media URLs | Pending | |
@@ -47,7 +47,7 @@ Observed issue:
 
 ## Next Action
 
-Begin Phase 4 from `docs/media-cache/PROMPTS.md`: video posters.
+Commit Phase 4, record the commit SHA, then continue with Phase 5 MP4 video derivatives.
 
 ## Completed Checks
 
@@ -86,6 +86,15 @@ Begin Phase 4 from `docs/media-cache/PROMPTS.md`: video posters.
 - 2026-08-22: Phase 3 photo derivative storage keys now include the media item ID before the Drive file ID to avoid cross-workspace cache path sharing.
 - 2026-08-22: Phase 3 hardened smoke check passed for duplicate Drive IDs across workspace and legacy rows, scoped cache paths, unknown ID denial, and all three derivatives.
 - 2026-08-22: Phase 3 final hardening reviewer returned `REVIEW STATUS: PASS`.
+- 2026-08-22: Phase 4 added video poster derivative generation through the media derivative service.
+- 2026-08-22: Phase 4 poster generation uses Drive thumbnail links when available and falls back to `ffmpeg` frame extraction when a Drive thumbnail is missing.
+- 2026-08-22: Phase 4 `/media/file/{drive_file_id}/poster` now serves authenticated cached poster derivatives.
+- 2026-08-22: Phase 4 video API responses now expose `poster_url` and set video `thumbnail_url` to the poster endpoint for backward-compatible UI rendering.
+- 2026-08-22: Phase 4 backend syntax check passed for changed backend files.
+- 2026-08-22: Phase 4 poster smoke check passed for Drive thumbnail caching, ready derivative reuse, scoped video storage keys, and missing-`ffmpeg` failure recording.
+- 2026-08-22: Phase 4 frontend production build passed with `npm run build`.
+- 2026-08-22: Phase 4 reviewer returned `REVIEW STATUS: PASS`.
+- 2026-08-22: Phase 4 backend syntax and diff hygiene checks passed before commit.
 
 ## Phase 0 Planning Summary
 

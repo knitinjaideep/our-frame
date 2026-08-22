@@ -26,14 +26,20 @@ def _preview_url(photo_id: str, width: int = 1600) -> str:
     return f"/drive/file/{photo_id}/preview?w={width}"
 
 
+def _poster_url(photo_id: str) -> str:
+    return f"/media/file/{photo_id}/poster"
+
+
 def _to_photo_response(p: DrivePhoto, fav_ids: set[str]) -> PhotoResponse:
     is_video = p.mime_type and p.mime_type.startswith("video/")
+    poster_url = _poster_url(p.id) if is_video else None
     return PhotoResponse(
         id=p.id,
         name=p.name,
         mime_type=p.mime_type,
         created_time=p.created_time,
-        thumbnail_url=None if is_video else _photo_url(p.id),
+        thumbnail_url=poster_url if is_video else _photo_url(p.id),
+        poster_url=poster_url,
         preview_url=_preview_url(p.id),
         is_favorite=p.id in fav_ids,
         width=p.width,

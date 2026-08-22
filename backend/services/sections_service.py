@@ -197,6 +197,10 @@ def _get_video_sections(session: Session, all_albums: list[DriveAlbum]) -> dict[
     return result
 
 
+def _poster_url(photo_id: str) -> str:
+    return f"/media/file/{photo_id}/poster"
+
+
 def get_sections(session: Session) -> SectionsResponse:
     from sqlmodel import select as sql_select
     all_albums = list(session.exec(
@@ -265,12 +269,14 @@ def get_video_files(
         files = photo_repo.get_by_folder(session, album_summary.id)
         for p in files:
             if p.mime_type and p.mime_type.startswith("video/"):
+                poster_url = _poster_url(p.id)
                 videos.append(PhotoResponse(
                     id=p.id,
                     name=p.name,
                     mime_type=p.mime_type,
                     created_time=p.created_time,
-                    thumbnail_url=None,
+                    thumbnail_url=poster_url,
+                    poster_url=poster_url,
                     preview_url=f"/drive/file/{p.id}/preview?w=1600",
                     is_favorite=p.id in fav_ids,
                     width=p.width,

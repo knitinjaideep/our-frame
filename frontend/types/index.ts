@@ -16,6 +16,7 @@ export interface Photo {
   mime_type: string
   created_time: string | null
   thumbnail_url: string | null
+  poster_url?: string | null
   preview_url: string
   is_favorite: boolean
   width: number | null
@@ -28,6 +29,7 @@ export interface Favorite {
   folder_id: string | null
   favorited_at: string
   thumbnail_url: string | null
+  poster_url?: string | null
   preview_url: string
   mime_type: string
 }
