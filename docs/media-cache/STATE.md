@@ -39,7 +39,7 @@ Observed issue:
 | 4 | Video Posters | Complete | 1840d01 |
 | 5 | MP4 Video Derivatives | Complete | 15b6ffc |
 | 6 | Processing Queue | Complete | 056dcda |
-| 7 | Frontend Media URLs | Complete | pending commit |
+| 7 | Frontend Media URLs | Complete | d42cbab |
 | 8 | API Response Compatibility | Pending | |
 | 9 | Local End-to-End Verification | Pending | |
 | 10 | Documentation | Pending | |
