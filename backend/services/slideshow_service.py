@@ -28,9 +28,14 @@ def _poster_url(photo_id: str) -> str:
     return f"/media/file/{photo_id}/poster"
 
 
+def _playback_url(photo_id: str) -> str:
+    return f"/media/file/{photo_id}/playback"
+
+
 def _to_photo_resp(p: DrivePhoto, fav_ids: set[str]) -> PhotoResponse:
     is_video = p.mime_type and p.mime_type.startswith("video/")
     poster_url = _poster_url(p.id) if is_video else None
+    playback_url = _playback_url(p.id) if is_video else None
     return PhotoResponse(
         id=p.id,
         name=p.name,
@@ -38,6 +43,7 @@ def _to_photo_resp(p: DrivePhoto, fav_ids: set[str]) -> PhotoResponse:
         created_time=p.created_time,
         thumbnail_url=poster_url if is_video else _photo_url(p.id),
         poster_url=poster_url,
+        playback_url=playback_url,
         preview_url=_preview_url(p.id),
         is_favorite=p.id in fav_ids,
         width=p.width,

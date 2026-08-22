@@ -201,6 +201,10 @@ def _poster_url(photo_id: str) -> str:
     return f"/media/file/{photo_id}/poster"
 
 
+def _playback_url(photo_id: str) -> str:
+    return f"/media/file/{photo_id}/playback"
+
+
 def get_sections(session: Session) -> SectionsResponse:
     from sqlmodel import select as sql_select
     all_albums = list(session.exec(
@@ -270,6 +274,7 @@ def get_video_files(
         for p in files:
             if p.mime_type and p.mime_type.startswith("video/"):
                 poster_url = _poster_url(p.id)
+                playback_url = _playback_url(p.id)
                 videos.append(PhotoResponse(
                     id=p.id,
                     name=p.name,
@@ -277,6 +282,7 @@ def get_video_files(
                     created_time=p.created_time,
                     thumbnail_url=poster_url,
                     poster_url=poster_url,
+                    playback_url=playback_url,
                     preview_url=f"/drive/file/{p.id}/preview?w=1600",
                     is_favorite=p.id in fav_ids,
                     width=p.width,

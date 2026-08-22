@@ -10,9 +10,11 @@ from models.media import MediaItem
 from models.user import User
 from models.workspace import Workspace, WorkspaceMember
 from services.media_derivative_service import (
+    VIDEO_PLAYBACK_KIND,
     VIDEO_POSTER_KIND,
     derivative_path,
     get_or_create_photo_derivative_for_media,
+    get_or_create_video_playback_for_media,
     get_or_create_video_poster_for_media,
 )
 
@@ -75,10 +77,12 @@ def photo_derivative(
     """
     Serve a cached photo derivative, generating it on first request.
 
-    Supported kinds: thumbnail, grid, preview for photos; poster for videos.
+    Supported kinds: thumbnail, grid, preview for photos; poster and playback for videos.
     """
     media = _authorize_media_item(session, user, drive_file_id)
-    if kind == VIDEO_POSTER_KIND:
+    if kind == VIDEO_PLAYBACK_KIND:
+        derivative = get_or_create_video_playback_for_media(session, media)
+    elif kind == VIDEO_POSTER_KIND:
         derivative = get_or_create_video_poster_for_media(session, media)
     else:
         derivative = get_or_create_photo_derivative_for_media(session, media, kind)

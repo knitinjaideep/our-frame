@@ -25,6 +25,8 @@ PHOTO_DERIVATIVE_SIZES = {
 }
 VIDEO_POSTER_KIND = "poster"
 VIDEO_POSTER_SIZE = 900
+VIDEO_PLAYBACK_KIND = "playback"
+VIDEO_PLAYBACK_HEIGHT = 720
 
 
 def _cache_root() -> Path:
@@ -38,11 +40,16 @@ def _safe_segment(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]", "_", value)
 
 
+def _error_detail(exc: Exception) -> str:
+    return str(exc)[:500]
+
+
 def _storage_key(media: MediaItem, kind: str) -> str:
     if media.id is None:
         raise ValueError("Media item has no primary key")
     folder = "videos" if media.media_type == "video" else "photos"
-    return f"{folder}/{media.id}-{_safe_segment(media.drive_file_id)}/{kind}.jpg"
+    extension = "mp4" if kind == VIDEO_PLAYBACK_KIND else "jpg"
+    return f"{folder}/{media.id}-{_safe_segment(media.drive_file_id)}/{kind}.{extension}"
 
 
 def _path_for_key(storage_key: str) -> Path:
@@ -151,6 +158,102 @@ def _extract_video_poster_with_ffmpeg(media: MediaItem) -> bytes:
         return poster.read_bytes()
 
 
+def _probe_video_dimensions(path: Path) -> tuple[int | None, int | None]:
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe:
+        return None, None
+
+    result = subprocess.run(
+        [
+            ffprobe,
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height",
+            "-of",
+            "csv=s=x:p=0",
+            str(path),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None, None
+    value = result.stdout.strip()
+    if "x" not in value:
+        return None, None
+    width, height = value.split("x", 1)
+    try:
+        return int(width), int(height)
+    except ValueError:
+        return None, None
+
+
+def _transcode_video_to_mp4(media: MediaItem) -> tuple[str, int | None, int | None, int]:
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise RuntimeError("ffmpeg is not installed; cannot generate MP4 playback derivative")
+
+    svc = get_drive_service()
+    video_bytes = download_file_bytes(svc, media.drive_file_id)
+    output_key = _storage_key(media, VIDEO_PLAYBACK_KIND)
+    output_path = _path_for_key(output_key)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        source = Path(tmp) / "source"
+        transcoded = Path(tmp) / "playback.mp4"
+        source.write_bytes(video_bytes)
+        result = subprocess.run(
+            [
+                ffmpeg,
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-i",
+                str(source),
+                "-map",
+                "0:v:0",
+                "-map",
+                "0:a?",
+                "-vf",
+                f"scale=-2:'min({VIDEO_PLAYBACK_HEIGHT},trunc(ih/2)*2)'",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-crf",
+                "23",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "128k",
+                "-movflags",
+                "+faststart",
+                str(transcoded),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=900,
+            check=False,
+        )
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "ffmpeg MP4 transcode failed").strip()
+            raise RuntimeError(detail[:500])
+
+        output_path.write_bytes(transcoded.read_bytes())
+
+    width, height = _probe_video_dimensions(output_path)
+    return output_key, width, height, output_path.stat().st_size
+
+
 def get_or_create_photo_derivative(
     session: Session,
     drive_file_id: str,
@@ -224,8 +327,9 @@ def get_or_create_photo_derivative_for_media(
     except HTTPException:
         raise
     except Exception as exc:
+        detail = _error_detail(exc)
         media.processing_status = "failed"
-        media.processing_error = str(exc)
+        media.processing_error = detail
         session.add(media)
         session.commit()
         if media.id is not None:
@@ -237,9 +341,9 @@ def get_or_create_photo_derivative_for_media(
                 storage_key=_storage_key(media, kind),
                 content_type="image/jpeg",
                 status="failed",
-                error=str(exc),
+                error=detail,
             )
-        raise HTTPException(status_code=502, detail=f"Could not generate derivative: {exc}") from exc
+        raise HTTPException(status_code=502, detail=f"Could not generate derivative: {detail}") from exc
 
 
 def get_or_create_video_poster_for_media(
@@ -289,8 +393,9 @@ def get_or_create_video_poster_for_media(
     except HTTPException:
         raise
     except Exception as exc:
+        detail = _error_detail(exc)
         media.processing_status = "failed"
-        media.processing_error = str(exc)
+        media.processing_error = detail
         session.add(media)
         session.commit()
         media_repo.upsert_derivative(
@@ -301,6 +406,66 @@ def get_or_create_video_poster_for_media(
             storage_key=_storage_key(media, VIDEO_POSTER_KIND),
             content_type="image/jpeg",
             status="failed",
-            error=str(exc),
+            error=detail,
         )
-        raise HTTPException(status_code=502, detail=f"Could not generate video poster: {exc}") from exc
+        raise HTTPException(status_code=502, detail=f"Could not generate video poster: {detail}") from exc
+
+
+def get_or_create_video_playback_for_media(
+    session: Session,
+    media: MediaItem,
+) -> MediaDerivative:
+    """Return a browser-safe cached MP4 derivative, transcoding on first request."""
+    if media.media_type != "video":
+        raise HTTPException(status_code=400, detail="Video playback requested for non-video media")
+    if media.id is None:
+        raise HTTPException(status_code=500, detail="Media item has no primary key")
+
+    existing = _ready_existing_derivative(session, media, VIDEO_PLAYBACK_KIND)
+    if existing:
+        return existing
+
+    media.processing_status = "processing"
+    media.processing_error = None
+    session.add(media)
+    session.commit()
+
+    try:
+        output_key, width, height, size = _transcode_video_to_mp4(media)
+        derivative = media_repo.upsert_derivative(
+            session,
+            media_item_id=media.id,
+            kind=VIDEO_PLAYBACK_KIND,
+            storage_backend="local",
+            storage_key=output_key,
+            content_type="video/mp4",
+            width=width,
+            height=height,
+            size=size,
+            status="ready",
+            error=None,
+        )
+        media.processing_status = "ready"
+        media.processing_error = None
+        session.add(media)
+        session.commit()
+        return derivative
+    except HTTPException:
+        raise
+    except Exception as exc:
+        detail = _error_detail(exc)
+        media.processing_status = "failed"
+        media.processing_error = detail
+        session.add(media)
+        session.commit()
+        media_repo.upsert_derivative(
+            session,
+            media_item_id=media.id,
+            kind=VIDEO_PLAYBACK_KIND,
+            storage_backend="local",
+            storage_key=_storage_key(media, VIDEO_PLAYBACK_KIND),
+            content_type="video/mp4",
+            status="failed",
+            error=detail,
+        )
+        raise HTTPException(status_code=502, detail=f"Could not generate video playback: {detail}") from exc

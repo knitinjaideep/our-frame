@@ -10,6 +10,7 @@ class PhotoResponse(BaseModel):
     created_time: Optional[datetime]
     thumbnail_url: Optional[str]
     poster_url: Optional[str] = None
+    playback_url: Optional[str] = None
     preview_url: str
     is_favorite: bool = False
     width: Optional[int] = None

@@ -1,6 +1,6 @@
 # Our Frame Media Cache State
 
-Status: Phase 5 pending
+Status: Phase 5 complete
 
 Last updated: 2026-08-22
 
@@ -37,7 +37,7 @@ Observed issue:
 | 2 | Drive Metadata Sync | Complete | 1a1eff5 |
 | 3 | Local Photo Derivative Cache | Complete | bbd0ba5 |
 | 4 | Video Posters | Complete | 1840d01 |
-| 5 | MP4 Video Derivatives | Pending | |
+| 5 | MP4 Video Derivatives | Complete | pending commit |
 | 6 | Processing Queue | Pending | |
 | 7 | Frontend Media URLs | Pending | |
 | 8 | API Response Compatibility | Pending | |
@@ -47,7 +47,7 @@ Observed issue:
 
 ## Next Action
 
-Begin Phase 5 MP4 video derivative implementation.
+Begin Phase 6 from `docs/media-cache/PROMPTS.md`: processing queue.
 
 ## Completed Checks
 
@@ -95,6 +95,14 @@ Begin Phase 5 MP4 video derivative implementation.
 - 2026-08-22: Phase 4 frontend production build passed with `npm run build`.
 - 2026-08-22: Phase 4 reviewer returned `REVIEW STATUS: PASS`.
 - 2026-08-22: Phase 4 backend syntax and diff hygiene checks passed before commit.
+- 2026-08-22: Phase 5 added authenticated `/media/file/{drive_file_id}/playback` serving for cached MP4 derivatives.
+- 2026-08-22: Phase 5 added 720p H.264/AAC MP4 transcode generation with scoped local cache keys.
+- 2026-08-22: Phase 5 API responses now expose `playback_url` for video media while preserving existing thumbnail, poster, and preview fields.
+- 2026-08-22: Phase 5 backend syntax check passed for changed backend files.
+- 2026-08-22: Phase 5 playback smoke check passed for ready derivative reuse and `video/mp4` metadata.
+- 2026-08-22: Phase 5 missing-`ffmpeg` smoke check passed and recorded bounded failed derivative errors.
+- 2026-08-22: Phase 5 frontend production build passed with `npm run build`.
+- 2026-08-22: Phase 5 reviewer returned `REVIEW STATUS: PASS`.
 
 ## Phase 0 Planning Summary
 
