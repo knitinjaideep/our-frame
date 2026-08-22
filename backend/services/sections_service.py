@@ -24,6 +24,7 @@ from schemas.photo import PhotoResponse
 from schemas.sections import SectionsResponse, VideoFilesResponse
 from models.album import DriveAlbum
 from models.section_mapping import SectionMapping
+from services.media_response_service import media_response_fields
 
 
 # ── Keyword fallback rules ────────────────────────────────────────────────────
@@ -197,14 +198,6 @@ def _get_video_sections(session: Session, all_albums: list[DriveAlbum]) -> dict[
     return result
 
 
-def _poster_url(photo_id: str) -> str:
-    return f"/media/file/{photo_id}/poster"
-
-
-def _playback_url(photo_id: str) -> str:
-    return f"/media/file/{photo_id}/playback"
-
-
 def get_sections(session: Session) -> SectionsResponse:
     from sqlmodel import select as sql_select
     all_albums = list(session.exec(
@@ -273,20 +266,20 @@ def get_video_files(
         files = photo_repo.get_by_folder(session, album_summary.id)
         for p in files:
             if p.mime_type and p.mime_type.startswith("video/"):
-                poster_url = _poster_url(p.id)
-                playback_url = _playback_url(p.id)
+                media_fields = media_response_fields(
+                    session,
+                    drive_file_id=p.id,
+                    mime_type=p.mime_type,
+                )
                 videos.append(PhotoResponse(
                     id=p.id,
                     name=p.name,
                     mime_type=p.mime_type,
                     created_time=p.created_time,
-                    thumbnail_url=poster_url,
-                    poster_url=poster_url,
-                    playback_url=playback_url,
-                    preview_url=f"/drive/file/{p.id}/preview?w=1600",
                     is_favorite=p.id in fav_ids,
                     width=p.width,
                     height=p.height,
+                    **media_fields,
                 ))
 
     return VideoFilesResponse(videos=videos, total=len(videos))

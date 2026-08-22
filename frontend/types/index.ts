@@ -14,11 +14,13 @@ export interface Photo {
   id: string
   name: string
   mime_type: string
+  media_type?: 'image' | 'video' | 'unknown'
   created_time: string | null
   thumbnail_url: string | null
   poster_url?: string | null
   playback_url?: string | null
   preview_url: string
+  processing_status?: 'queued' | 'processing' | 'ready' | 'failed' | null
   is_favorite: boolean
   width: number | null
   height: number | null
@@ -33,6 +35,8 @@ export interface Favorite {
   poster_url?: string | null
   playback_url?: string | null
   preview_url: string
+  media_type?: 'image' | 'video' | 'unknown'
+  processing_status?: 'queued' | 'processing' | 'ready' | 'failed' | null
   mime_type: string
 }
 

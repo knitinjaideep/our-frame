@@ -18,40 +18,20 @@ from repositories import album_repo, photo_repo, favorites_repo
 from schemas.home_feed import HomeFeedResponse, MemoryStats, ThrowbackGroup
 from schemas.photo import PhotoResponse
 from models.photo import DrivePhoto
+from services.media_response_service import media_response_fields
 
 
-def _photo_url(photo_id: str, size: int = 600) -> str:
-    return f"/drive/file/{photo_id}/thumbnail?s={size}"
-
-
-def _preview_url(photo_id: str, width: int = 1600) -> str:
-    return f"/drive/file/{photo_id}/preview?w={width}"
-
-
-def _poster_url(photo_id: str) -> str:
-    return f"/media/file/{photo_id}/poster"
-
-
-def _playback_url(photo_id: str) -> str:
-    return f"/media/file/{photo_id}/playback"
-
-
-def _to_photo_resp(p: DrivePhoto, fav_ids: set[str]) -> PhotoResponse:
-    is_video = p.mime_type and p.mime_type.startswith("video/")
-    poster_url = _poster_url(p.id) if is_video else None
-    playback_url = _playback_url(p.id) if is_video else None
+def _to_photo_resp(session: Session, p: DrivePhoto, fav_ids: set[str]) -> PhotoResponse:
+    media_fields = media_response_fields(session, drive_file_id=p.id, mime_type=p.mime_type)
     return PhotoResponse(
         id=p.id,
         name=p.name,
         mime_type=p.mime_type,
         created_time=p.created_time,
-        thumbnail_url=poster_url if is_video else _photo_url(p.id),
-        poster_url=poster_url,
-        playback_url=playback_url,
-        preview_url=_preview_url(p.id),
         is_favorite=p.id in fav_ids,
         width=p.width,
         height=p.height,
+        **media_fields,
     )
 
 
@@ -100,7 +80,7 @@ def get_home_feed(session: Session) -> HomeFeedResponse:
         hero_candidates.extend(worthy[:4])
 
     hero_candidates.sort(key=_hero_score, reverse=True)
-    hero_photos = [_to_photo_resp(p, fav_ids) for p in hero_candidates[:15]]
+    hero_photos = [_to_photo_resp(session, p, fav_ids) for p in hero_candidates[:15]]
 
     # ── Throwbacks: same month+day in prior years ─────────────────────────────
     now = datetime.now(tz=timezone.utc)
@@ -121,7 +101,7 @@ def get_home_feed(session: Session) -> HomeFeedResponse:
             ThrowbackGroup(
                 year=year,
                 label=label,
-                photos=[_to_photo_resp(p, fav_ids) for p in year_groups[year][:6]],
+                photos=[_to_photo_resp(session, p, fav_ids) for p in year_groups[year][:6]],
             )
         )
 

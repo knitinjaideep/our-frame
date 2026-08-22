@@ -14,6 +14,7 @@ from models.photo import DrivePhoto
 from repositories import album_repo, photo_repo
 from schemas.album import AlbumSummary, AlbumDetail, AlbumsListResponse
 from schemas.photo import PhotoResponse
+from services.media_response_service import media_response_fields
 from services.sync_service import sync_folder_shallow
 from core.exceptions import ReauthRequired, DriveError
 
@@ -26,30 +27,17 @@ def _preview_url(photo_id: str, width: int = 1600) -> str:
     return f"/drive/file/{photo_id}/preview?w={width}"
 
 
-def _poster_url(photo_id: str) -> str:
-    return f"/media/file/{photo_id}/poster"
-
-
-def _playback_url(photo_id: str) -> str:
-    return f"/media/file/{photo_id}/playback"
-
-
-def _to_photo_response(p: DrivePhoto, fav_ids: set[str]) -> PhotoResponse:
-    is_video = p.mime_type and p.mime_type.startswith("video/")
-    poster_url = _poster_url(p.id) if is_video else None
-    playback_url = _playback_url(p.id) if is_video else None
+def _to_photo_response(session: Session, p: DrivePhoto, fav_ids: set[str]) -> PhotoResponse:
+    media_fields = media_response_fields(session, drive_file_id=p.id, mime_type=p.mime_type)
     return PhotoResponse(
         id=p.id,
         name=p.name,
         mime_type=p.mime_type,
         created_time=p.created_time,
-        thumbnail_url=poster_url if is_video else _photo_url(p.id),
-        poster_url=poster_url,
-        playback_url=playback_url,
-        preview_url=_preview_url(p.id),
         is_favorite=p.id in fav_ids,
         width=p.width,
         height=p.height,
+        **media_fields,
     )
 
 
@@ -163,6 +151,6 @@ def get_album_detail(
 
     return AlbumDetail(
         album=album_summary,
-        photos=[_to_photo_response(p, fav_ids) for p in photos],
+        photos=[_to_photo_response(session, p, fav_ids) for p in photos],
         subfolders=[_to_album_summary_with_resolved_cover(session, a) for a in subfolders_flat],
     )

@@ -1,6 +1,6 @@
 # Our Frame Media Cache State
 
-Status: Phase 7 complete
+Status: Phase 8 complete
 
 Last updated: 2026-08-22
 
@@ -40,14 +40,14 @@ Observed issue:
 | 5 | MP4 Video Derivatives | Complete | 15b6ffc |
 | 6 | Processing Queue | Complete | 056dcda |
 | 7 | Frontend Media URLs | Complete | d42cbab |
-| 8 | API Response Compatibility | Pending | |
+| 8 | API Response Compatibility | Complete | pending commit |
 | 9 | Local End-to-End Verification | Pending | |
 | 10 | Documentation | Pending | |
 | 11 | Final Review | Pending | |
 
 ## Next Action
 
-Begin Phase 8 from `docs/media-cache/PROMPTS.md`: API response compatibility.
+Begin Phase 9 from `docs/media-cache/PROMPTS.md`: local end-to-end verification.
 
 ## Completed Checks
 
@@ -115,6 +115,17 @@ Begin Phase 8 from `docs/media-cache/PROMPTS.md`: API response compatibility.
 - 2026-08-22: Phase 7 video cards show a compact processing label when no poster/thumbnail is available instead of an unexplained black card.
 - 2026-08-22: Phase 7 frontend production build passed with `npm run build`.
 - 2026-08-22: Phase 7 reviewer returned `REVIEW STATUS: PASS`.
+- 2026-08-22: Phase 8 added shared media response field generation for thumbnail, preview, poster, playback, media type, and processing status.
+- 2026-08-22: Phase 8 album, home, slideshow, sections, and favorites responses now populate media cache fields consistently.
+- 2026-08-22: Phase 8 backend schemas and frontend types now include optional `media_type` and `processing_status`.
+- 2026-08-22: Phase 8 backend syntax check passed for changed backend files.
+- 2026-08-22: Phase 8 response compatibility smoke check passed for video, image, and legacy unknown-media rows.
+- 2026-08-22: Phase 8 frontend production build passed with `npm run build`.
+- 2026-08-22: Phase 8 reviewer returned `REVIEW STATUS: FAIL` for favorite create responses defaulting video favorites to image fields and frontend media type union mismatch.
+- 2026-08-22: Phase 8 favorite creation now looks up the `DrivePhoto` MIME type before returning existing or new favorite responses.
+- 2026-08-22: Phase 8 frontend media type union now matches backend values: `image`, `video`, or `unknown`.
+- 2026-08-22: Phase 8 favorite-create smoke check passed for video poster/playback/status fields and unknown media type handling.
+- 2026-08-22: Phase 8 second reviewer returned `REVIEW STATUS: PASS`.
 
 ## Phase 0 Planning Summary
 
