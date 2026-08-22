@@ -268,6 +268,8 @@ export type VideoSlide = {
   alt?: string
   width?: number
   height?: number
+  controls?: boolean
+  playsInline?: boolean
 }
 
 export type LightboxSlide = ResilientImageSlide | VideoSlide

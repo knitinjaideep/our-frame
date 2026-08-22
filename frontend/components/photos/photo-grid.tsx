@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { PhotoCard } from './photo-card'
 import { ResilientLightbox, type LightboxSlide } from './resilient-lightbox'
-import { mediaUrl, downloadUrl, previewUrl, videoStreamUrl } from '@/lib/api-client'
+import { mediaUrl, downloadUrl, videoStreamUrl } from '@/lib/api-client'
 import type { Photo } from '@/types'
 
 interface PhotoGridProps {
@@ -16,18 +16,22 @@ export function PhotoGrid({ photos, folderId }: PhotoGridProps) {
   const slides: LightboxSlide[] = photos.map((p) => {
     const isVideo = p.mime_type?.startsWith('video/')
     if (isVideo) {
+      const videoSrc = p.playback_url ? mediaUrl(p.playback_url) : videoStreamUrl(p.id)
+      const posterSrc = p.poster_url ?? p.thumbnail_url
       return {
         type: 'video' as const,
-        sources: [{ src: videoStreamUrl(p.id), type: p.mime_type }],
+        sources: [{ src: videoSrc, type: p.playback_url ? 'video/mp4' : undefined }],
         download: downloadUrl(p.id),
-        poster: p.thumbnail_url ? mediaUrl(p.thumbnail_url) : undefined,
+        poster: posterSrc ? mediaUrl(posterSrc) : undefined,
         alt: p.name,
         width: p.width ?? undefined,
         height: p.height ?? undefined,
+        controls: true,
+        playsInline: true,
       }
     }
     return {
-      src: mediaUrl(previewUrl(p.id)),
+      src: mediaUrl(p.preview_url),
       download: downloadUrl(p.id),
       alt: p.name,
       width: p.width ?? undefined,

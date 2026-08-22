@@ -1,6 +1,6 @@
 # Our Frame Media Cache State
 
-Status: Phase 6 complete
+Status: Phase 7 complete
 
 Last updated: 2026-08-22
 
@@ -39,7 +39,7 @@ Observed issue:
 | 4 | Video Posters | Complete | 1840d01 |
 | 5 | MP4 Video Derivatives | Complete | 15b6ffc |
 | 6 | Processing Queue | Complete | 056dcda |
-| 7 | Frontend Media URLs | Pending | |
+| 7 | Frontend Media URLs | Complete | pending commit |
 | 8 | API Response Compatibility | Pending | |
 | 9 | Local End-to-End Verification | Pending | |
 | 10 | Documentation | Pending | |
@@ -47,7 +47,7 @@ Observed issue:
 
 ## Next Action
 
-Begin Phase 7 from `docs/media-cache/PROMPTS.md`: frontend media URLs.
+Begin Phase 8 from `docs/media-cache/PROMPTS.md`: API response compatibility.
 
 ## Completed Checks
 
@@ -110,6 +110,11 @@ Begin Phase 7 from `docs/media-cache/PROMPTS.md`: frontend media URLs.
 - 2026-08-22: Phase 6 queue smoke check passed for queued processing, ready derivative reuse, failed-item retry behavior, and missing derivative summaries.
 - 2026-08-22: Phase 6 frontend production build passed with `npm run build`.
 - 2026-08-22: Phase 6 reviewer returned `REVIEW STATUS: PASS`.
+- 2026-08-22: Phase 7 photo grid video slides now prefer cached `playback_url` MP4 sources and fall back to the legacy Drive stream when playback is missing.
+- 2026-08-22: Phase 7 video cards and lightbox posters now prefer `poster_url`, then `thumbnail_url`.
+- 2026-08-22: Phase 7 video cards show a compact processing label when no poster/thumbnail is available instead of an unexplained black card.
+- 2026-08-22: Phase 7 frontend production build passed with `npm run build`.
+- 2026-08-22: Phase 7 reviewer returned `REVIEW STATUS: PASS`.
 
 ## Phase 0 Planning Summary
 

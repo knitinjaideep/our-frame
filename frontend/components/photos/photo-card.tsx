@@ -16,6 +16,7 @@ export function PhotoCard({ photo, folderId, priority = false, onClick }: PhotoC
   const [loaded, setLoaded] = useState(false)
   const [hovered, setHovered] = useState(false)
   const isVideo = photo.mime_type?.startsWith('video/')
+  const thumbnailSrc = isVideo ? (photo.poster_url ?? photo.thumbnail_url) : photo.thumbnail_url
 
   return (
     <div
@@ -45,9 +46,15 @@ export function PhotoCard({ photo, folderId, priority = false, onClick }: PhotoC
         />
       )}
 
-      {photo.thumbnail_url && (
+      {isVideo && !thumbnailSrc && (
+        <div className="absolute inset-x-3 top-3 rounded-md border border-white/10 bg-black/35 px-2 py-1 text-[10px] font-medium uppercase text-white/55">
+          Processing
+        </div>
+      )}
+
+      {thumbnailSrc && (
         <img
-          src={mediaUrl(photo.thumbnail_url)}
+          src={mediaUrl(thumbnailSrc)}
           alt={photo.name}
           loading={priority ? 'eager' : 'lazy'}
           onLoad={() => setLoaded(true)}
