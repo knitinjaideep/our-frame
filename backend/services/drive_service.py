@@ -20,7 +20,7 @@ _IMAGE_MIME_FILTER = (
 _FILE_FIELDS = (
     "files("
     "id,name,mimeType,webViewLink,thumbnailLink,parents,"
-    "createdTime,modifiedTime,size,imageMediaMetadata"
+    "createdTime,modifiedTime,size,imageMediaMetadata,videoMediaMetadata"
     "),nextPageToken"
 )
 
@@ -70,18 +70,24 @@ def list_children(parent_id: str) -> dict:
         if mime == "application/vnd.google-apps.folder":
             folders.append({"id": f["id"], "name": f.get("name", "")})
         elif mime.startswith("image/") or mime.startswith("video/"):
-            meta = f.get("imageMediaMetadata") or {}
+            image_meta = f.get("imageMediaMetadata") or {}
+            video_meta = f.get("videoMediaMetadata") or {}
+            width = image_meta.get("width") or video_meta.get("width")
+            height = image_meta.get("height") or video_meta.get("height")
+            duration_ms = video_meta.get("durationMillis")
             photos.append(
                 {
                     "id": f["id"],
                     "name": f.get("name", ""),
                     "mimeType": mime,
                     "webViewLink": f.get("webViewLink"),
+                    "thumbnailLink": f.get("thumbnailLink"),
                     "createdTime": f.get("createdTime"),
                     "modifiedTime": f.get("modifiedTime"),
                     "size": f.get("size"),
-                    "width": meta.get("width"),
-                    "height": meta.get("height"),
+                    "width": width,
+                    "height": height,
+                    "durationMillis": duration_ms,
                 }
             )
 

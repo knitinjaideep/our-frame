@@ -1,6 +1,6 @@
 # Our Frame Media Cache State
 
-Status: Phase 1 complete
+Status: Phase 2 complete
 
 Last updated: 2026-08-22
 
@@ -34,7 +34,7 @@ Observed issue:
 |---|---|---|---|
 | 0 | Planning | Complete | 1d6413a |
 | 1 | Data Model | Complete | b75621a |
-| 2 | Drive Metadata Sync | Pending | |
+| 2 | Drive Metadata Sync | Complete | pending commit |
 | 3 | Local Photo Derivative Cache | Pending | |
 | 4 | Video Posters | Pending | |
 | 5 | MP4 Video Derivatives | Pending | |
@@ -47,7 +47,7 @@ Observed issue:
 
 ## Next Action
 
-Begin Phase 2 from `docs/media-cache/PROMPTS.md`: Drive metadata sync into `media_items`.
+Begin Phase 3 from `docs/media-cache/PROMPTS.md`: local photo derivative cache.
 
 ## Completed Checks
 
@@ -59,6 +59,12 @@ Begin Phase 2 from `docs/media-cache/PROMPTS.md`: Drive metadata sync into `medi
 - 2026-08-22: Phase 1 reviewer found processing status reset risk; fixed upsert behavior to preserve existing processing state.
 - 2026-08-22: Phase 1 idempotency smoke check passed: an existing `ready` item remains `ready` after metadata upsert.
 - 2026-08-22: Phase 1 second reviewer pass returned `REVIEW STATUS: PASS`.
+- 2026-08-22: Phase 2 updated Drive listing to capture `thumbnailLink` and video metadata.
+- 2026-08-22: Phase 2 updated shallow sync to upsert image/video files into `media_items`.
+- 2026-08-22: Phase 2 added read-only `/sync/media/status` count endpoint.
+- 2026-08-22: Phase 2 backend syntax check passed.
+- 2026-08-22: Phase 2 in-memory sync smoke check passed for a fake QuickTime video with thumbnail and duration metadata.
+- 2026-08-22: Phase 2 reviewer returned `REVIEW STATUS: PASS`.
 
 ## Phase 0 Planning Summary
 

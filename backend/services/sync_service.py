@@ -27,6 +27,7 @@ from models.album import DriveAlbum
 from models.section_mapping import SectionMapping
 from repositories import album_repo, photo_repo
 from services.drive_service import list_children, get_drive_client
+from services.media_service import upsert_drive_media_item
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,24 @@ def _apply_section_mapping(session: Session, album: DriveAlbum) -> None:
         session.commit()
 
 
+def _parse_drive_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def _parse_int(value) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 # ── core sync routines ────────────────────────────────────────────────────────
 
 def sync_folder_shallow(session: Session, folder_id: str) -> dict:
@@ -125,18 +144,12 @@ def sync_folder_shallow(session: Session, folder_id: str) -> dict:
     # Upsert photos
     cover_photo_id: str | None = None
     for idx, p in enumerate(data["files"]):
-        created = None
-        if p.get("createdTime"):
-            try:
-                created = datetime.fromisoformat(p["createdTime"].replace("Z", "+00:00"))
-            except Exception:
-                pass
-        modified = None
-        if p.get("modifiedTime"):
-            try:
-                modified = datetime.fromisoformat(p["modifiedTime"].replace("Z", "+00:00"))
-            except Exception:
-                pass
+        created = _parse_drive_datetime(p.get("createdTime"))
+        modified = _parse_drive_datetime(p.get("modifiedTime"))
+        size = _parse_int(p.get("size"))
+        width = _parse_int(p.get("width"))
+        height = _parse_int(p.get("height"))
+        duration_ms = _parse_int(p.get("durationMillis"))
 
         from models.photo import DrivePhoto
         photo = DrivePhoto(
@@ -146,12 +159,27 @@ def sync_folder_shallow(session: Session, folder_id: str) -> dict:
             parent_folder_id=folder_id,
             created_time=created,
             modified_time=modified,
-            size=int(p["size"]) if p.get("size") else None,
-            width=p.get("width"),
-            height=p.get("height"),
+            size=size,
+            width=width,
+            height=height,
             web_view_link=p.get("webViewLink"),
         )
         photo_repo.upsert(session, photo)
+        upsert_drive_media_item(
+            session,
+            drive_file_id=p["id"],
+            name=p["name"],
+            mime_type=p["mimeType"],
+            folder_id=folder_id,
+            created_time=created,
+            modified_time=modified,
+            size=size,
+            width=width,
+            height=height,
+            duration_ms=duration_ms,
+            drive_thumbnail_url=p.get("thumbnailLink"),
+            web_view_link=p.get("webViewLink"),
+        )
         if idx == 0:
             cover_photo_id = p["id"]
 
@@ -168,6 +196,7 @@ def sync_folder_shallow(session: Session, folder_id: str) -> dict:
         "folder_id": folder_id,
         "folders_synced": len(data["folders"]),
         "photos_synced": len(data["files"]),
+        "media_items_synced": len(data["files"]),
     }
 
 
