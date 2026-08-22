@@ -32,7 +32,7 @@ Observed issue:
 
 | Phase | Name | Status | Commit |
 |---|---|---|---|
-| 0 | Planning | Complete | 04320fa |
+| 0 | Planning | Complete | 1d6413a |
 | 1 | Data Model | Pending | |
 | 2 | Drive Metadata Sync | Pending | |
 | 3 | Local Photo Derivative Cache | Pending | |
