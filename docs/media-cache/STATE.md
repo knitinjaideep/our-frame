@@ -1,6 +1,6 @@
 # Our Frame Media Cache State
 
-Status: Phase 9 complete
+Status: Phase 10 complete
 
 Last updated: 2026-08-22
 
@@ -41,13 +41,13 @@ Observed issue:
 | 6 | Processing Queue | Complete | 056dcda |
 | 7 | Frontend Media URLs | Complete | d42cbab |
 | 8 | API Response Compatibility | Complete | bd29616 |
-| 9 | Local End-to-End Verification | Complete | pending commit |
-| 10 | Documentation | Pending | |
+| 9 | Local End-to-End Verification | Complete | 0578321 |
+| 10 | Documentation | Complete | pending commit |
 | 11 | Final Review | Pending | |
 
 ## Next Action
 
-Begin Phase 10 from `docs/media-cache/PROMPTS.md`: documentation.
+Begin Phase 11 from `docs/media-cache/PROMPTS.md`: final review.
 
 ## Completed Checks
 
@@ -132,6 +132,7 @@ Begin Phase 10 from `docs/media-cache/PROMPTS.md`: documentation.
 - 2026-08-22: Phase 9 frontend production build passed with `npm run build`.
 - 2026-08-22: Phase 9 backend runtime check passed: `uvicorn main:app --host 127.0.0.1 --port 8000` started and `/health` returned `{"ok":true,"version":"2.0"}`.
 - 2026-08-22: Phase 9 did not process real Drive videos during automated verification to avoid long local transcoding without an explicit media target.
+- 2026-08-22: Phase 10 added `docs/media-cache/ARCHITECTURE.md` covering data flow, tables, storage, routes, local operation, troubleshooting, frontend behavior, and deployment notes.
 
 ## Phase 0 Planning Summary
 
