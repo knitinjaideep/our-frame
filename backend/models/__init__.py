@@ -9,6 +9,7 @@ from .workspace import Workspace, WorkspaceMember
 from .drive_connection import DriveConnection
 from .audit_log import AuditLog
 from .session import UserSession
+from .media import MediaItem, MediaDerivative
 
 __all__ = [
     "DriveAlbum",
@@ -22,4 +23,6 @@ __all__ = [
     "DriveConnection",
     "AuditLog",
     "UserSession",
+    "MediaItem",
+    "MediaDerivative",
 ]

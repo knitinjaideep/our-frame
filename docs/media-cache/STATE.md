@@ -1,6 +1,6 @@
 # Our Frame Media Cache State
 
-Status: Phase 0 complete
+Status: Phase 1 complete
 
 Last updated: 2026-08-22
 
@@ -33,7 +33,7 @@ Observed issue:
 | Phase | Name | Status | Commit |
 |---|---|---|---|
 | 0 | Planning | Complete | 1d6413a |
-| 1 | Data Model | Pending | |
+| 1 | Data Model | Complete | pending commit |
 | 2 | Drive Metadata Sync | Pending | |
 | 3 | Local Photo Derivative Cache | Pending | |
 | 4 | Video Posters | Pending | |
@@ -47,12 +47,18 @@ Observed issue:
 
 ## Next Action
 
-Begin Phase 1 from `docs/media-cache/PROMPTS.md`: data model for `media_items` and `media_derivatives`.
+Begin Phase 2 from `docs/media-cache/PROMPTS.md`: Drive metadata sync into `media_items`.
 
 ## Completed Checks
 
 - 2026-08-22: Created Our Frame-specific `.claude` agents, rules, skills, milestone docs, prompt sequence, blocker log, and this state tracker.
 - 2026-08-22: Phase 0 reviewer agent returned `REVIEW STATUS: PASS`.
+- 2026-08-22: Phase 1 added `media_items` and `media_derivatives` models plus repository/service helpers.
+- 2026-08-22: Phase 1 backend syntax check passed for changed backend files.
+- 2026-08-22: Phase 1 create-table/upsert smoke check passed; synthetic row was removed afterward.
+- 2026-08-22: Phase 1 reviewer found processing status reset risk; fixed upsert behavior to preserve existing processing state.
+- 2026-08-22: Phase 1 idempotency smoke check passed: an existing `ready` item remains `ready` after metadata upsert.
+- 2026-08-22: Phase 1 second reviewer pass returned `REVIEW STATUS: PASS`.
 
 ## Phase 0 Planning Summary
 
