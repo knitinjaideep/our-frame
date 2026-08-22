@@ -30,7 +30,15 @@ class Settings(BaseSettings):
     frontend_root: str = "http://localhost:3000"
     database_url: str = "sqlite:///./data/ourframe.db"
     media_cache_root: str = "./data/media-cache"
+    media_storage_backend: str = "local"
     debug: bool = False
+
+    # Supabase storage for deployed media derivatives.
+    # Keep the service role key server-side only. Never expose it as NEXT_PUBLIC_*.
+    supabase_url: Optional[str] = None
+    supabase_anon_key: Optional[str] = None
+    supabase_service_role_key: Optional[str] = None
+    supabase_media_bucket: str = "our-frame-media-cache"
 
     # Session
     # Generate a strong random secret: python -c "import secrets; print(secrets.token_hex(32))"

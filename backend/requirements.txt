@@ -10,6 +10,7 @@ python-multipart==0.0.6
 sqlmodel
 pydantic-settings
 sqlalchemy>=2.0.36
+psycopg[binary]>=3.2.0
 
 # Image processing
 pillow
@@ -17,6 +18,7 @@ pillow-heif
 
 # Additional utilities
 requests==2.31.0
+supabase>=2.10.0
 
 # Phase 1 — multi-user platform
 # Token encryption for DriveConnection.encrypted_*_token fields
