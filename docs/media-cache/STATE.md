@@ -33,7 +33,7 @@ Observed issue:
 | Phase | Name | Status | Commit |
 |---|---|---|---|
 | 0 | Planning | Complete | 1d6413a |
-| 1 | Data Model | Complete | pending commit |
+| 1 | Data Model | Complete | b75621a |
 | 2 | Drive Metadata Sync | Pending | |
 | 3 | Local Photo Derivative Cache | Pending | |
 | 4 | Video Posters | Pending | |
