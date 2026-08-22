@@ -34,8 +34,11 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # Supabase storage for deployed media derivatives.
-    # Keep the service role key server-side only. Never expose it as NEXT_PUBLIC_*.
+    # Keep secret/service-role keys server-side only. Never expose them as NEXT_PUBLIC_*.
     supabase_url: Optional[str] = None
+    supabase_publishable_key: Optional[str] = None
+    supabase_secret_key: Optional[str] = None
+    # Legacy Supabase key names, kept as fallbacks for older projects/docs.
     supabase_anon_key: Optional[str] = None
     supabase_service_role_key: Optional[str] = None
     supabase_media_bucket: str = "our-frame-media-cache"
@@ -60,6 +63,14 @@ class Settings(BaseSettings):
     def effective_root_folder(self) -> str:
         """Legacy compat — used by the single-user sync path only."""
         return self.google_drive_root_folder or self.root_folder_id
+
+    @property
+    def effective_supabase_publishable_key(self) -> Optional[str]:
+        return self.supabase_publishable_key or self.supabase_anon_key
+
+    @property
+    def effective_supabase_secret_key(self) -> Optional[str]:
+        return self.supabase_secret_key or self.supabase_service_role_key
 
 
 settings = Settings()

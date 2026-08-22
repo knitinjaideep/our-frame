@@ -7,7 +7,7 @@ This deployment keeps the free path:
 - Supabase Free for Postgres and private derivative storage
 - Custom frontend domain: `ourframe.nitinkotcherlakota.com`
 
-Do not commit real secrets. Add real values only in Vercel Project Settings.
+Do not commit real secrets. Add real values only in Vercel Environment Variables.
 
 ## Supabase
 
@@ -20,16 +20,32 @@ Create these resources in your second Supabase project:
 our-frame-media-cache
 ```
 
+Create a private bucket from **Storage**:
+
+```text
+Bucket name: our-frame-media-cache
+Public bucket: off
+```
+
 Copy these values:
 
 ```text
 SUPABASE_URL=https://<project-ref>.supabase.co
-SUPABASE_ANON_KEY=<anon-public-key>
-SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
-DATABASE_URL=postgresql://postgres.<project-ref>:<db-password>@aws-0-<region>.pooler.supabase.com:6543/postgres
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+SUPABASE_SECRET_KEY=sb_secret_...
+DATABASE_URL=postgresql+psycopg://postgres.<project-ref>:<db-password>@aws-0-<region>.pooler.supabase.com:6543/postgres
 ```
 
-Use the pooled connection string for Vercel.
+Where to find them in the current Supabase dashboard:
+
+1. Select your Supabase project.
+2. Click **Connect** in the top bar. Use this for the project URL and the database connection string.
+3. Open **Settings** with the gear icon, then **API Keys**. Copy the **Publishable key** for `SUPABASE_PUBLISHABLE_KEY` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Copy the **Secret key** for backend `SUPABASE_SECRET_KEY` only.
+4. If you do not see the URL in **Connect**, open **Integrations** then **Data API**. The Data API URL is the `SUPABASE_URL`.
+
+Use the pooled connection string for Vercel. If Supabase gives you a URL starting with `postgresql://`, change it to `postgresql+psycopg://` for this backend.
+
+Never create `NEXT_PUBLIC_SUPABASE_SECRET_KEY` or `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY`.
 
 ## Google OAuth
 
@@ -69,7 +85,7 @@ backend/.python-version
 Set these Vercel environment variables:
 
 ```text
-DATABASE_URL=postgresql://postgres.<project-ref>:<db-password>@aws-0-<region>.pooler.supabase.com:6543/postgres
+DATABASE_URL=postgresql+psycopg://postgres.<project-ref>:<db-password>@aws-0-<region>.pooler.supabase.com:6543/postgres
 FRONTEND_ROOT=https://ourframe.nitinkotcherlakota.com
 
 GOOGLE_CLIENT_ID=<google-client-id>
@@ -83,8 +99,8 @@ TOKEN_ENCRYPTION_KEY=<fernet-key-output>
 
 MEDIA_STORAGE_BACKEND=supabase
 SUPABASE_URL=https://<project-ref>.supabase.co
-SUPABASE_ANON_KEY=<supabase-anon-public-key>
-SUPABASE_SERVICE_ROLE_KEY=<supabase-service-role-key>
+SUPABASE_PUBLISHABLE_KEY=<sb_publishable_...>
+SUPABASE_SECRET_KEY=<sb_secret_...>
 SUPABASE_MEDIA_BUCKET=our-frame-media-cache
 
 DEBUG=false
@@ -114,6 +130,8 @@ Set these Vercel environment variables:
 ```text
 NEXT_PUBLIC_API_BASE=https://our-frame-api.vercel.app
 NEXT_PUBLIC_SITE_URL=https://ourframe.nitinkotcherlakota.com
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<sb_publishable_...>
 ```
 
 ## Domain
