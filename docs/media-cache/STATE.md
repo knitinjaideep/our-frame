@@ -35,7 +35,7 @@ Observed issue:
 | 0 | Planning | Complete | 1d6413a |
 | 1 | Data Model | Complete | b75621a |
 | 2 | Drive Metadata Sync | Complete | 1a1eff5 |
-| 3 | Local Photo Derivative Cache | Complete | pending commit |
+| 3 | Local Photo Derivative Cache | Complete | bbd0ba5 |
 | 4 | Video Posters | Pending | |
 | 5 | MP4 Video Derivatives | Pending | |
 | 6 | Processing Queue | Pending | |
