@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchCurrentUser, fetchBootstrap, listWorkspaces, logout as logoutApi } from '@/lib/platform-api'
+import { SESSION_STORAGE_KEY } from '@/lib/api-client'
 import type { BootstrapPayload } from '@/lib/platform-api'
 import type { CurrentUser, Workspace } from '@/types/platform'
 
@@ -38,6 +39,8 @@ export function useLogout() {
   return useMutation({
     mutationFn: logoutApi,
     onSuccess: () => {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY)
+      localStorage.removeItem(SESSION_STORAGE_KEY)
       qc.clear()
       window.location.href = '/login'
     },

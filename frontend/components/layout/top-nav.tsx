@@ -2,9 +2,15 @@
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { Menu, X, ChevronDown, Settings, LogOut, ShieldCheck } from 'lucide-react'
+import {
+  Menu, X, ChevronDown, Settings, LogOut, ShieldCheck,
+  HardDrive, Lock, Users, Globe, CheckCircle2, AlertCircle,
+} from 'lucide-react'
 import { useState, useRef } from 'react'
 import { useCurrentUser, useLogout } from '@/hooks/use-auth'
+import { useWorkspace } from '@/hooks/use-workspace'
+import { useQuery } from '@tanstack/react-query'
+import { getDriveStatus } from '@/lib/platform-api'
 
 /* ── Nav information architecture ── */
 const PHOTOS_ITEMS = [
@@ -26,8 +32,6 @@ const FLAT_NAV = [
   { href: '/favorites', label: 'Favorites' },
   { href: '/memories',  label: 'Memories'  },
 ] as const
-
-/* Final nav order: Home · Photos ↓ · Videos ↓ · Favorites · Memories */
 
 /* ── Dropdown panel ── */
 function NavDropdown({
@@ -60,67 +64,218 @@ function NavDropdown({
   )
 }
 
+/* ── Privacy badge ── */
+const PRIVACY_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  private:     { label: 'Private',     icon: <Lock className="w-3 h-3" />,  color: 'oklch(0.70 0.145 58)' },
+  invite_only: { label: 'Invite Only', icon: <Users className="w-3 h-3" />, color: 'oklch(0.70 0.140 220)' },
+  public:      { label: 'Public',      icon: <Globe className="w-3 h-3" />, color: 'oklch(0.68 0.130 150)' },
+}
+
+/* ── Drive status indicator ── */
+function DriveStatusDot({ workspaceId }: { workspaceId: number }) {
+  const { data: status } = useQuery({
+    queryKey: ['driveStatus', workspaceId],
+    queryFn: () => getDriveStatus(workspaceId),
+    staleTime: 30_000,
+    retry: false,
+  })
+  if (!status) return null
+  const isActive = status.status === 'active'
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-[10px] font-medium"
+      style={{ color: isActive ? 'oklch(0.68 0.130 150)' : 'var(--muted-foreground)' }}
+    >
+      {isActive
+        ? <CheckCircle2 className="w-3 h-3" />
+        : <AlertCircle className="w-3 h-3" />}
+      {isActive ? 'Drive connected' : 'Drive not connected'}
+    </span>
+  )
+}
+
+/* ── Polished user menu ── */
 function UserMenu() {
   const { data: user } = useCurrentUser()
   const logout = useLogout()
+  const { workspace } = useWorkspace()
   const [open, setOpen] = useState(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   if (!user) return null
 
+  const privacy = workspace ? (PRIVACY_LABELS[workspace.privacy_mode] ?? PRIVACY_LABELS.private) : null
+
+  const handleOpen = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    setOpen(true)
+  }
+  const handleClose = () => {
+    closeTimer.current = setTimeout(() => setOpen(false), 140)
+  }
+
+  const initial = (user.display_name ?? user.email)[0]?.toUpperCase() ?? '?'
+
   return (
-    <div className="relative" onMouseLeave={() => setOpen(false)}>
+    <div
+      className="relative"
+      onMouseEnter={handleOpen}
+      onMouseLeave={handleClose}
+    >
+      {/* Avatar trigger */}
       <button
-        onMouseEnter={() => setOpen(true)}
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-full overflow-hidden border border-border hover:border-primary/40 transition-colors"
+        className="flex items-center gap-2 rounded-full overflow-hidden transition-all duration-200"
+        style={{
+          border: `1.5px solid ${open ? 'var(--primary)' : 'oklch(1 0 0 / 12%)'}`,
+          boxShadow: open ? '0 0 0 3px var(--amber-subtle)' : 'none',
+        }}
         aria-label="User menu"
+        aria-expanded={open}
       >
         {user.avatar_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={user.avatar_url} alt={user.display_name ?? ''} className="w-8 h-8 rounded-full" />
+          <img
+            src={user.avatar_url}
+            alt={user.display_name ?? ''}
+            className="w-8 h-8 rounded-full object-cover"
+          />
         ) : (
-          <span className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs text-primary font-medium">
-            {(user.display_name ?? user.email)[0]?.toUpperCase()}
+          <span
+            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold"
+            style={{
+              background: 'var(--amber-muted)',
+              color: 'var(--primary)',
+            }}
+          >
+            {initial}
           </span>
         )}
       </button>
+
       <AnimatePresence>
         {open && (
           <motion.div
-            className="absolute right-0 top-full mt-2 w-52 bg-popover border border-border rounded-xl shadow-lg overflow-hidden z-50"
-            initial={{ opacity: 0, y: -6, scale: 0.97 }}
+            className="absolute right-0 top-full mt-2 w-64 overflow-hidden z-50"
+            initial={{ opacity: 0, y: -8, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.97 }}
+            exit={{ opacity: 0, y: -8, scale: 0.96 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            style={{
+              background: 'var(--popover)',
+              border: '1px solid var(--border)',
+              borderRadius: '1rem',
+              boxShadow: '0 12px 48px oklch(0 0 0 / 55%), 0 2px 12px oklch(0 0 0 / 30%), inset 0 1px 0 oklch(1 0 0 / 6%)',
+            }}
+            onMouseEnter={handleOpen}
+            onMouseLeave={handleClose}
           >
-            <div className="px-4 py-3 border-b border-border">
-              <p className="text-xs font-medium text-foreground truncate">{user.display_name}</p>
-              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+            {/* Header: avatar + identity */}
+            <div
+              className="px-4 pt-4 pb-3 flex items-start gap-3"
+              style={{ borderBottom: '1px solid var(--border)' }}
+            >
+              <div className="flex-shrink-0">
+                {user.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.avatar_url}
+                    alt={user.display_name ?? ''}
+                    className="w-10 h-10 rounded-full object-cover"
+                    style={{ border: '1.5px solid var(--amber-border)' }}
+                  />
+                ) : (
+                  <span
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold"
+                    style={{ background: 'var(--amber-muted)', color: 'var(--primary)' }}
+                  >
+                    {initial}
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground truncate leading-tight">
+                  {user.display_name ?? 'User'}
+                </p>
+                <p className="text-xs text-muted-foreground truncate mt-0.5">{user.email}</p>
+              </div>
             </div>
-            <div className="py-1">
+
+            {/* Workspace section */}
+            {workspace && (
+              <div
+                className="px-4 py-2.5 flex items-center justify-between"
+                style={{ borderBottom: '1px solid var(--border)' }}
+              >
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground mb-0.5">
+                    Workspace
+                  </p>
+                  <p className="text-xs font-medium text-foreground truncate">{workspace.name}</p>
+                </div>
+                {privacy && (
+                  <span
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ml-2"
+                    style={{
+                      background: `${privacy.color}18`,
+                      color: privacy.color,
+                      border: `1px solid ${privacy.color}30`,
+                    }}
+                  >
+                    {privacy.icon}
+                    {privacy.label}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Drive status */}
+            {workspace && (
+              <div
+                className="px-4 py-2"
+                style={{ borderBottom: '1px solid var(--border)' }}
+              >
+                <DriveStatusDot workspaceId={workspace.id} />
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="py-1.5">
               <Link
                 href="/settings"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted/60"
               >
-                <Settings className="w-3.5 h-3.5 text-muted-foreground" />
-                Settings
+                <Settings className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                <span>Settings</span>
               </Link>
               {user.is_platform_admin && (
                 <Link
                   href="/admin"
                   onClick={() => setOpen(false)}
-                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
+                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted/60"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground" />
-                  Admin
+                  <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                  <span>Admin</span>
                 </Link>
               )}
+              <Link
+                href="/settings"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted/60"
+              >
+                <HardDrive className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                <span>Drive settings</span>
+              </Link>
+            </div>
+
+            {/* Sign out */}
+            <div style={{ borderTop: '1px solid var(--border)' }} className="py-1.5">
               <button
                 onClick={() => logout.mutate()}
-                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
               >
-                <LogOut className="w-3.5 h-3.5 text-muted-foreground" />
+                <LogOut className="w-3.5 h-3.5 flex-shrink-0" />
                 Sign out
               </button>
             </div>
@@ -131,12 +286,14 @@ function UserMenu() {
   )
 }
 
+/* ── Main TopNav ── */
 export function TopNav() {
   const pathname = usePathname()
   const reduce = useReducedMotion()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState<NavDropdownKey>(null)
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { workspace } = useWorkspace()
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
@@ -151,6 +308,11 @@ export function TopNav() {
   const scheduleClose = () => {
     leaveTimer.current = setTimeout(() => setActiveDropdown(null), 120)
   }
+
+  // Family name: prefer workspace subtitle (as tagline) or fall back to workspace name
+  // If neither exists, show empty — never hardcode "Kotcherlakota"
+  const brandName = workspace?.name ?? 'Our Frame'
+  const familyLine = workspace?.subtitle ?? null
 
   /* Mobile: all items flattened */
   const allMobileItems = [
@@ -171,10 +333,12 @@ export function TopNav() {
     <>
       {/* ── Top bar ── */}
       <header className="top-nav">
-        {/* Brand wordmark — no icon, gold shimmer */}
-        <Link href="/" className="top-nav__logo" aria-label="Our Frame — Home">
-          <span className="top-nav__wordmark font-serif text-gold-shimmer">Our Frame</span>
-          <span className="top-nav__family font-sans">Kotcherlakota</span>
+        {/* Brand wordmark — uses workspace name */}
+        <Link href="/" className="top-nav__logo" aria-label={`${brandName} — Home`}>
+          <span className="top-nav__wordmark font-serif text-gold-shimmer">{brandName}</span>
+          {familyLine && (
+            <span className="top-nav__family font-sans">{familyLine}</span>
+          )}
         </Link>
 
         {/* Desktop nav */}

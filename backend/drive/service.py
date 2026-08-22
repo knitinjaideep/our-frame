@@ -1,9 +1,6 @@
 from io import BytesIO
 from googleapiclient.http import MediaIoBaseDownload
-from google_drive_client import get_credentials, get_drive
-
-class ReauthRequired(Exception):
-    """Raised when Google Drive credentials are missing or expired."""
+from google_drive_client import ReauthRequired, get_credentials, get_drive
 
 def get_drive_service():
     """Return an authenticated Google Drive service client."""

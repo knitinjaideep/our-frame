@@ -22,5 +22,5 @@ def reauth_json(auth_url: Optional[str] = None):
     """
     return {
         "needsAuth": True,
-        "authUrl": auth_url or "/auth/login",  # fallback if you don't pass one
+        "authUrl": auth_url or "/auth/start",  # fallback if you don't pass one
     }

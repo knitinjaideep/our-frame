@@ -1,11 +1,7 @@
-import { Metadata } from 'next'
-import { OnboardingFlow } from '@/components/onboarding/onboarding-flow'
+import { redirect } from 'next/navigation'
 
-export const metadata: Metadata = {
-  title: 'Set Up Your Space — Our Frame',
-  description: 'Create your family photo workspace.',
-}
-
+// The onboarding wizard has been replaced by the in-app setup flow on /home.
+// Any existing links or bookmarks to /onboarding are transparently redirected.
 export default function OnboardingPage() {
-  return <OnboardingFlow />
+  redirect('/home')
 }

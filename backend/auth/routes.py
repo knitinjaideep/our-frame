@@ -1,7 +1,7 @@
 # backend/auth/routes.py
 #
-# Login flow — uses openid + email + profile scopes ONLY.
-# Drive connection is a completely separate flow in api/drive/routes.py.
+# Login flow — uses identity scopes plus Drive readonly while the gallery still
+# serves media through the legacy token.json path.
 #
 # Authorized redirect URI in Google Cloud Console:
 #   http://localhost:8000/auth/callback
@@ -28,12 +28,15 @@ from core.database import get_session
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# ── Identity scopes — these give us email, name, picture from the id_token ──
-# Never mix in drive.readonly here; that's the Drive connect flow.
+# ── Login scopes ─────────────────────────────────────────────────────────────
+# Identity scopes give us email, name, picture from the id_token.
+# Drive readonly keeps the legacy gallery/media endpoints working until the
+# browsing pipeline is fully migrated to workspace-scoped DriveConnection rows.
 LOGIN_SCOPES = [
     "openid",
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/drive.readonly",
 ]
 
 REDIRECT_URI = settings.google_oauth_redirect  # http://localhost:8000/auth/callback
@@ -60,13 +63,32 @@ def _build_login_flow(state: Optional[str] = None) -> Flow:
     )
 
 
+def _save_legacy_drive_token(creds) -> None:
+    """
+    Persist credentials for the current DB-first gallery/media pipeline.
+
+    google_drive_client.get_credentials() reads backend/token.json. The newer
+    workspace DriveConnection flow exists in parallel, but album sync and
+    /drive/file media serving still use this legacy file today.
+    """
+    data = {
+        "token": creds.token,
+        "refresh_token": creds.refresh_token,
+        "token_uri": creds.token_uri,
+        "client_id": creds.client_id,
+        "client_secret": creds.client_secret,
+        "scopes": creds.scopes,
+    }
+    TOKEN_PATH.write_text(json.dumps(data, indent=2))
+
+
 @router.get("/start")
 def auth_start():
-    """Redirect to Google's consent screen requesting identity scopes only."""
+    """Redirect to Google's consent screen for app login + Drive read access."""
     flow = _build_login_flow()
     auth_url, _ = flow.authorization_url(
         access_type="offline",
-        include_granted_scopes="false",  # don't inherit old drive scope
+        include_granted_scopes="false",
         prompt="consent",
     )
     # Return HTML that navigates via JS so the browser handles it as a
@@ -94,6 +116,7 @@ def auth_callback(
     flow = _build_login_flow(state=state)
     flow.fetch_token(code=code)
     creds = flow.credentials
+    _save_legacy_drive_token(creds)
 
     # ── Extract identity from id_token (guaranteed with openid scope) ────────
     google_info: Optional[dict] = None
@@ -146,6 +169,14 @@ def auth_callback(
     user = upsert_user(db, google_info)
     sess = create_session(db, user.id)
     logger.info("Session created: user_id=%s email=%s", user.id, user.email)
+
+    # Populate the legacy DB-backed gallery after auth so photos can appear
+    # immediately. This is best-effort; the UI can still serve stale cache.
+    try:
+        from services.sync_service import sync_root
+        sync_root(db)
+    except Exception as exc:
+        logger.warning("Post-auth Drive sync skipped: %s", exc)
 
     # ── Hand off to frontend /auth/callback ───────────────────────────────────
     # We redirect to a dedicated frontend page (not the app root) so the frontend

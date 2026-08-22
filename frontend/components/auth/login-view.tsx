@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Lock, Image as ImageIcon, Heart } from 'lucide-react'
 import { getLoginUrl } from '@/lib/platform-api'
-import { useCurrentUser, useWorkspaces } from '@/hooks/use-auth'
+import { useCurrentUser } from '@/hooks/use-auth'
 
 const FEATURES = [
   {
@@ -28,22 +28,12 @@ const FEATURES = [
 export function LoginView() {
   const router = useRouter()
   const { data: user, isLoading: userLoading } = useCurrentUser()
-  const { data: workspaces, isLoading: wsLoading } = useWorkspaces()
 
-  // If the user is already authenticated, route them to the right place
+  // Already authenticated — go straight to home (setup state handled there)
   useEffect(() => {
     if (userLoading || !user) return
-    if (wsLoading) return
-    if (!workspaces || workspaces.length === 0) {
-      router.replace('/onboarding')
-      return
-    }
-    if (!workspaces[0].onboarding_complete) {
-      router.replace('/onboarding')
-      return
-    }
-    router.replace('/')
-  }, [user, userLoading, workspaces, wsLoading, router])
+    router.replace('/home')
+  }, [user, userLoading, router])
 
   // Show nothing while checking auth (avoids flashing the login form)
   if (userLoading) return null

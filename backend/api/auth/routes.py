@@ -114,7 +114,7 @@ def bootstrap(
     )
 
     if not all_owned:
-        log.debug("bootstrap: no workspaces → send to /onboarding")
+        log.debug("bootstrap: no workspaces → /home (setup state will prompt creation)")
         return {
             "authenticated": True,
             "user": _user_dict(user),
@@ -122,9 +122,10 @@ def bootstrap(
             "workspace": None,
             "active_workspace_id": None,
             "has_drive_connection": False,
+            "has_root_folder": False,
             "onboarding_complete": False,
             "drive_connect_deferred": False,
-            "next_route": "/onboarding",
+            "next_route": "/home",
         }
 
     # ── Select active workspace deterministically ─────────────────────────────
@@ -160,22 +161,17 @@ def bootstrap(
         (dc for dc in drive_conns if dc.workspace_id == workspace.id), None
     )
     has_drive = drive_conn is not None and drive_conn.connection_status == "active"
+    has_root_folder = (
+        drive_conn is not None
+        and bool(getattr(drive_conn, "root_folder_id", None))
+    )
     drive_deferred = getattr(workspace, "drive_connect_deferred", False) or False
     onboarding_done = workspace.onboarding_complete
 
-    # ── Determine next route ──────────────────────────────────────────────────
-    if not onboarding_done:
-        log.debug(
-            "bootstrap: onboarding_complete=False for workspace %s → /onboarding",
-            workspace.id,
-        )
-        next_route = "/onboarding"
-    else:
-        log.debug(
-            "bootstrap: onboarding_complete=True for workspace %s → /",
-            workspace.id,
-        )
-        next_route = "/"
+    log.debug(
+        "bootstrap: workspace %s → has_drive=%s has_root_folder=%s onboarding_done=%s → /home",
+        workspace.id, has_drive, has_root_folder, onboarding_done,
+    )
 
     return {
         "authenticated": True,
@@ -190,9 +186,11 @@ def bootstrap(
         },
         "active_workspace_id": workspace.id,
         "has_drive_connection": has_drive,
+        "has_root_folder": has_root_folder,
         "onboarding_complete": onboarding_done,
         "drive_connect_deferred": drive_deferred,
-        "next_route": next_route,
+        # Always send authenticated users to /home — setup state is resolved there
+        "next_route": "/home",
     }
 
 
@@ -223,9 +221,9 @@ def _user_dict(user) -> dict:
 @router.post("/logout")
 def logout(
     request: Request,
+    token: Optional[str] = Depends(_resolve_token),
     db: Session = Depends(_get_db),
 ):
-    token = request.cookies.get(SESSION_COOKIE)
     if token:
         delete_session(db, token)
     response = JSONResponse({"ok": True})

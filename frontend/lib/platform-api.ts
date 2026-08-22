@@ -28,6 +28,7 @@ export interface BootstrapPayload {
   workspace: { id: number; name: string; slug: string; onboarding_complete: boolean; drive_connect_deferred: boolean } | null
   active_workspace_id: number | null
   has_drive_connection: boolean
+  has_root_folder: boolean
   onboarding_complete: boolean
   drive_connect_deferred: boolean
   next_route: string
@@ -113,6 +114,31 @@ export async function setRootFolder(workspaceId: number, rootFolderId: string): 
 export async function listDriveFolders(workspaceId: number): Promise<DriveFolder[]> {
   const res = await apiClient.get<{ folders: DriveFolder[] }>(`/api/drive/${workspaceId}/folders`)
   return res.folders
+}
+
+export async function listDriveFolderChildren(workspaceId: number, folderId: string): Promise<DriveFolder[]> {
+  const res = await apiClient.get<{ folders: DriveFolder[] }>(`/api/drive/${workspaceId}/folders/${folderId}/children`)
+  return res.folders
+}
+
+export interface FolderStructureRecommendation {
+  id: string
+  title: string
+  description: string
+  reasoning: string
+  template: string
+  preview: string[]
+}
+
+export interface FolderAnalysisResult {
+  folder_id: string
+  subfolder_count: number
+  subfolders_sampled: string[]
+  recommendations: FolderStructureRecommendation[]
+}
+
+export async function analyzeFolderStructure(workspaceId: number, folderId: string): Promise<FolderAnalysisResult> {
+  return apiClient.post<FolderAnalysisResult>(`/api/drive/${workspaceId}/analyze`, { folder_id: folderId })
 }
 
 // ── Admin ─────────────────────────────────────────────────────────────────────

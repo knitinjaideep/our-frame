@@ -392,9 +392,9 @@ export function SettingsView() {
     onSuccess: async () => {
       setShowDeleteDialog(false)
       // Wipe the entire React Query cache — all workspace/drive/bootstrap data
-      // is now invalid. AuthGate will re-evaluate from a clean state.
+      // is now invalid. /home will show the setup flow from a clean state.
       qc.clear()
-      router.replace('/onboarding')
+      router.replace('/home')
     },
     onError: () => {
       setShowDeleteDialog(false)

@@ -34,8 +34,12 @@ export default function RootLayout({
     <html
       lang="en"
       className={`dark ${geistSans.variable} ${playfairDisplay.variable}`}
+      suppressHydrationWarning
     >
-      <body className="min-h-screen bg-background text-foreground antialiased">
+      <body
+        className="min-h-screen bg-background text-foreground antialiased"
+        suppressHydrationWarning
+      >
         <Providers>
           <AuthGate>
             <ConditionalShell>

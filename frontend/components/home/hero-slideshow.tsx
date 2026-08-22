@@ -164,7 +164,7 @@ export function HeroSlideshow({ photos, familyName = 'Our Frame' }: HeroSlidesho
           className="mt-4 font-sans text-[13px] font-semibold tracking-[0.32em] uppercase text-gold-shimmer"
           style={{ letterSpacing: '0.32em' }}
         >
-          {familyName || 'Kotcherlakota'}
+          {familyName || 'Our Frame'}
         </p>
 
         <p

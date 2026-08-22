@@ -1,4 +1,20 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000'
+export const SESSION_STORAGE_KEY = 'of_session_t'
+
+function storedSessionToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return (
+    window.sessionStorage.getItem(SESSION_STORAGE_KEY) ||
+    window.localStorage.getItem(SESSION_STORAGE_KEY)
+  )
+}
+
+function withSessionToken(path: string): string {
+  const token = storedSessionToken()
+  if (!token || !path.startsWith('/api/') || path.includes('t=')) return path
+  const separator = path.includes('?') ? '&' : '?'
+  return `${path}${separator}t=${encodeURIComponent(token)}`
+}
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -8,7 +24,7 @@ export class ApiError extends Error {
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${API_BASE}${withSessionToken(path)}`, {
     credentials: 'include',
     ...init,
     headers: {

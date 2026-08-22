@@ -14,9 +14,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { fetchBootstrap } from '@/lib/platform-api'
-import { API_BASE } from '@/lib/api-client'
-
-const SESSION_STORAGE_KEY = 'of_session_t'
+import { SESSION_STORAGE_KEY } from '@/lib/api-client'
 
 export function AuthCallbackView() {
   const router = useRouter()
@@ -30,6 +28,7 @@ export function AuthCallbackView() {
     // Store token in sessionStorage so apiFetch can use it as a fallback
     if (token) {
       sessionStorage.setItem(SESSION_STORAGE_KEY, token)
+      localStorage.setItem(SESSION_STORAGE_KEY, token)
     }
 
     async function resolve() {
