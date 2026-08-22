@@ -1,6 +1,6 @@
 # Our Frame Media Cache State
 
-Status: Phase 5 complete
+Status: Phase 6 complete
 
 Last updated: 2026-08-22
 
@@ -38,7 +38,7 @@ Observed issue:
 | 3 | Local Photo Derivative Cache | Complete | bbd0ba5 |
 | 4 | Video Posters | Complete | 1840d01 |
 | 5 | MP4 Video Derivatives | Complete | 15b6ffc |
-| 6 | Processing Queue | Pending | |
+| 6 | Processing Queue | Complete | pending commit |
 | 7 | Frontend Media URLs | Pending | |
 | 8 | API Response Compatibility | Pending | |
 | 9 | Local End-to-End Verification | Pending | |
@@ -47,7 +47,7 @@ Observed issue:
 
 ## Next Action
 
-Begin Phase 6 from `docs/media-cache/PROMPTS.md`: processing queue.
+Begin Phase 7 from `docs/media-cache/PROMPTS.md`: frontend media URLs.
 
 ## Completed Checks
 
@@ -103,6 +103,13 @@ Begin Phase 6 from `docs/media-cache/PROMPTS.md`: processing queue.
 - 2026-08-22: Phase 5 missing-`ffmpeg` smoke check passed and recorded bounded failed derivative errors.
 - 2026-08-22: Phase 5 frontend production build passed with `npm run build`.
 - 2026-08-22: Phase 5 reviewer returned `REVIEW STATUS: PASS`.
+- 2026-08-22: Phase 6 added a reusable media processing service for inspecting missing derivatives and manually processing eligible items.
+- 2026-08-22: Phase 6 added admin-only `/api/admin/media/queue` and `/api/admin/media/process` endpoints.
+- 2026-08-22: Phase 6 defaults to photo derivatives and video posters; MP4 playback processing is opt-in with `include_playback=true`.
+- 2026-08-22: Phase 6 backend syntax check passed for changed backend files.
+- 2026-08-22: Phase 6 queue smoke check passed for queued processing, ready derivative reuse, failed-item retry behavior, and missing derivative summaries.
+- 2026-08-22: Phase 6 frontend production build passed with `npm run build`.
+- 2026-08-22: Phase 6 reviewer returned `REVIEW STATUS: PASS`.
 
 ## Phase 0 Planning Summary
 

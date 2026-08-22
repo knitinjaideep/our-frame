@@ -10,13 +10,16 @@ GET /api/admin/stats       — platform stats
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from typing import Literal, Optional
+
+from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session, select, func
 
 from api.deps import get_db, require_admin
 from models.user import User
 from models.workspace import Workspace
 from models.drive_connection import DriveConnection
+from services.media_processing_service import process_media_queue, queue_status
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
@@ -84,3 +87,32 @@ def platform_stats(
         "total_workspaces": workspace_count,
         "active_drive_connections": active_drives,
     }
+
+
+@router.get("/media/queue")
+def media_queue_status(
+    include_playback: bool = Query(False),
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Inspect missing media derivatives without exposing media contents."""
+    return queue_status(db, include_playback=include_playback)
+
+
+@router.post("/media/process")
+def process_media_derivatives(
+    limit: int = Query(10, ge=1, le=100),
+    media_type: Optional[Literal["image", "video"]] = Query(None),
+    retry_failed: bool = Query(False),
+    include_playback: bool = Query(False),
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Manually process queued/missing media derivatives for local development."""
+    return process_media_queue(
+        db,
+        limit=limit,
+        media_type=media_type,
+        retry_failed=retry_failed,
+        include_playback=include_playback,
+    )
