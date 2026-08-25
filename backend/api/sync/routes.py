@@ -1,10 +1,13 @@
 """
 Sync endpoints: trigger Google Drive → DB synchronisation.
 """
-from fastapi import APIRouter, Depends
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 
-from api.deps import get_db
+from api.deps import check_workspace_access, get_current_user_optional, get_db
+from models.user import User
 from services.media_service import media_counts_by_type_and_status
 from services.sync_service import sync_root
 
@@ -12,12 +15,28 @@ router = APIRouter(prefix="/sync", tags=["Sync"])
 
 
 @router.post("/drive")
-def trigger_sync(session: Session = Depends(get_db)):
+def trigger_sync(
+    session: Session = Depends(get_db),
+    workspace_id: int | None = None,
+    user: Optional[User] = Depends(get_current_user_optional),
+):
     """
     Manually trigger a full Google Drive sync.
     Returns a summary of what was synced.
+
+    Optional workspace_id query param scopes the sync to that workspace's
+    own DriveConnection; omitting it preserves the legacy global sync.
+
+    Workspace-scoped syncs use that workspace's stored Drive credentials, so
+    they require an authenticated member of the workspace. The legacy global
+    sync keeps its previous (unauthenticated) local-development behavior.
     """
-    result = sync_root(session)
+    if workspace_id is not None:
+        if user is None:
+            raise HTTPException(401, "Not authenticated")
+        check_workspace_access(session, user, workspace_id)
+
+    result = sync_root(session, workspace_id=workspace_id)
     return result
 
 

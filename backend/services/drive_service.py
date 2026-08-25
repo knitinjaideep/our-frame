@@ -25,20 +25,22 @@ _FILE_FIELDS = (
 )
 
 
-def get_drive_client():
+def get_drive_client(drive_service=None):
+    if drive_service is not None:
+        return drive_service
     creds = get_credentials()
     if not creds:
         raise ReauthRequired("No credentials available")
     return _build_drive_client(creds)
 
 
-def list_children(parent_id: str) -> dict:
+def list_children(parent_id: str, drive_service=None) -> dict:
     """
     Returns { folders: [...], files: [...] } from Drive.
     Raises ReauthRequired or DriveError.
     """
     try:
-        svc = get_drive_client()
+        svc = get_drive_client(drive_service=drive_service)
     except Exception:
         raise ReauthRequired("Drive credentials missing or expired")
 

@@ -4,6 +4,7 @@ Shared FastAPI dependency helpers.
 get_db              — yields a DB session
 get_fav_ids         — legacy favorite IDs set
 get_current_user    — resolves the session cookie → User or 401
+check_workspace_access — membership check for a workspace id from any source
 require_workspace   — validates workspace membership for a given workspace_id
 require_admin       — requires platform admin
 """
@@ -80,14 +81,11 @@ def get_current_user_optional(
 # ── Workspace access control ──────────────────────────────────────────────────
 
 
-def require_workspace(
-    workspace_id: int = Path(...),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> Workspace:
+def check_workspace_access(db: Session, user: User, workspace_id: int) -> Workspace:
     """
-    Validates that the current user is a member (any role) of the requested workspace.
-    Returns the Workspace. Raises 403/404 to avoid leaking existence.
+    Membership check usable outside path-parameter dependencies (e.g. when the
+    workspace id arrives as a query parameter or request body field).
+    Raises 403/404 to avoid leaking existence.
     """
     workspace = db.get(Workspace, workspace_id)
     if not workspace:
@@ -108,6 +106,18 @@ def require_workspace(
         raise HTTPException(403, "Access denied")
 
     return workspace
+
+
+def require_workspace(
+    workspace_id: int = Path(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Workspace:
+    """
+    Validates that the current user is a member (any role) of the requested workspace.
+    Returns the Workspace. Raises 403/404 to avoid leaking existence.
+    """
+    return check_workspace_access(db, user, workspace_id)
 
 
 def require_workspace_owner(

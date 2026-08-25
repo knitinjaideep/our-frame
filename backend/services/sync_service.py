@@ -117,14 +117,19 @@ def _parse_int(value) -> int | None:
 
 # ── core sync routines ────────────────────────────────────────────────────────
 
-def sync_folder_shallow(session: Session, folder_id: str) -> dict:
+def sync_folder_shallow(
+    session: Session,
+    folder_id: str,
+    workspace_id: int | None = None,
+    drive_service=None,
+) -> dict:
     """
     Sync ONE folder's immediate children from Drive into the DB.
     Updates sub-folder records and photo records.
     Returns summary dict.
     """
     now = _utcnow()
-    data = list_children(folder_id)
+    data = list_children(folder_id, drive_service=drive_service)
 
     # Upsert sub-folders
     for f in data["folders"]:
@@ -170,6 +175,7 @@ def sync_folder_shallow(session: Session, folder_id: str) -> dict:
             drive_file_id=p["id"],
             name=p["name"],
             mime_type=p["mimeType"],
+            workspace_id=workspace_id,
             folder_id=folder_id,
             created_time=created,
             modified_time=modified,
@@ -200,7 +206,7 @@ def sync_folder_shallow(session: Session, folder_id: str) -> dict:
     }
 
 
-def sync_root(session: Session) -> dict:
+def sync_root(session: Session, workspace_id: int | None = None) -> dict:
     """
     Full sync of root → child albums.
     - Upserts all root-level folders.
@@ -208,11 +214,44 @@ def sync_root(session: Session) -> dict:
     - Applies section mappings.
     - Does NOT recurse into sub-sub-folders (keep it bounded).
     Returns a summary.
+
+    When workspace_id is provided, the workspace's own DriveConnection is used
+    for Drive credentials and for the root folder to sync, and resulting
+    MediaItem rows are scoped to that workspace. When workspace_id is None
+    (the default), behavior is unchanged: the legacy global token.json-backed
+    credentials and settings.effective_root_folder are used.
     """
-    root_id = settings.effective_root_folder
-    if not root_id:
-        logger.warning("sync_root: no root folder configured, skipping")
-        return {"skipped": True, "reason": "no root folder configured"}
+    drive_service = None
+
+    if workspace_id is not None:
+        from services import drive_connect_service, workspace_service
+
+        drive_conn = workspace_service.get_drive_connection(session, workspace_id)
+        if not drive_conn or drive_conn.connection_status != "active":
+            logger.warning(
+                "sync_root: no active drive connection for workspace=%s, skipping",
+                workspace_id,
+            )
+            return {"skipped": True, "reason": "no active drive connection for workspace"}
+
+        root_id = drive_conn.root_folder_id
+        if not root_id:
+            logger.warning(
+                "sync_root: no root folder configured for workspace=%s, skipping",
+                workspace_id,
+            )
+            return {"skipped": True, "reason": "no root folder configured for workspace"}
+
+        try:
+            drive_service = drive_connect_service.get_drive_service_for_workspace(session, workspace_id)
+        except ValueError as e:
+            logger.warning("sync_root: could not build drive service for workspace=%s: %s", workspace_id, e)
+            return {"skipped": True, "reason": str(e)}
+    else:
+        root_id = settings.effective_root_folder
+        if not root_id:
+            logger.warning("sync_root: no root folder configured, skipping")
+            return {"skipped": True, "reason": "no root folder configured"}
 
     logger.info("sync_root: starting full Drive sync from root=%s", root_id)
     now = _utcnow()
@@ -220,7 +259,7 @@ def sync_root(session: Session) -> dict:
     total_photos = 0
 
     try:
-        root_data = list_children(root_id)
+        root_data = list_children(root_id, drive_service=drive_service)
     except ReauthRequired:
         logger.warning("sync_root: not authenticated, serving stale cache")
         return {"skipped": True, "reason": "not authenticated"}
@@ -246,7 +285,9 @@ def sync_root(session: Session) -> dict:
     sub_folder_ids: list[str] = []
     for f in root_folders:
         try:
-            result = sync_folder_shallow(session, f["id"])
+            result = sync_folder_shallow(
+                session, f["id"], workspace_id=workspace_id, drive_service=drive_service
+            )
             total_photos += result["photos_synced"]
             total_folders += result["folders_synced"]
             # Collect sub-folders so we can sync one level deeper
@@ -259,7 +300,9 @@ def sync_root(session: Session) -> dict:
     sub_sub_folder_ids: list[str] = []
     for sub_id in sub_folder_ids:
         try:
-            result = sync_folder_shallow(session, sub_id)
+            result = sync_folder_shallow(
+                session, sub_id, workspace_id=workspace_id, drive_service=drive_service
+            )
             total_photos += result["photos_synced"]
             total_folders += result["folders_synced"]
             # Collect one more level for deep structures like Videos/Arjun/...
@@ -272,7 +315,9 @@ def sync_root(session: Session) -> dict:
     # This covers structures like Videos/Arjun/2024/video.mp4
     for sub_sub_id in sub_sub_folder_ids:
         try:
-            result = sync_folder_shallow(session, sub_sub_id)
+            result = sync_folder_shallow(
+                session, sub_sub_id, workspace_id=workspace_id, drive_service=drive_service
+            )
             total_photos += result["photos_synced"]
             total_folders += result["folders_synced"]
         except (ReauthRequired, DriveError) as e:
@@ -289,6 +334,44 @@ def sync_root(session: Session) -> dict:
         "total_folders": total_folders,
         "total_photos": total_photos,
     }
+
+
+def sync_for_user(session: Session, user_id: int) -> dict:
+    """
+    Best-effort sync entry point for a just-authenticated user.
+
+    Picks the user's first workspace whose Drive connection is actually usable
+    (active + root folder set) so the sync targets the same workspace the app
+    bootstraps into, rather than an abandoned onboarding workspace.
+
+    If no workspace sync is possible (no workspace, no connection, reauth
+    needed), falls back to the legacy global sync so pre-workspace behavior —
+    which local development still relies on — is preserved.
+    """
+    from services import workspace_service
+
+    workspaces = workspace_service.list_user_workspaces(session, user_id)
+
+    workspace_id: int | None = None
+    for workspace in workspaces:
+        conn = workspace_service.get_drive_connection(session, workspace.id)
+        if conn and conn.connection_status == "active" and conn.root_folder_id:
+            workspace_id = workspace.id
+            break
+    if workspace_id is None and workspaces:
+        workspace_id = workspaces[0].id
+
+    if workspace_id is not None:
+        result = sync_root(session, workspace_id=workspace_id)
+        if not result.get("skipped"):
+            return result
+        logger.info(
+            "sync_for_user: workspace=%s sync skipped (%s), falling back to legacy sync",
+            workspace_id,
+            result.get("reason"),
+        )
+
+    return sync_root(session)
 
 
 def maybe_sync_on_startup(session: Session) -> None:

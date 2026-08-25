@@ -184,11 +184,13 @@ def auth_callback(
     sess = create_session(db, user.id)
     logger.info("Session created: user_id=%s email=%s", user.id, user.email)
 
-    # Populate the legacy DB-backed gallery after auth so photos can appear
-    # immediately. This is best-effort; the UI can still serve stale cache.
+    # Populate the DB-backed gallery after auth so photos can appear
+    # immediately: workspace-scoped media items when the user's workspace has a
+    # usable Drive connection, otherwise the legacy global sync.
+    # Best-effort only — login must never fail because a sync failed.
     try:
-        from services.sync_service import sync_root
-        sync_root(db)
+        from services.sync_service import sync_for_user
+        sync_for_user(db, user.id)
     except Exception as exc:
         logger.warning("Post-auth Drive sync skipped: %s", exc)
 
