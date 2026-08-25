@@ -14,8 +14,14 @@
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Optional
+
+# oauthlib raises instead of warning when Google's granted scope string
+# doesn't exactly match what was requested (e.g. drive.readonly dropped or
+# reordered) — relax that so a scope mismatch doesn't crash the callback.
+os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -70,6 +76,11 @@ def _save_legacy_drive_token(creds) -> None:
     google_drive_client.get_credentials() reads backend/token.json. The newer
     workspace DriveConnection flow exists in parallel, but album sync and
     /drive/file media serving still use this legacy file today.
+
+    Best-effort: Vercel's deployed filesystem is read-only outside /tmp, so
+    this write always fails there. Login must still succeed — the legacy
+    Drive-dependent sync/serving paths that need this file already degrade
+    gracefully on their own (see sync_root call below).
     """
     data = {
         "token": creds.token,
@@ -79,7 +90,10 @@ def _save_legacy_drive_token(creds) -> None:
         "client_secret": creds.client_secret,
         "scopes": creds.scopes,
     }
-    TOKEN_PATH.write_text(json.dumps(data, indent=2))
+    try:
+        TOKEN_PATH.write_text(json.dumps(data, indent=2))
+    except OSError as exc:
+        logger.warning("Could not persist legacy token.json (read-only filesystem?): %s", exc)
 
 
 @router.get("/start")
