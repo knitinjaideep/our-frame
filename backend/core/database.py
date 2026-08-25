@@ -13,6 +13,11 @@ def _get_engine():
         db_path.parent.mkdir(parents=True, exist_ok=True)
         # SQLite requires this in a multithreaded FastAPI app
         connect_args = {"check_same_thread": False}
+    elif db_url.startswith("postgresql"):
+        # Supabase's transaction pooler (PgBouncer) multiplexes connections,
+        # so psycopg's server-side prepared statements can collide across
+        # invocations ("prepared statement already exists"). Disable them.
+        connect_args = {"prepare_threshold": None}
 
     return create_engine(
         db_url,
