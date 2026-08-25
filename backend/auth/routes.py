@@ -80,7 +80,7 @@ def _save_legacy_drive_token(creds) -> None:
     Best-effort: Vercel's deployed filesystem is read-only outside /tmp, so
     this write always fails there. Login must still succeed — the legacy
     Drive-dependent sync/serving paths that need this file already degrade
-    gracefully on their own (see sync_root call below).
+    gracefully on their own.
     """
     data = {
         "token": creds.token,
@@ -184,15 +184,11 @@ def auth_callback(
     sess = create_session(db, user.id)
     logger.info("Session created: user_id=%s email=%s", user.id, user.email)
 
-    # Populate the DB-backed gallery after auth so photos can appear
-    # immediately: workspace-scoped media items when the user's workspace has a
-    # usable Drive connection, otherwise the legacy global sync.
-    # Best-effort only — login must never fail because a sync failed.
-    try:
-        from services.sync_service import sync_for_user
-        sync_for_user(db, user.id)
-    except Exception as exc:
-        logger.warning("Post-auth Drive sync skipped: %s", exc)
+    # Drive sync is NOT run inline here. A full workspace sync can take far
+    # longer than Vercel's function timeout (60s) once a real Drive folder is
+    # connected, which would make login itself time out. Sync is triggered as
+    # its own separate authenticated request (POST /sync/drive?workspace_id=)
+    # instead, so a slow/large sync can never block or break login.
 
     # ── Hand off to frontend /auth/callback ───────────────────────────────────
     # We redirect to a dedicated frontend page (not the app root) so the frontend
