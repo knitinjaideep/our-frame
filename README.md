@@ -26,11 +26,20 @@ A private family photo vault powered by Google Drive. Browse albums, save favori
 | UI Components | shadcn/ui, Lucide React, Framer Motion |
 | Data Fetching | TanStack Query (React Query) v5 |
 | Backend | FastAPI, Uvicorn, Python 3.11+ |
-| Database | SQLite via SQLModel + SQLAlchemy 2 |
+| Database | SQLite locally; Supabase Postgres in production; SQLModel + SQLAlchemy 2 |
 | Auth | Google OAuth 2.0 |
-| Storage | Google Drive API (read-only) |
+| Storage | Google Drive originals; Supabase Storage for production derivatives |
 | Image Processing | Pillow, pillow-heif (HEIC/HEIF) |
 | AI (optional) | OpenAI API, LangChain |
+
+---
+
+## Setup And Deployment
+
+Use one setup guide for local development, account creation, Supabase,
+Google Drive, Vercel, DNS, and production deployment:
+
+- [docs/SETUP.md](docs/SETUP.md)
 
 ---
 
@@ -82,7 +91,9 @@ our-frame/
 
 ---
 
-## Local Setup
+## Local Quick Start
+
+For the full local setup, use [docs/SETUP.md](docs/SETUP.md).
 
 ### 1. Clone the repo
 
@@ -91,49 +102,38 @@ git clone https://github.com/your-username/our-frame.git
 cd our-frame
 ```
 
-### 2. Configure Google Cloud
+### 2. Backend environment
 
-1. Open [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials)
-2. Enable the **Google Drive API** under APIs & Services → Library
-3. Configure the **OAuth consent screen** (add your Google account as a test user)
-4. Create an **OAuth 2.0 Client ID** (Web Application) with:
-   - Authorized redirect URI: `http://localhost:8000/auth/callback`
-5. Note your **Client ID** and **Client Secret**
+Create `backend/.env.local`:
 
-### 3. Backend environment
-
-Create `backend/.env`:
-
-```env
-# Google OAuth
-GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your-client-secret
-GOOGLE_OAUTH_REDIRECT=http://localhost:8000/auth/callback
-
-# Your Google Drive root folder
-# Find the ID in the URL: drive.google.com/drive/folders/<ID>
-GOOGLE_DRIVE_ROOT_FOLDER=your-google-drive-folder-id
-
-# Where to store the OAuth token (auto-created on first login)
-GOOGLE_TOKEN_PATH=token.json
-
-# Frontend URL — used after OAuth redirect
-FRONTEND_ROOT=http://localhost:3000
-
-# Optional: enable AI features
-# OPENAI_API_KEY=sk-...
-# AI_ENABLED=true
+```bash
+cp backend/.env.example backend/.env.local
 ```
 
-### 4. Frontend environment
+Then fill in the Google OAuth values, Drive folder id, and any Supabase
+production values you want to test locally. The backend loads `backend/.env`
+first and `backend/.env.local` second, so `.env.local` can safely override local
+defaults. Never commit `.env.local`.
+
+### 3. Frontend environment
 
 Create `frontend/.env.local`:
+
+```bash
+cp frontend/.env.example frontend/.env.local
+```
+
+For local development, keep:
 
 ```env
 NEXT_PUBLIC_API_BASE=http://localhost:8000
 ```
 
-### 5. Install dependencies
+Only `NEXT_PUBLIC_*` values belong in the frontend environment. Never put a
+Supabase secret key, service-role key, database password, Google client secret,
+or token encryption key in `frontend/.env.local`.
+
+### 4. Install dependencies
 
 ```bash
 # From the repo root
@@ -176,7 +176,7 @@ npm run build          # Builds Next.js frontend to frontend/.next/
 npm run start:backend  # Runs FastAPI without hot reload
 ```
 
-For production, serve the Next.js app with `npm start` (inside `frontend/`) and run FastAPI behind a reverse proxy (Nginx or Caddy).
+For Vercel + Supabase production deployment, use [docs/SETUP.md](docs/SETUP.md).
 
 ---
 
@@ -184,7 +184,7 @@ For production, serve the Next.js app with `npm start` (inside `frontend/`) and 
 
 | Issue | Fix |
 |---|---|
-| "Google OAuth not configured" | Check `backend/.env` has valid credentials and restart the backend |
+| "Google OAuth not configured" | Check `backend/.env.local` has valid credentials and restart the backend |
 | Frontend shows auth error | Navigate to `http://localhost:8000/auth/start` and complete the OAuth flow |
 | `No local token.json` | The OAuth flow didn't complete — try `/auth/start` again |
 | Photos not loading | Check the Drive API is enabled and the root folder ID is correct |
@@ -207,6 +207,7 @@ For production, serve the Next.js app with `npm start` (inside `frontend/`) and 
 
 | Doc | Description |
 |---|---|
+| [docs/SETUP.md](docs/SETUP.md) | Full local and production setup guide |
 | [docs/api.md](docs/api.md) | Full REST API reference |
 | [docs/frontend.md](docs/frontend.md) | Frontend architecture, components, hooks, and types |
 | [docs/design-system.md](docs/design-system.md) | Design tokens, typography, color palette, and component recipes |

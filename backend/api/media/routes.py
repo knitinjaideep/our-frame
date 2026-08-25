@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
 from sqlmodel import Session
 from sqlmodel import select
 
@@ -12,7 +11,7 @@ from models.workspace import Workspace, WorkspaceMember
 from services.media_derivative_service import (
     VIDEO_PLAYBACK_KIND,
     VIDEO_POSTER_KIND,
-    derivative_path,
+    build_derivative_response,
     get_or_create_photo_derivative_for_media,
     get_or_create_video_playback_for_media,
     get_or_create_video_poster_for_media,
@@ -86,9 +85,4 @@ def photo_derivative(
         derivative = get_or_create_video_poster_for_media(session, media)
     else:
         derivative = get_or_create_photo_derivative_for_media(session, media, kind)
-    path = derivative_path(derivative)
-    return FileResponse(
-        path,
-        media_type=derivative.content_type,
-        headers={"Cache-Control": "private, max-age=31536000, immutable"},
-    )
+    return build_derivative_response(derivative)

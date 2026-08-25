@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 
 from fastapi import HTTPException
+from fastapi.responses import FileResponse, RedirectResponse, Response
 import requests
 from sqlmodel import Session
 
@@ -16,6 +17,7 @@ from drive.service import download_file_bytes, get_drive_service
 from google_drive_client import get_credentials
 from models.media import MediaDerivative, MediaItem
 from repositories import media_repo
+from services import media_storage_service
 
 
 PHOTO_DERIVATIVE_SIZES = {
@@ -62,6 +64,60 @@ def derivative_path(derivative: MediaDerivative) -> Path:
     return _path_for_key(derivative.storage_key)
 
 
+# A cached redirect must expire before the signed URL it points at, otherwise a
+# browser could reuse a redirect whose target has already expired.
+_SIGNED_REDIRECT_MAX_AGE = max(media_storage_service.SIGNED_URL_TTL_SECONDS - 60, 0)
+
+
+def build_derivative_response(derivative: MediaDerivative) -> Response:
+    """
+    Build the HTTP response that serves a ready derivative's bytes.
+
+    Local derivatives are streamed directly from disk. Supabase-backed
+    derivatives are served via a short-lived redirect to a signed URL so
+    the Supabase CDN handles Range requests and large payloads instead of
+    proxying bytes through the app server.
+    """
+    if derivative.storage_backend == "local":
+        return FileResponse(
+            derivative_path(derivative),
+            media_type=derivative.content_type,
+            headers={"Cache-Control": "private, max-age=31536000, immutable"},
+        )
+    if derivative.storage_backend == "supabase":
+        try:
+            url = media_storage_service.create_signed_url(derivative.storage_key)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=502, detail=f"Could not create signed URL: {exc}") from exc
+        # Short private cache so a grid re-render reuses the redirect instead of
+        # issuing a fresh Supabase sign round trip per thumbnail per page view.
+        return RedirectResponse(
+            url,
+            status_code=307,
+            headers={"Cache-Control": f"private, max-age={_SIGNED_REDIRECT_MAX_AGE}"},
+        )
+    raise HTTPException(
+        status_code=500,
+        detail=f"Unsupported derivative storage backend: {derivative.storage_backend}",
+    )
+
+
+def _persist_derivative(output_key: str, data: bytes, content_type: str) -> int:
+    """
+    Persist final derivative bytes according to the configured storage backend
+    and return the byte size that was persisted.
+    """
+    if settings.media_storage_backend == "local":
+        output_path = _path_for_key(output_key)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(data)
+        return output_path.stat().st_size
+    if settings.media_storage_backend == "supabase":
+        media_storage_service.upload_derivative_bytes(output_key, data, content_type)
+        return len(data)
+    raise ValueError(f"Unsupported media storage backend: {settings.media_storage_backend}")
+
+
 def _ready_existing_derivative(
     session: Session,
     media: MediaItem,
@@ -70,9 +126,11 @@ def _ready_existing_derivative(
     derivative = media_repo.get_derivative(session, media.id, kind) if media.id else None
     if not derivative or derivative.status != "ready":
         return None
-    if derivative.storage_backend == "local" and derivative_path(derivative).exists():
-        return derivative
-    return None
+    if derivative.storage_backend == "local":
+        return derivative if derivative_path(derivative).exists() else None
+    # Non-local backends (e.g. supabase) are trusted based on status alone —
+    # an existence check would cost a network round trip on every cache hit.
+    return derivative
 
 
 def _all_photo_derivatives_ready(session: Session, media: MediaItem) -> bool:
@@ -88,11 +146,10 @@ def _write_photo_derivative(media: MediaItem, kind: str, raw: bytes) -> tuple[st
         img.thumbnail((max_size, max_size))
 
     jpeg = to_jpeg_bytes(img, quality=82 if kind == "thumbnail" else 86)
+    data = jpeg.getvalue()
     output_key = _storage_key(media, kind)
-    output_path = _path_for_key(output_key)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_bytes(jpeg.getvalue())
-    return output_key, img.width, img.height, output_path.stat().st_size
+    size = _persist_derivative(output_key, data, "image/jpeg")
+    return output_key, img.width, img.height, size
 
 
 def _write_video_poster(media: MediaItem, raw: bytes) -> tuple[str, int, int, int]:
@@ -101,11 +158,10 @@ def _write_video_poster(media: MediaItem, raw: bytes) -> tuple[str, int, int, in
         img.thumbnail((VIDEO_POSTER_SIZE, VIDEO_POSTER_SIZE))
 
     jpeg = to_jpeg_bytes(img, quality=84)
+    data = jpeg.getvalue()
     output_key = _storage_key(media, VIDEO_POSTER_KIND)
-    output_path = _path_for_key(output_key)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_bytes(jpeg.getvalue())
-    return output_key, img.width, img.height, output_path.stat().st_size
+    size = _persist_derivative(output_key, data, "image/jpeg")
+    return output_key, img.width, img.height, size
 
 
 def _download_drive_thumbnail(thumbnail_url: str) -> bytes:
@@ -201,8 +257,6 @@ def _transcode_video_to_mp4(media: MediaItem) -> tuple[str, int | None, int | No
     svc = get_drive_service()
     video_bytes = download_file_bytes(svc, media.drive_file_id)
     output_key = _storage_key(media, VIDEO_PLAYBACK_KIND)
-    output_path = _path_for_key(output_key)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as tmp:
         source = Path(tmp) / "source"
@@ -248,10 +302,11 @@ def _transcode_video_to_mp4(media: MediaItem) -> tuple[str, int | None, int | No
             detail = (result.stderr or result.stdout or "ffmpeg MP4 transcode failed").strip()
             raise RuntimeError(detail[:500])
 
-        output_path.write_bytes(transcoded.read_bytes())
+        width, height = _probe_video_dimensions(transcoded)
+        data = transcoded.read_bytes()
 
-    width, height = _probe_video_dimensions(output_path)
-    return output_key, width, height, output_path.stat().st_size
+    size = _persist_derivative(output_key, data, "video/mp4")
+    return output_key, width, height, size
 
 
 def get_or_create_photo_derivative(
@@ -305,7 +360,7 @@ def get_or_create_photo_derivative_for_media(
                 session,
                 media_item_id=media.id,
                 kind=derivative_kind,
-                storage_backend="local",
+                storage_backend=settings.media_storage_backend,
                 storage_key=output_key,
                 content_type="image/jpeg",
                 width=width,
@@ -337,7 +392,7 @@ def get_or_create_photo_derivative_for_media(
                 session,
                 media_item_id=media.id,
                 kind=kind,
-                storage_backend="local",
+                storage_backend=settings.media_storage_backend,
                 storage_key=_storage_key(media, kind),
                 content_type="image/jpeg",
                 status="failed",
@@ -376,7 +431,7 @@ def get_or_create_video_poster_for_media(
             session,
             media_item_id=media.id,
             kind=VIDEO_POSTER_KIND,
-            storage_backend="local",
+            storage_backend=settings.media_storage_backend,
             storage_key=output_key,
             content_type="image/jpeg",
             width=width,
@@ -402,7 +457,7 @@ def get_or_create_video_poster_for_media(
             session,
             media_item_id=media.id,
             kind=VIDEO_POSTER_KIND,
-            storage_backend="local",
+            storage_backend=settings.media_storage_backend,
             storage_key=_storage_key(media, VIDEO_POSTER_KIND),
             content_type="image/jpeg",
             status="failed",
@@ -436,7 +491,7 @@ def get_or_create_video_playback_for_media(
             session,
             media_item_id=media.id,
             kind=VIDEO_PLAYBACK_KIND,
-            storage_backend="local",
+            storage_backend=settings.media_storage_backend,
             storage_key=output_key,
             content_type="video/mp4",
             width=width,
@@ -462,7 +517,7 @@ def get_or_create_video_playback_for_media(
             session,
             media_item_id=media.id,
             kind=VIDEO_PLAYBACK_KIND,
-            storage_backend="local",
+            storage_backend=settings.media_storage_backend,
             storage_key=_storage_key(media, VIDEO_PLAYBACK_KIND),
             content_type="video/mp4",
             status="failed",
