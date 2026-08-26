@@ -38,6 +38,8 @@ import {
   setRootFolder,
   listDriveFolders,
   analyzeFolderStructure,
+  runFullDriveSync,
+  type SyncProgress,
 } from '@/lib/platform-api'
 import type { DriveFolder } from '@/types/platform'
 
@@ -499,13 +501,25 @@ function NoStructurePanel({
 
 function NoMediaPanel({ workspaceId }: { workspaceId: number }) {
   const qc = useQueryClient()
-  const [refreshing, setRefreshing] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [progress, setProgress] = useState<SyncProgress | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  async function handleRefresh() {
-    setRefreshing(true)
-    await qc.invalidateQueries({ queryKey: ['bootstrap'] })
-    await qc.invalidateQueries({ queryKey: ['albums'] })
-    setRefreshing(false)
+  async function handleSync() {
+    setSyncing(true)
+    setError(null)
+    setProgress(null)
+    try {
+      await runFullDriveSync(workspaceId, setProgress)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Sync failed')
+    } finally {
+      // A sync that stops early still persisted everything it found, so
+      // refresh either way — a partial archive should become browsable.
+      await qc.invalidateQueries({ queryKey: ['bootstrap'] })
+      await qc.invalidateQueries({ queryKey: ['albums'] })
+      setSyncing(false)
+    }
   }
 
   return (
@@ -524,24 +538,37 @@ function NoMediaPanel({ workspaceId }: { workspaceId: number }) {
           </h3>
           <p className="text-sm leading-relaxed mx-auto" style={{ color: 'var(--muted-foreground)', maxWidth: '26rem' }}>
             Your archive is configured but we haven&apos;t found any images in the selected folder.
-            Make sure your photos are inside the root folder you chose, then try refreshing.
+            Make sure your photos are inside the root folder you chose, then sync your Drive.
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
-            onClick={handleRefresh}
-            disabled={refreshing}
+            onClick={handleSync}
+            disabled={syncing}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-sm transition-opacity hover:opacity-90 disabled:opacity-60"
             style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
           >
-            {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            Refresh
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {syncing ? 'Syncing…' : 'Sync now'}
           </button>
         </div>
 
+        {syncing && (
+          <p className="text-xs" style={{ color: 'var(--muted-foreground)' }} aria-live="polite">
+            {progress
+              ? `Scanning your Drive… ${progress.totalPhotos} photo${progress.totalPhotos === 1 ? '' : 's'} found so far`
+              : 'Scanning your Drive… this first pass can take up to a minute'}
+          </p>
+        )}
+
+        {error && (
+          <p className="text-xs text-destructive text-center">{error}</p>
+        )}
+
         <p className="text-xs" style={{ color: 'var(--muted-foreground)', opacity: 0.6 }}>
-          It can take a moment for Drive to index newly added files.
+          It can take a moment for Drive to index newly added files. A full sync may take a
+          little while for a large library — feel free to leave this page open while it runs.
         </p>
       </div>
     </SetupCard>
@@ -600,7 +627,13 @@ export function HomeSetupView({ setupState, workspaceId, workspaceName, userName
 
   const resolvedRootFolderId = rootFolderId ?? driveStatus?.root_folder_id ?? undefined
 
-  const currentIdx = STATE_ORDER.indexOf(localState)
+  // `no_media` is not its own checklist row: setup itself is finished, the
+  // archive just has no media yet, so the final "Browse your memories" row is
+  // the active one. Without this the whole checklist would render as not-done.
+  const currentIdx =
+    localState === 'no_media'
+      ? STATE_ORDER.indexOf('done')
+      : STATE_ORDER.indexOf(localState)
   const doneUpTo = currentIdx
 
   const displayName = localWorkspaceName ?? 'Your archive'

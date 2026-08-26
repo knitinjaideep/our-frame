@@ -21,11 +21,13 @@ function deriveSetupState(bootstrap: {
   has_drive_connection: boolean
   has_root_folder: boolean
   onboarding_complete: boolean
+  has_media: boolean
 }): SetupState {
   if (!bootstrap.has_workspace)         return 'no_workspace'
   if (!bootstrap.has_drive_connection)  return 'no_drive'
   if (!bootstrap.has_root_folder)       return 'no_root_folder'
   if (!bootstrap.onboarding_complete)   return 'no_structure'
+  if (!bootstrap.has_media)             return 'no_media'
   return 'ready'
 }
 

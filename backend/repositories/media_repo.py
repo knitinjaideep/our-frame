@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from models.media import MediaDerivative, MediaItem
@@ -123,6 +124,42 @@ def count_items_by_type_and_status(session: Session) -> list[tuple[str, str, int
         key = (item.media_type, item.processing_status)
         counts[key] = counts.get(key, 0) + 1
     return [(media_type, status, count) for (media_type, status), count in sorted(counts.items())]
+
+
+def count_items_for_workspace(session: Session, workspace_id: int) -> int:
+    """Number of media items scoped to one workspace.
+
+    Counted in SQL rather than by loading rows, because this runs on every
+    bootstrap request.
+    """
+    return session.exec(
+        select(func.count())
+        .select_from(MediaItem)
+        .where(MediaItem.workspace_id == workspace_id)
+    ).one()
+
+
+def count_legacy_items(session: Session) -> int:
+    """Number of unscoped (pre-workspace) media items."""
+    return session.exec(
+        select(func.count())
+        .select_from(MediaItem)
+        .where(MediaItem.workspace_id.is_(None))
+    ).one()
+
+
+def workspace_has_media(session: Session, workspace_id: int) -> bool:
+    """
+    Whether the app has any media to show a member of this workspace.
+
+    Workspace-scoped items come first. Legacy unscoped items count too: the
+    gallery routes they feed are still workspace-agnostic during the
+    migration, so an environment synced through the legacy path really does
+    have media to browse and must not be sent back to the setup flow.
+    """
+    if count_items_for_workspace(session, workspace_id) > 0:
+        return True
+    return count_legacy_items(session) > 0
 
 
 def get_derivative(

@@ -15,6 +15,7 @@ from sqlmodel import Session, select
 
 from core.config import settings
 from core.database import get_session
+from repositories import media_repo
 from services.auth_service import (
     SESSION_COOKIE,
     delete_session,
@@ -123,6 +124,7 @@ def bootstrap(
             "active_workspace_id": None,
             "has_drive_connection": False,
             "has_root_folder": False,
+            "has_media": False,
             "onboarding_complete": False,
             "drive_connect_deferred": False,
             "next_route": "/home",
@@ -168,9 +170,11 @@ def bootstrap(
     drive_deferred = getattr(workspace, "drive_connect_deferred", False) or False
     onboarding_done = workspace.onboarding_complete
 
+    has_media = media_repo.workspace_has_media(db, workspace.id)
+
     log.debug(
-        "bootstrap: workspace %s → has_drive=%s has_root_folder=%s onboarding_done=%s → /home",
-        workspace.id, has_drive, has_root_folder, onboarding_done,
+        "bootstrap: workspace %s → has_drive=%s has_root_folder=%s onboarding_done=%s has_media=%s → /home",
+        workspace.id, has_drive, has_root_folder, onboarding_done, has_media,
     )
 
     return {
@@ -187,6 +191,7 @@ def bootstrap(
         "active_workspace_id": workspace.id,
         "has_drive_connection": has_drive,
         "has_root_folder": has_root_folder,
+        "has_media": has_media,
         "onboarding_complete": onboarding_done,
         "drive_connect_deferred": drive_deferred,
         # Always send authenticated users to /home — setup state is resolved there
@@ -202,6 +207,7 @@ def _unauthenticated_response():
         "workspace": None,
         "active_workspace_id": None,
         "has_drive_connection": False,
+        "has_media": False,
         "onboarding_complete": False,
         "drive_connect_deferred": False,
         "next_route": "/login",

@@ -18,6 +18,7 @@ a UI layer concern — the folder stays in DB but is filtered at query time).
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime, timezone, timedelta
 from sqlmodel import Session
 
@@ -33,6 +34,12 @@ logger = logging.getLogger(__name__)
 
 # How old a root sync can be before we re-sync on startup
 SYNC_STALE_SECONDS = 3600  # 1 hour
+
+# Wall-clock budget for a single sync_root() call. Kept comfortably under
+# Vercel's 60s function timeout so there is headroom for request/response
+# overhead; when the budget is exceeded mid-crawl, sync_root() returns a
+# `remaining_queue` the caller can pass back in as `resume_queue` to continue.
+SYNC_TIME_BUDGET_SECONDS = 45.0
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -104,6 +111,41 @@ def _parse_drive_datetime(value: str | None) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except Exception:
         return None
+
+
+def _validate_queue_item(session: Session, item) -> tuple[str | None, int]:
+    """
+    Validate one BFS queue entry.
+
+    `resume_queue` comes back over the wire from the client, so entries are
+    untrusted: they must be well-formed and must name a folder we already
+    discovered ourselves by crawling down from the configured root. That keeps
+    a resumed sync scoped to the same folder tree a fresh sync would cover, and
+    turns malformed input into a skipped item instead of a 500.
+
+    Returns (folder_id, depth); folder_id is None when the item should be
+    skipped.
+    """
+    if not isinstance(item, dict):
+        logger.warning("sync_root: ignoring malformed queue item")
+        return None, 1
+
+    folder_id = item.get("folder_id")
+    if not isinstance(folder_id, str) or not folder_id:
+        logger.warning("sync_root: ignoring queue item without a folder id")
+        return None, 1
+
+    depth = item.get("depth", 1)
+    if not isinstance(depth, int) or isinstance(depth, bool) or depth < 1:
+        depth = 1
+
+    if album_repo.get_by_id(session, folder_id) is None:
+        # Every legitimate queue entry is seeded from a folder we just upserted
+        # as an album, so an unknown id means a stale or hand-crafted queue.
+        logger.warning("sync_root: ignoring queue item for unknown folder %s", folder_id)
+        return None, depth
+
+    return folder_id, depth
 
 
 def _parse_int(value) -> int | None:
@@ -206,14 +248,32 @@ def sync_folder_shallow(
     }
 
 
-def sync_root(session: Session, workspace_id: int | None = None) -> dict:
+def sync_root(
+    session: Session,
+    workspace_id: int | None = None,
+    resume_queue: list[dict] | None = None,
+    time_budget_seconds: float | None = SYNC_TIME_BUDGET_SECONDS,
+) -> dict:
     """
-    Full sync of root → child albums.
-    - Upserts all root-level folders.
-    - For each root folder, does a shallow sync to get photos + sub-folders.
-    - Applies section mappings.
-    - Does NOT recurse into sub-sub-folders (keep it bounded).
-    Returns a summary.
+    Full sync of root → child albums, processed as a time-bounded, resumable
+    breadth-first crawl.
+
+    - On a fresh sync (resume_queue=None): upserts all root-level folders,
+      applies section mappings, then seeds a BFS queue of root folders at
+      depth=1.
+    - On a resumed sync (resume_queue given): skips root re-listing/re-upsert
+      entirely and continues processing the given queue.
+    - Either way, the queue is then drained breadth-first (root → album →
+      sub-album → sub-sub-album, matching the previous fixed 3-level depth)
+      up to `time_budget_seconds` of wall-clock time. If the budget is
+      exceeded, processing stops immediately and the unprocessed queue is
+      returned as `remaining_queue` so the caller can resume in a later
+      request — this keeps any single request well under Vercel's 60s
+      function timeout even for a large Drive library.
+    - `time_budget_seconds=None` disables the budget entirely and drains the
+      whole crawl in one call. In-process callers that are not bound by an
+      HTTP timeout (startup sync, post-login sync) use this so their behavior
+      is identical to the pre-resumable implementation.
 
     When workspace_id is provided, the workspace's own DriveConnection is used
     for Drive credentials and for the root folder to sync, and resulting
@@ -253,87 +313,97 @@ def sync_root(session: Session, workspace_id: int | None = None) -> dict:
             logger.warning("sync_root: no root folder configured, skipping")
             return {"skipped": True, "reason": "no root folder configured"}
 
-    logger.info("sync_root: starting full Drive sync from root=%s", root_id)
     now = _utcnow()
     total_folders = 0
     total_photos = 0
+    root_folders_count: int | None = None
 
-    try:
-        root_data = list_children(root_id, drive_service=drive_service)
-    except ReauthRequired:
-        logger.warning("sync_root: not authenticated, serving stale cache")
-        return {"skipped": True, "reason": "not authenticated"}
-    except DriveError as e:
-        logger.error("sync_root: Drive error: %s", e)
-        return {"skipped": True, "reason": str(e)}
+    if resume_queue is None:
+        logger.info("sync_root: starting full Drive sync from root=%s", root_id)
 
-    # Upsert top-level album folders
-    root_folders = root_data["folders"]
-    for f in root_folders:
-        modified = None
-        if f.get("modifiedTime"):
-            try:
-                modified = datetime.fromisoformat(f["modifiedTime"].replace("Z", "+00:00"))
-            except Exception:
-                pass
-        album = _upsert_album_from_drive(session, f["id"], f["name"], None, modified)
-        _apply_section_mapping(session, album)
-        total_folders += 1
+        try:
+            root_data = list_children(root_id, drive_service=drive_service)
+        except ReauthRequired:
+            logger.warning("sync_root: not authenticated, serving stale cache")
+            return {"skipped": True, "reason": "not authenticated"}
+        except DriveError as e:
+            logger.error("sync_root: Drive error: %s", e)
+            return {"skipped": True, "reason": str(e)}
 
-    # Shallow-sync each top-level album (get their photos + sub-folders)
-    synced_ids = {f["id"] for f in root_folders}
-    sub_folder_ids: list[str] = []
-    for f in root_folders:
+        # Upsert top-level album folders
+        root_folders = root_data["folders"]
+        for f in root_folders:
+            modified = None
+            if f.get("modifiedTime"):
+                try:
+                    modified = datetime.fromisoformat(f["modifiedTime"].replace("Z", "+00:00"))
+                except Exception:
+                    pass
+            album = _upsert_album_from_drive(session, f["id"], f["name"], None, modified)
+            _apply_section_mapping(session, album)
+            total_folders += 1
+
+        root_folders_count = len(root_folders)
+        queue: list[dict] = [{"folder_id": f["id"], "depth": 1} for f in root_folders]
+    else:
+        logger.info(
+            "sync_root: resuming Drive sync for workspace=%s with %d queued folder(s)",
+            workspace_id,
+            len(resume_queue),
+        )
+        queue = list(resume_queue)
+
+    # ── Breadth-first, time-bounded drain of the queue ────────────────────────
+    start_time = time.monotonic()
+    while queue:
+        if (
+            time_budget_seconds is not None
+            and time.monotonic() - start_time > time_budget_seconds
+        ):
+            logger.info(
+                "sync_root: time budget of %.1fs exceeded, pausing with %d folder(s) remaining",
+                time_budget_seconds,
+                len(queue),
+            )
+            return {
+                "complete": False,
+                "remaining_queue": queue,
+                "total_folders": total_folders,
+                "total_photos": total_photos,
+            }
+
+        item = queue.pop(0)
+        folder_id, depth = _validate_queue_item(session, item)
+        if folder_id is None:
+            continue
+
         try:
             result = sync_folder_shallow(
-                session, f["id"], workspace_id=workspace_id, drive_service=drive_service
+                session, folder_id, workspace_id=workspace_id, drive_service=drive_service
             )
             total_photos += result["photos_synced"]
             total_folders += result["folders_synced"]
-            # Collect sub-folders so we can sync one level deeper
-            children = album_repo.get_by_parent(session, f["id"])
-            sub_folder_ids.extend(c.id for c in children)
+            if depth < 3:
+                children = album_repo.get_by_parent(session, folder_id)
+                for c in children:
+                    queue.append({"folder_id": c.id, "depth": depth + 1})
         except (ReauthRequired, DriveError) as e:
-            logger.warning("sync_root: skipping folder %s: %s", f["id"], e)
-
-    # Sync sub-albums (root → album → sub-album) so nested photos are loaded
-    sub_sub_folder_ids: list[str] = []
-    for sub_id in sub_folder_ids:
-        try:
-            result = sync_folder_shallow(
-                session, sub_id, workspace_id=workspace_id, drive_service=drive_service
-            )
-            total_photos += result["photos_synced"]
-            total_folders += result["folders_synced"]
-            # Collect one more level for deep structures like Videos/Arjun/...
-            grandchildren = album_repo.get_by_parent(session, sub_id)
-            sub_sub_folder_ids.extend(c.id for c in grandchildren)
-        except (ReauthRequired, DriveError) as e:
-            logger.warning("sync_root: skipping sub-folder %s: %s", sub_id, e)
-
-    # Sync one more level deep (root → album → sub-album → sub-sub-album)
-    # This covers structures like Videos/Arjun/2024/video.mp4
-    for sub_sub_id in sub_sub_folder_ids:
-        try:
-            result = sync_folder_shallow(
-                session, sub_sub_id, workspace_id=workspace_id, drive_service=drive_service
-            )
-            total_photos += result["photos_synced"]
-            total_folders += result["folders_synced"]
-        except (ReauthRequired, DriveError) as e:
-            logger.warning("sync_root: skipping sub-sub-folder %s: %s", sub_sub_id, e)
+            logger.warning("sync_root: skipping folder %s: %s", folder_id, e)
 
     logger.info(
         "sync_root: done — %d folders, %d photos synced",
         total_folders,
         total_photos,
     )
-    return {
+    result = {
+        "complete": True,
         "synced_at": now.isoformat(),
-        "root_folders": len(root_folders),
         "total_folders": total_folders,
         "total_photos": total_photos,
     }
+    if root_folders_count is not None:
+        result["root_folders"] = root_folders_count
+    return result
 
 
 def sync_for_user(session: Session, user_id: int) -> dict:
@@ -362,7 +432,9 @@ def sync_for_user(session: Session, user_id: int) -> dict:
         workspace_id = workspaces[0].id
 
     if workspace_id is not None:
-        result = sync_root(session, workspace_id=workspace_id)
+        # No HTTP timeout applies to this in-process caller, so drain the whole
+        # crawl in one pass exactly as before the resumable budget was added.
+        result = sync_root(session, workspace_id=workspace_id, time_budget_seconds=None)
         if not result.get("skipped"):
             return result
         logger.info(
@@ -371,7 +443,7 @@ def sync_for_user(session: Session, user_id: int) -> dict:
             result.get("reason"),
         )
 
-    return sync_root(session)
+    return sync_root(session, time_budget_seconds=None)
 
 
 def maybe_sync_on_startup(session: Session) -> None:
@@ -386,7 +458,10 @@ def maybe_sync_on_startup(session: Session) -> None:
 
     if not root_albums:
         logger.info("maybe_sync_on_startup: no albums in DB, running initial sync")
-        sync_root(session)
+        # Startup is not bound by an HTTP timeout: drain the full crawl so a
+        # large library still syncs completely, as it did before sync_root()
+        # gained a per-request time budget.
+        sync_root(session, time_budget_seconds=None)
         return
 
     most_recent_sync = max(
@@ -399,7 +474,7 @@ def maybe_sync_on_startup(session: Session) -> None:
             "maybe_sync_on_startup: last sync=%s is stale, re-syncing",
             most_recent_sync,
         )
-        sync_root(session)
+        sync_root(session, time_budget_seconds=None)
     else:
         logger.info(
             "maybe_sync_on_startup: last sync=%s is fresh, skipping",

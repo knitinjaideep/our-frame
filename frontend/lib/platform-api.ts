@@ -29,6 +29,7 @@ export interface BootstrapPayload {
   active_workspace_id: number | null
   has_drive_connection: boolean
   has_root_folder: boolean
+  has_media: boolean
   onboarding_complete: boolean
   drive_connect_deferred: boolean
   next_route: string
@@ -139,6 +140,74 @@ export interface FolderAnalysisResult {
 
 export async function analyzeFolderStructure(workspaceId: number, folderId: string): Promise<FolderAnalysisResult> {
   return apiClient.post<FolderAnalysisResult>(`/api/drive/${workspaceId}/analyze`, { folder_id: folderId })
+}
+
+// ── Drive Sync ────────────────────────────────────────────────────────────────
+
+export interface SyncProgress {
+  totalFolders: number
+  totalPhotos: number
+}
+
+interface SyncDriveResponse {
+  skipped?: boolean
+  reason?: string
+  complete?: boolean
+  remaining_queue?: Record<string, unknown>[]
+  total_folders?: number
+  total_photos?: number
+}
+
+// Safety cap on resume iterations — at ~45s/call this is ~22 minutes of wall
+// time, which is generous for a family-sized library while still preventing
+// a runaway loop if the backend never reports complete.
+const SYNC_MAX_ITERATIONS = 30
+
+/**
+ * Drives the resumable Drive sync to completion (or failure). Calls
+ * POST /sync/drive repeatedly, feeding back `remaining_queue` as
+ * `resume_queue` until the backend reports `complete: true`. Each call is
+ * time-bounded server-side, so this stays well under any single request's
+ * function timeout even for a large Drive library.
+ */
+export async function runFullDriveSync(
+  workspaceId: number,
+  onProgress?: (progress: SyncProgress) => void
+): Promise<void> {
+  let resumeQueue: Record<string, unknown>[] | null = null
+  let totalFolders = 0
+  let totalPhotos = 0
+
+  for (let i = 0; i < SYNC_MAX_ITERATIONS; i++) {
+    const data: SyncDriveResponse = await apiClient.post<SyncDriveResponse>(
+      `/sync/drive?workspace_id=${workspaceId}`,
+      resumeQueue ? { resume_queue: resumeQueue } : {}
+    )
+
+    if (data.skipped) {
+      throw new Error(data.reason || 'Sync was skipped')
+    }
+
+    // Each response reports only what that call processed, so accumulate.
+    totalFolders += data.total_folders ?? 0
+    totalPhotos += data.total_photos ?? 0
+    onProgress?.({ totalFolders, totalPhotos })
+
+    if (data.complete) {
+      return
+    }
+
+    resumeQueue = data.remaining_queue ?? null
+    if (!resumeQueue || resumeQueue.length === 0) {
+      // complete=false but no queue to resume — treat as done rather than looping forever
+      return
+    }
+  }
+
+  throw new Error(
+    'Sync stopped before it finished — this library is larger than a single sync session. ' +
+    'Everything found so far has been saved, so your archive is partly ready.'
+  )
 }
 
 // ── Admin ─────────────────────────────────────────────────────────────────────

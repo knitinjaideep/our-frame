@@ -9,9 +9,17 @@ function storedSessionToken(): string | null {
   )
 }
 
+// Backend routers that authenticate the caller. The session cookie is the
+// primary mechanism; the ?t= token is the fallback for browsers/deployments
+// where the cross-origin cookie never lands (the same reason /auth/callback
+// hands the token to the frontend in the first place). `/sync` is not under
+// `/api`, but its workspace-scoped calls are authenticated just the same.
+const AUTHENTICATED_PATH_PREFIXES = ['/api/', '/sync/']
+
 function withSessionToken(path: string): string {
   const token = storedSessionToken()
-  if (!token || !path.startsWith('/api/') || path.includes('t=')) return path
+  const needsToken = AUTHENTICATED_PATH_PREFIXES.some((p) => path.startsWith(p))
+  if (!token || !needsToken || path.includes('t=')) return path
   const separator = path.includes('?') ? '&' : '?'
   return `${path}${separator}t=${encodeURIComponent(token)}`
 }
