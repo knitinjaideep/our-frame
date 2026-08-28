@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 import shutil
 import subprocess
@@ -22,6 +23,8 @@ from services import media_storage_service, workspace_service
 from services.drive_connect_service import get_drive_service_for_workspace, load_drive_credentials
 
 
+logger = logging.getLogger(__name__)
+
 PHOTO_DERIVATIVE_SIZES = {
     "thumbnail": 400,
     "grid": 900,
@@ -31,6 +34,25 @@ VIDEO_POSTER_KIND = "poster"
 VIDEO_POSTER_SIZE = 900
 VIDEO_PLAYBACK_KIND = "playback"
 VIDEO_PLAYBACK_HEIGHT = 720
+
+# Kinds cheap enough to source from Google's pre-rendered CDN thumbnail
+# instead of downloading and decoding the full original. "preview" is
+# intentionally excluded — the lightbox wants full-original quality, and
+# it's only paid when a user actually opens an image.
+_CDN_THUMBNAIL_ELIGIBLE_KINDS = ("thumbnail", "grid")
+# Cap how large a size we'll ask Google's CDN to render, regardless of the
+# 2x request multiplier below.
+_DRIVE_THUMBNAIL_SIZE_CAP = 2048
+# The CDN fetch is a best-effort shortcut with a full-original fallback behind
+# it, so it gets a tighter timeout than the poster path: a hung CDN request
+# must not eat the whole serverless request budget before the fallback starts.
+_DRIVE_THUMBNAIL_SHORTCUT_TIMEOUT = 10
+
+# Google Drive thumbnail links end in a resize parameter, e.g. "...=s220" or
+# "...=s220-c" (the "-c" requests a center-cropped square). Matches only at
+# the end of the URL so we don't rewrite anything that isn't in this exact
+# resizable form.
+_DRIVE_THUMBNAIL_SIZE_RE = re.compile(r"=s\d+(-c)?$")
 
 
 def _cache_root() -> Path:
@@ -155,6 +177,84 @@ def _all_photo_derivatives_ready(session: Session, media: MediaItem) -> bool:
     return all(_ready_existing_derivative(session, media, kind) for kind in PHOTO_DERIVATIVE_SIZES)
 
 
+def _drive_thumbnail_url_at_size(thumbnail_url: str, size: int) -> str | None:
+    """
+    Google's Drive thumbnail links end in a resize parameter (e.g. "=s220").
+    Swapping that for a larger value returns a pre-rendered JPEG from Google's
+    CDN — far cheaper than downloading and decoding the original, and it
+    sidesteps HEIC decoding entirely since Google always returns JPEG.
+    Returns None when the URL isn't in the expected resizable form.
+
+    Note this drops a trailing "-c" (center-crop-to-square) suffix rather
+    than preserving it: our photo derivatives fit the source's original
+    aspect ratio inside a max_size x max_size box (see
+    `_write_photo_derivative`), so a pre-cropped square source would
+    silently lose part of the image instead of just being downscaled.
+    """
+    if not thumbnail_url or not _DRIVE_THUMBNAIL_SIZE_RE.search(thumbnail_url):
+        return None
+    return _DRIVE_THUMBNAIL_SIZE_RE.sub(f"=s{size}", thumbnail_url)
+
+
+def _url_free_error_summary(exc: Exception) -> str:
+    """
+    Short, URL-free description of a failed HTTP call, safe to log.
+
+    `str(exc)` is deliberately not used here: requests/urllib3 error messages
+    embed the full request URL, and Drive thumbnail links are private media
+    URLs that must never reach the logs.
+    """
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    if status is not None:
+        return f"{type(exc).__name__} status={status}"
+    return type(exc).__name__
+
+
+def _photo_source_bytes_for_kind(session: Session, media: MediaItem, kind: str) -> bytes:
+    """
+    Choose the cheapest reliable source of raw image bytes for `kind`.
+
+    thumbnail/grid: prefer Google's pre-rendered CDN thumbnail JPEG, requested
+    at roughly 2x the final derivative size (capped). The extra pixels are not
+    for the browser — `_write_photo_derivative` still caps output at the
+    configured size — they give the downscale enough source detail to average
+    away the CDN JPEG's own compression artifacts. Falls back to the full
+    original when the stored thumbnail URL isn't in the expected resizable
+    form, or when the CDN fetch fails for any reason (e.g. an expired or
+    unauthorized link) — the fallback must always succeed independent of the
+    CDN shortcut.
+
+    preview: always uses the full original. This is the lightbox image, and
+    it's now only paid when a user opens it, not on every grid render.
+    """
+    if kind in _CDN_THUMBNAIL_ELIGIBLE_KINDS:
+        target_size = min(PHOTO_DERIVATIVE_SIZES[kind] * 2, _DRIVE_THUMBNAIL_SIZE_CAP)
+        cdn_url = _drive_thumbnail_url_at_size(media.drive_thumbnail_url or "", target_size)
+        if cdn_url:
+            try:
+                return _download_drive_thumbnail(
+                    session,
+                    media,
+                    cdn_url,
+                    timeout=_DRIVE_THUMBNAIL_SHORTCUT_TIMEOUT,
+                )
+            except Exception as exc:
+                # Fall through to the full-original download below. Log enough
+                # to notice systematic CDN breakage (which would otherwise show
+                # up only as unexplained slowness) without emitting the private
+                # thumbnail URL or anything derived from it.
+                logger.warning(
+                    "photo derivative: Drive CDN thumbnail fetch failed "
+                    "(media_id=%s kind=%s error=%s); falling back to full original",
+                    media.id,
+                    kind,
+                    _url_free_error_summary(exc),
+                )
+
+    svc = _drive_service_for(session, media)
+    return download_file_bytes(svc, media.drive_file_id)
+
+
 def _write_photo_derivative(media: MediaItem, kind: str, raw: bytes) -> tuple[str, int, int, int]:
     img = open_image(raw)
     max_size = PHOTO_DERIVATIVE_SIZES[kind]
@@ -190,12 +290,18 @@ def _drive_credentials_for(session: Session, media: MediaItem) -> Credentials:
     return get_credentials()
 
 
-def _download_drive_thumbnail(session: Session, media: MediaItem, thumbnail_url: str) -> bytes:
+def _download_drive_thumbnail(
+    session: Session,
+    media: MediaItem,
+    thumbnail_url: str,
+    *,
+    timeout: int = 30,
+) -> bytes:
     creds = _drive_credentials_for(session, media)
     # AuthorizedSession refreshes an expired access token before sending. The
     # stored workspace access token is usually stale by the time a poster is
     # generated, so a raw Bearer header would 401 and fail the derivative.
-    response = AuthorizedSession(creds).get(thumbnail_url, timeout=30)
+    response = AuthorizedSession(creds).get(thumbnail_url, timeout=timeout)
     response.raise_for_status()
     return response.content
 
@@ -363,31 +469,28 @@ def get_or_create_photo_derivative_for_media(
     session.commit()
 
     try:
-        svc = _drive_service_for(session, media)
-        raw = download_file_bytes(svc, media.drive_file_id)
+        raw = _photo_source_bytes_for_kind(session, media, kind)
+        output_key, width, height, size = _write_photo_derivative(media, kind, raw)
+        derivative = media_repo.upsert_derivative(
+            session,
+            media_item_id=media.id,
+            kind=kind,
+            storage_backend=settings.media_storage_backend,
+            storage_key=output_key,
+            content_type="image/jpeg",
+            width=width,
+            height=height,
+            size=size,
+            status="ready",
+            error=None,
+        )
 
-        for derivative_kind in PHOTO_DERIVATIVE_SIZES:
-            if _ready_existing_derivative(session, media, derivative_kind):
-                continue
-            output_key, width, height, size = _write_photo_derivative(media, derivative_kind, raw)
-            media_repo.upsert_derivative(
-                session,
-                media_item_id=media.id,
-                kind=derivative_kind,
-                storage_backend=settings.media_storage_backend,
-                storage_key=output_key,
-                content_type="image/jpeg",
-                width=width,
-                height=height,
-                size=size,
-                status="ready",
-                error=None,
-            )
-
-        derivative = _ready_existing_derivative(session, media, kind)
-        if derivative is None:
-            raise RuntimeError(f"Derivative {kind} was not created")
-
+        # Only the requested kind was generated here, so the item stays "queued"
+        # until thumbnail/grid/preview all exist. That is honest for the item as
+        # a whole; the background processor
+        # (`media_processing_service.process_media_queue`) is what fills in the
+        # remaining kinds, and it must keep requesting every missing kind or
+        # items would never reach "ready".
         media.processing_status = "ready" if _all_photo_derivatives_ready(session, media) else "queued"
         media.processing_error = None
         session.add(media)

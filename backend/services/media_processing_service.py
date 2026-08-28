@@ -128,7 +128,15 @@ def process_media_queue(
         before = missing_derivative_kinds(session, item, include_playback=include_playback)
         try:
             if item.media_type == "image":
-                get_or_create_photo_derivative_for_media(session, item, "thumbnail")
+                # Request every missing photo kind explicitly. The derivative
+                # service now generates exactly the kind it is asked for (so a
+                # grid page view never pays for a lightbox preview), which means
+                # a single "thumbnail" call here would leave grid/preview
+                # missing forever: the item would stay a queue candidate, stay
+                # "queued", and block later items from ever being reached.
+                for kind in before:
+                    if kind in PHOTO_DERIVATIVE_SIZES:
+                        get_or_create_photo_derivative_for_media(session, item, kind)
             elif item.media_type == "video":
                 get_or_create_video_poster_for_media(session, item)
                 if include_playback:
