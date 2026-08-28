@@ -12,6 +12,7 @@ import { BucketCard } from '@/components/buckets/bucket-card'
 import { SectionReveal } from '@/components/ui/section-reveal'
 import { BUCKETS } from '@/lib/buckets'
 import { useWorkspace } from '@/hooks/use-workspace'
+import { SyncButton } from '@/components/sync/sync-button'
 
 function Divider() {
   return (
@@ -88,6 +89,12 @@ export function HomeFeedView() {
       <HeroSlideshow photos={slideshowPhotos ?? []} familyName={heroName} />
 
       <div className="pt-28 pb-48">
+        {workspace && (
+          <div className="content-padding flex justify-end mb-8">
+            <SyncButton workspaceId={workspace.id} variant="quiet" />
+          </div>
+        )}
+
         {error && (
           <div className="content-padding mb-16">
             <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-5 py-4">

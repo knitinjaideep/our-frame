@@ -38,9 +38,8 @@ import {
   setRootFolder,
   listDriveFolders,
   analyzeFolderStructure,
-  runFullDriveSync,
-  type SyncProgress,
 } from '@/lib/platform-api'
+import { SyncButton } from '@/components/sync/sync-button'
 import type { DriveFolder } from '@/types/platform'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -500,28 +499,6 @@ function NoStructurePanel({
 // ── State: No media ────────────────────────────────────────────────────────────
 
 function NoMediaPanel({ workspaceId }: { workspaceId: number }) {
-  const qc = useQueryClient()
-  const [syncing, setSyncing] = useState(false)
-  const [progress, setProgress] = useState<SyncProgress | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleSync() {
-    setSyncing(true)
-    setError(null)
-    setProgress(null)
-    try {
-      await runFullDriveSync(workspaceId, setProgress)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Sync failed')
-    } finally {
-      // A sync that stops early still persisted everything it found, so
-      // refresh either way — a partial archive should become browsable.
-      await qc.invalidateQueries({ queryKey: ['bootstrap'] })
-      await qc.invalidateQueries({ queryKey: ['albums'] })
-      setSyncing(false)
-    }
-  }
-
   return (
     <SetupCard>
       <div className="space-y-5 text-center">
@@ -542,29 +519,7 @@ function NoMediaPanel({ workspaceId }: { workspaceId: number }) {
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-sm transition-opacity hover:opacity-90 disabled:opacity-60"
-            style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
-          >
-            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            {syncing ? 'Syncing…' : 'Sync now'}
-          </button>
-        </div>
-
-        {syncing && (
-          <p className="text-xs" style={{ color: 'var(--muted-foreground)' }} aria-live="polite">
-            {progress
-              ? `Scanning your Drive… ${progress.totalPhotos} photo${progress.totalPhotos === 1 ? '' : 's'} found so far`
-              : 'Scanning your Drive… this first pass can take up to a minute'}
-          </p>
-        )}
-
-        {error && (
-          <p className="text-xs text-destructive text-center">{error}</p>
-        )}
+        <SyncButton workspaceId={workspaceId} variant="primary" />
 
         <p className="text-xs" style={{ color: 'var(--muted-foreground)', opacity: 0.6 }}>
           It can take a moment for Drive to index newly added files. A full sync may take a
