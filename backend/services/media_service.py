@@ -37,6 +37,7 @@ def upsert_drive_media_item(
     duration_ms: Optional[int] = None,
     drive_thumbnail_url: Optional[str] = None,
     web_view_link: Optional[str] = None,
+    commit: bool = True,
 ) -> MediaItem:
     media_type = classify_media_type(mime_type)
     initial_status = "queued" if media_type in {"image", "video"} else "failed"
@@ -61,6 +62,7 @@ def upsert_drive_media_item(
         web_view_link=web_view_link,
         processing_status=initial_status if existing is None else None,
         processing_error=error if existing is None else None,
+        commit=commit,
     )
 
 

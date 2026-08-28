@@ -3,7 +3,7 @@ from sqlmodel import Session, select
 from models.photo import DrivePhoto
 
 
-def upsert(session: Session, photo: DrivePhoto) -> DrivePhoto:
+def upsert(session: Session, photo: DrivePhoto, *, commit: bool = True) -> DrivePhoto:
     existing = session.get(DrivePhoto, photo.id)
     if existing:
         existing.name = photo.name
@@ -17,12 +17,18 @@ def upsert(session: Session, photo: DrivePhoto) -> DrivePhoto:
         existing.web_view_link = photo.web_view_link
         existing.cached_at = datetime.utcnow()
         session.add(existing)
-        session.commit()
-        session.refresh(existing)
+        if commit:
+            session.commit()
+            session.refresh(existing)
+        else:
+            session.flush()
         return existing
     session.add(photo)
-    session.commit()
-    session.refresh(photo)
+    if commit:
+        session.commit()
+        session.refresh(photo)
+    else:
+        session.flush()
     return photo
 
 

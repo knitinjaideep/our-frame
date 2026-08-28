@@ -74,6 +74,7 @@ def upsert_item(
     web_view_link: Optional[str] = None,
     processing_status: Optional[str] = None,
     processing_error: Optional[str] = None,
+    commit: bool = True,
 ) -> MediaItem:
     existing = get_item_by_drive_file(session, drive_file_id, workspace_id)
     now = _utcnow()
@@ -97,8 +98,11 @@ def upsert_item(
             existing.processing_error = processing_error
         existing.updated_at = now
         session.add(existing)
-        session.commit()
-        session.refresh(existing)
+        if commit:
+            session.commit()
+            session.refresh(existing)
+        else:
+            session.flush()
         return existing
 
     item = MediaItem(
@@ -120,8 +124,11 @@ def upsert_item(
         processing_error=processing_error,
     )
     session.add(item)
-    session.commit()
-    session.refresh(item)
+    if commit:
+        session.commit()
+        session.refresh(item)
+    else:
+        session.flush()
     return item
 
 

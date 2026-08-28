@@ -39,7 +39,7 @@ SYNC_STALE_SECONDS = 3600  # 1 hour
 # Vercel's 60s function timeout so there is headroom for request/response
 # overhead; when the budget is exceeded mid-crawl, sync_root() returns a
 # `remaining_queue` the caller can pass back in as `resume_queue` to continue.
-SYNC_TIME_BUDGET_SECONDS = 45.0
+SYNC_TIME_BUDGET_SECONDS = 25.0
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -211,7 +211,14 @@ def sync_folder_shallow(
             height=height,
             web_view_link=p.get("webViewLink"),
         )
-        photo_repo.upsert(session, photo)
+        # commit=False: these two upserts each flush (so any generated PKs are
+        # assigned) but do not round-trip to the DB. The whole folder — every
+        # photo/media-item row plus the parent album update below — is
+        # committed together in a single network round trip after the loop,
+        # instead of 2+ round trips per photo. This is the main fix for Drive
+        # sync timing out on Vercel: cross-region DB latency dominated a
+        # per-row-commit sync loop far more than Drive API latency did.
+        photo_repo.upsert(session, photo, commit=False)
         upsert_drive_media_item(
             session,
             drive_file_id=p["id"],
@@ -227,17 +234,24 @@ def sync_folder_shallow(
             duration_ms=duration_ms,
             drive_thumbnail_url=p.get("thumbnailLink"),
             web_view_link=p.get("webViewLink"),
+            commit=False,
         )
         if idx == 0:
             cover_photo_id = p["id"]
 
-    # Update the album record we just synced
+    # Update the album record we just synced, and commit it together with the
+    # batch of photo/media-item writes above. If the commit fails, the whole
+    # folder's rows roll back together (no half-written folder); sync_root's
+    # existing per-folder try/except (ReauthRequired, DriveError) still lets
+    # the crawl skip a failing folder and retry it on a later pass.
     if parent:
         if cover_photo_id and not parent.cover_photo_id:
             parent.cover_photo_id = cover_photo_id
         parent.photo_count = len(data["files"])
         parent.last_synced = now
         session.add(parent)
+
+    if parent or data["files"]:
         session.commit()
 
     return {
