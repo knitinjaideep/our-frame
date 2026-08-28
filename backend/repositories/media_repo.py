@@ -26,6 +26,31 @@ def get_item_by_drive_file(
     return session.exec(stmt).first()
 
 
+def get_item_by_drive_file_any_scope(
+    session: Session,
+    drive_file_id: str,
+) -> MediaItem | None:
+    """
+    Find a cached media item for a Drive file id regardless of workspace scoping.
+
+    `get_item_by_drive_file` is scope-exact: called without a workspace_id it
+    matches only legacy unscoped rows, so it answers "no" for workspace-scoped
+    media. Workspace-agnostic callers (the gallery response builders, which have
+    no workspace context during the migration) need "is this Drive file cached at
+    all?". Workspace-scoped rows win, matching the media route's preference; a
+    legacy unscoped row is the fallback.
+    """
+    items = list(
+        session.exec(select(MediaItem).where(MediaItem.drive_file_id == drive_file_id)).all()
+    )
+    if not items:
+        return None
+    for item in items:
+        if item.workspace_id is not None:
+            return item
+    return items[0]
+
+
 def get_item_by_id(session: Session, media_item_id: int) -> MediaItem | None:
     return session.get(MediaItem, media_item_id)
 

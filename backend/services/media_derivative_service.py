@@ -8,7 +8,8 @@ from pathlib import Path
 
 from fastapi import HTTPException
 from fastapi.responses import FileResponse, RedirectResponse, Response
-import requests
+from google.auth.transport.requests import AuthorizedSession
+from google.oauth2.credentials import Credentials
 from sqlmodel import Session
 
 from core.config import settings
@@ -17,7 +18,8 @@ from drive.service import download_file_bytes, get_drive_service
 from google_drive_client import get_credentials
 from models.media import MediaDerivative, MediaItem
 from repositories import media_repo
-from services import media_storage_service
+from services import media_storage_service, workspace_service
+from services.drive_connect_service import get_drive_service_for_workspace, load_drive_credentials
 
 
 PHOTO_DERIVATIVE_SIZES = {
@@ -44,6 +46,20 @@ def _safe_segment(value: str) -> str:
 
 def _error_detail(exc: Exception) -> str:
     return str(exc)[:500]
+
+
+def _drive_service_for(session: Session, media: MediaItem):
+    """
+    Resolve a Drive service for this media item.
+
+    Workspace-scoped items use the workspace's DB-stored DriveConnection —
+    the only credential source that works on read-only/serverless hosts.
+    Legacy rows (workspace_id is None) fall back to the token.json client
+    so local development keeps working unchanged.
+    """
+    if media.workspace_id is not None:
+        return get_drive_service_for_workspace(session, media.workspace_id)
+    return get_drive_service()
 
 
 def _storage_key(media: MediaItem, kind: str) -> str:
@@ -164,23 +180,32 @@ def _write_video_poster(media: MediaItem, raw: bytes) -> tuple[str, int, int, in
     return output_key, img.width, img.height, size
 
 
-def _download_drive_thumbnail(thumbnail_url: str) -> bytes:
-    creds = get_credentials()
-    response = requests.get(
-        thumbnail_url,
-        headers={"Authorization": f"Bearer {creds.token}"},
-        timeout=30,
-    )
+def _drive_credentials_for(session: Session, media: MediaItem) -> Credentials:
+    """Credentials matching `_drive_service_for`, for direct Drive HTTP calls."""
+    if media.workspace_id is not None:
+        conn = workspace_service.get_drive_connection(session, media.workspace_id)
+        if not conn or conn.connection_status != "active":
+            raise ValueError(f"Workspace {media.workspace_id} has no active Drive connection")
+        return load_drive_credentials(conn)
+    return get_credentials()
+
+
+def _download_drive_thumbnail(session: Session, media: MediaItem, thumbnail_url: str) -> bytes:
+    creds = _drive_credentials_for(session, media)
+    # AuthorizedSession refreshes an expired access token before sending. The
+    # stored workspace access token is usually stale by the time a poster is
+    # generated, so a raw Bearer header would 401 and fail the derivative.
+    response = AuthorizedSession(creds).get(thumbnail_url, timeout=30)
     response.raise_for_status()
     return response.content
 
 
-def _extract_video_poster_with_ffmpeg(media: MediaItem) -> bytes:
+def _extract_video_poster_with_ffmpeg(session: Session, media: MediaItem) -> bytes:
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
         raise RuntimeError("ffmpeg is not installed; cannot generate video poster")
 
-    svc = get_drive_service()
+    svc = _drive_service_for(session, media)
     video_bytes = download_file_bytes(svc, media.drive_file_id)
     with tempfile.TemporaryDirectory() as tmp:
         source = Path(tmp) / "source"
@@ -249,12 +274,12 @@ def _probe_video_dimensions(path: Path) -> tuple[int | None, int | None]:
         return None, None
 
 
-def _transcode_video_to_mp4(media: MediaItem) -> tuple[str, int | None, int | None, int]:
+def _transcode_video_to_mp4(session: Session, media: MediaItem) -> tuple[str, int | None, int | None, int]:
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
         raise RuntimeError("ffmpeg is not installed; cannot generate MP4 playback derivative")
 
-    svc = get_drive_service()
+    svc = _drive_service_for(session, media)
     video_bytes = download_file_bytes(svc, media.drive_file_id)
     output_key = _storage_key(media, VIDEO_PLAYBACK_KIND)
 
@@ -309,17 +334,6 @@ def _transcode_video_to_mp4(media: MediaItem) -> tuple[str, int | None, int | No
     return output_key, width, height, size
 
 
-def get_or_create_photo_derivative(
-    session: Session,
-    drive_file_id: str,
-    kind: str,
-) -> MediaDerivative:
-    media = media_repo.get_item_by_drive_file(session, drive_file_id)
-    if not media:
-        raise HTTPException(status_code=404, detail="Media item not found. Run Drive sync first.")
-    return get_or_create_photo_derivative_for_media(session, media, kind)
-
-
 def get_or_create_photo_derivative_for_media(
     session: Session,
     media: MediaItem,
@@ -349,7 +363,7 @@ def get_or_create_photo_derivative_for_media(
     session.commit()
 
     try:
-        svc = get_drive_service()
+        svc = _drive_service_for(session, media)
         raw = download_file_bytes(svc, media.drive_file_id)
 
         for derivative_kind in PHOTO_DERIVATIVE_SIZES:
@@ -422,9 +436,9 @@ def get_or_create_video_poster_for_media(
 
     try:
         raw = (
-            _download_drive_thumbnail(media.drive_thumbnail_url)
+            _download_drive_thumbnail(session, media, media.drive_thumbnail_url)
             if media.drive_thumbnail_url
-            else _extract_video_poster_with_ffmpeg(media)
+            else _extract_video_poster_with_ffmpeg(session, media)
         )
         output_key, width, height, size = _write_video_poster(media, raw)
         derivative = media_repo.upsert_derivative(
@@ -486,7 +500,7 @@ def get_or_create_video_playback_for_media(
     session.commit()
 
     try:
-        output_key, width, height, size = _transcode_video_to_mp4(media)
+        output_key, width, height, size = _transcode_video_to_mp4(session, media)
         derivative = media_repo.upsert_derivative(
             session,
             media_item_id=media.id,

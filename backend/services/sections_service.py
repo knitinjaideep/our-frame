@@ -24,7 +24,7 @@ from schemas.photo import PhotoResponse
 from schemas.sections import SectionsResponse, VideoFilesResponse
 from models.album import DriveAlbum
 from models.section_mapping import SectionMapping
-from services.media_response_service import media_response_fields
+from services.media_response_service import media_response_fields, thumbnail_url_for
 
 
 # ── Keyword fallback rules ────────────────────────────────────────────────────
@@ -61,10 +61,6 @@ _KEYWORD_MAP: dict[str, re.Pattern] = {
 }
 
 
-def _photo_url(photo_id: str, size: int = 600) -> str:
-    return f"/drive/file/{photo_id}/thumbnail?s={size}"
-
-
 def _resolve_cover(session: Session, album_id: str, depth: int = 0) -> str | None:
     """Recursively find a cover photo ID for an album (max depth 3)."""
     if depth > 3:
@@ -88,7 +84,7 @@ def _to_summary(session: Session, album: DriveAlbum) -> AlbumSummary:
         cover_photo_id=cover_id,
         photo_count=album.photo_count,
         child_count=album.child_count,
-        thumbnail_url=_photo_url(cover_id) if cover_id else None,
+        thumbnail_url=thumbnail_url_for(session, cover_id) if cover_id else None,
     )
 
 

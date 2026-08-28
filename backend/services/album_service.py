@@ -14,17 +14,9 @@ from models.photo import DrivePhoto
 from repositories import album_repo, photo_repo
 from schemas.album import AlbumSummary, AlbumDetail, AlbumsListResponse
 from schemas.photo import PhotoResponse
-from services.media_response_service import media_response_fields
+from services.media_response_service import media_response_fields, thumbnail_url_for
 from services.sync_service import sync_folder_shallow
 from core.exceptions import ReauthRequired, DriveError
-
-
-def _photo_url(photo_id: str, size: int = 600) -> str:
-    return f"/drive/file/{photo_id}/thumbnail?s={size}"
-
-
-def _preview_url(photo_id: str, width: int = 1600) -> str:
-    return f"/drive/file/{photo_id}/preview?w={width}"
 
 
 def _to_photo_response(session: Session, p: DrivePhoto, fav_ids: set[str]) -> PhotoResponse:
@@ -41,14 +33,16 @@ def _to_photo_response(session: Session, p: DrivePhoto, fav_ids: set[str]) -> Ph
     )
 
 
-def _to_album_summary(album: DriveAlbum) -> AlbumSummary:
+def _to_album_summary(session: Session, album: DriveAlbum) -> AlbumSummary:
     return AlbumSummary(
         id=album.id,
         name=album.name,
         cover_photo_id=album.cover_photo_id,
         photo_count=album.photo_count,
         child_count=album.child_count,
-        thumbnail_url=_photo_url(album.cover_photo_id) if album.cover_photo_id else None,
+        thumbnail_url=(
+            thumbnail_url_for(session, album.cover_photo_id) if album.cover_photo_id else None
+        ),
     )
 
 
@@ -75,14 +69,14 @@ def _to_album_summary_with_resolved_cover(session: Session, album: DriveAlbum) -
         cover_photo_id=cover_id,
         photo_count=album.photo_count,
         child_count=album.child_count,
-        thumbnail_url=_photo_url(cover_id) if cover_id else None,
+        thumbnail_url=thumbnail_url_for(session, cover_id) if cover_id else None,
     )
 
 
 def get_root_albums(session: Session) -> AlbumsListResponse:
     """Return root-level albums from DB (excluded folders filtered out)."""
     albums = album_repo.get_root_albums(session)
-    summaries = [_to_album_summary(a) for a in albums]
+    summaries = [_to_album_summary(session, a) for a in albums]
     return AlbumsListResponse(albums=summaries, total=len(summaries))
 
 
@@ -145,7 +139,7 @@ def get_album_detail(
     photos = photo_repo.get_by_folder(session, album_id)
     subfolders_flat = _flatten_subfolders(session, album_id)
 
-    album_summary = _to_album_summary(album) if album else AlbumSummary(
+    album_summary = _to_album_summary(session, album) if album else AlbumSummary(
         id=album_id, name="Album", cover_photo_id=None, photo_count=None, thumbnail_url=None
     )
 
