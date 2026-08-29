@@ -1,6 +1,6 @@
 # Our Frame Premium Redesign State
 
-Status: PR 5 complete
+Status: PR 6 complete
 
 Last updated: 2026-08-29
 
@@ -43,7 +43,7 @@ data safety, backend standards all still apply).
 | 3 | Photos Overview | Complete | redesign/pr-3-photos-overview (branched from redesign/pr-2-home) | 2a377dc |
 | 4 | Arjun / Album Detail (gallery primitives) | Complete | redesign/pr-4-arjun-gallery (branched from redesign/pr-3-photos-overview) | 3e3a4d9 |
 | 5 | Photo Lightbox / Viewer | Complete | redesign/pr-5-lightbox (branched from redesign/pr-4-arjun-gallery) | a90c98a |
-| 6 | Travel, Milestones, Life | Pending | — | — |
+| 6 | Travel, Milestones, Life | Complete | redesign/pr-6-travel-milestones-life (branched from redesign/pr-5-lightbox) | pending commit |
 | 7 | Videos | Pending | — | — |
 | 8 | Favorites | Pending | — | — |
 | 9 | Memories / On This Day | Pending | — | — |
@@ -51,10 +51,11 @@ data safety, backend standards all still apply).
 
 ## Next Action
 
-Create `redesign/pr-6-travel-milestones-life` branch off
-`redesign/pr-5-lightbox` and dispatch `our-frame-implementer` for PR 6
-(Travel, Milestones, Life — reusing MasonryGallery/PhotoLightbox/
-EditorialEyebrow/SectionHeading).
+Create `redesign/pr-7-videos` branch off
+`redesign/pr-6-travel-milestones-life` and dispatch `our-frame-implementer`
+for PR 7 (Videos page). Note: investigate the "Arjun videos unreachable"
+bug (see "Pre-existing bugs found during redesign work" below) as context
+before starting — it directly affects what Videos-page data is available.
 
 ## Completed Checks
 
@@ -200,6 +201,65 @@ EditorialEyebrow/SectionHeading).
   the final file contents, plus confirmed
   `frontend/components/design-system/photo-lightbox.tsx` remained
   untouched. Returned `VERIFICATION: PASS`.
+- 2026-08-29: PR 6 implementer extended the PR 4 per-bucket branching
+  pattern in `frontend/app/albums/[id]/page.tsx` to add `TravelGallery`,
+  `MilestonesGallery`, `LifeGallery`; upgraded the generic `/albums/[id]`
+  template (used by every nested destination/milestone album) from the
+  legacy `PhotoGrid` to `MasonryGallery`/`PhotoLightbox`; added
+  `useAlbumDetails` (parallel per-sub-album fetches) and
+  `latestDate`/`dateRangeLabel` helpers that return null rather than
+  guessing when dated photo data is missing. Discovered via direct backend
+  investigation that all four top-level chapter buckets have zero direct
+  photos (real photos live in Drive sub-albums), and grounded all three
+  pages' structure in that finding rather than fabricating trip/milestone
+  metadata. Deliberately skipped Life's Family/Friends/Home/Celebrations/
+  Everyday filters since no tagging field exists in the data model.
+- 2026-08-29: PR 6 implementer `npm run build` passed (26 routes); tsc and
+  lint clean.
+- 2026-08-29: PR 6 reviewer returned `REVIEW STATUS: PASS WITH FIXES` —
+  independently re-verified the zero-direct-photos finding against the raw
+  SQLite database (not just trusting the implementer). Fixed a Milestones
+  navigational dead end ("Marriage" has 0 direct photos, only nested
+  sub-albums, and had no link at all), a Life page that could render
+  blank below the header on a sub-query failure (the same
+  unexplained-blank pattern PR 3 already had to fix once), a Travel
+  featured-hero card that visibly swapped destination identity ~1s after
+  paint, and upscaled 400px thumbnails being used as full-width hero
+  images (switched Travel's and Life's single hero image each to
+  `preview_url`, while keeping every grid/journal/masonry tile on cached
+  thumbnails only — confirmed the PR 4 `preview_url` bug was not
+  reintroduced). Replaced three hand-rolled empty states with the shared
+  `EmptyState` primitive.
+- 2026-08-29: PR 6 verifier ran `npm run build`, `npx tsc --noEmit`, and
+  `eslint` — all clean — and independently confirmed every reviewer fix in
+  the final file contents, plus confirmed `preview_url` is used only for
+  the two hero images and lightbox slides, never grid/card tiles. Returned
+  `VERIFICATION: PASS`.
+
+## Pre-existing bugs found during redesign work (not caused by this redesign)
+
+Found during PR 6's data investigation, confirmed independently by both the
+PR 6 implementer and reviewer against the live database — reported to the
+user 2026-08-29, not yet fixed, out of scope for the current 10-PR redesign:
+
+1. **The already-implemented Arjun gallery (PR 4) currently renders empty
+   in real use.** All four top-level chapter buckets (Arjun/Travel/
+   Milestones/Life) have zero photos directly attached — every real photo
+   lives in a Drive sub-album one level down. `arjun-gallery.tsx` reads
+   `data.photos` from the top bucket only, so its All/By Age/By Year tabs
+   and Featured Memories strip render `EmptyState "No photos yet"`; only
+   its Albums tab (13 real sub-albums) shows anything. The fix is the same
+   `useAlbumDetails` hook PR 6 added for Travel/Milestones/Life — applying
+   it to Arjun is a natural fast-follow, but is a real behavior change to
+   already-committed work and should be its own reviewed change, not
+   silently folded into an unrelated PR.
+2. **36 of Arjun's videos are unreachable in any view.** Backend bug in
+   `_flatten_subfolders()` (`backend/services/album_service.py`): when a
+   structural folder (e.g. `Arjun/Videos`) has no child sub-albums of its
+   own, the function returns only its flattened children and silently
+   drops the folder's own direct photos/videos. `Arjun/Videos` has 0
+   children, so its 36 files appear in no album view anywhere in the app.
+   Relevant context for PR 7 (Videos).
 
 ## Known follow-ups for later PRs
 
@@ -254,6 +314,32 @@ EditorialEyebrow/SectionHeading).
   real-device testing.
 - Lightbox ambient background blur (explicitly optional in the PR 5 prompt)
   was not implemented — real new infrastructure, not required.
+- Nested-only sub-albums (0 direct photos, only children, e.g. Milestones'
+  "Marriage") undercount in any header/card total that sums direct
+  `photo_count` only. A recursive count on `AlbumSummary` would fix this
+  properly but is a backend/API change, not a frontend PR — no current
+  redesign page hits this in a user-visible way beyond the count string.
+- Milestones' hero images use the 400px thumbnail derivative (scales with
+  milestone count, so `preview_url` wasn't used there per PR 6's review).
+  The backend already generates a 900px `grid` derivative that the API
+  never exposes (`media_response_service.py` returns thumbnail/poster/
+  playback/preview only) — exposing `grid_url` would be the right fix, a
+  candidate for a future media-cache PR.
+- `frontend/lib/media.ts`'s `gridThumbnail()` duplicates logic already
+  inline in `arjun-gallery.tsx` (kept deliberately separate per PR 6 scope
+  discipline). Collapse into one shared helper whenever Arjun is next
+  touched (e.g. alongside pre-existing-bug fix #1 above).
+- `/travel`, `/milestones`, `/life`, `/arjun` remain stale legacy
+  `SectionWorldPage` routes nothing in the redesigned nav links to —
+  there are now two divergent "Travel" (etc.) surfaces in the tree.
+  Candidate for retirement in a future cleanup PR, not required by the
+  current redesign scope.
+- Up to 5 parallel `/albums/{id}` shallow-sync requests fire per
+  Travel/Milestones/Life page load; each is idempotent and cached, but
+  SQLite has no explicit `busy_timeout` configured and now sees more
+  concurrent-write pressure than before. Acceptable today (default pysqlite
+  timeout should absorb it); worth monitoring, and moot once the stated
+  Postgres migration happens.
 
 ## Open Questions
 

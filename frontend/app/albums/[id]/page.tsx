@@ -1,31 +1,132 @@
 'use client'
-import { use } from 'react'
+import { use, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ChevronRight } from 'lucide-react'
 import { useAlbumDetail } from '@/hooks/use-albums'
+import { useFavoriteIds, useToggleFavorite } from '@/hooks/use-favorites'
 import { AlbumCard } from '@/components/albums/album-card'
-import { PhotoGrid } from '@/components/photos/photo-grid'
 import { PhotoGridSkeleton } from '@/components/photos/photo-grid-skeleton'
 import { AlbumGridSkeleton } from '@/components/albums/album-grid-skeleton'
 import { SectionReveal } from '@/components/ui/section-reveal'
 import { ArjunGallery } from '@/components/albums/arjun-gallery'
+import { TravelGallery } from '@/components/albums/travel-gallery'
+import { MilestonesGallery } from '@/components/albums/milestones-gallery'
+import { LifeGallery } from '@/components/albums/life-gallery'
+import { MasonryGallery, PhotoLightbox, type MasonryGalleryItem, type LightboxSlide } from '@/components/design-system'
+import { mediaUrl, downloadUrl, videoStreamUrl } from '@/lib/api-client'
+import { gridThumbnail } from '@/lib/media'
+import { shortDate } from '@/lib/photo-age'
 import { BUCKETS } from '@/lib/buckets'
+import type { Photo } from '@/types'
 
-// The nav's Photos dropdown links "Arjun" straight to this Drive folder id
-// (see components/layout/top-nav.tsx PHOTOS_ITEMS) — it doubles as the
-// dedicated Arjun album/detail page. Only this specific album gets the
-// premium storytelling gallery treatment (PR 4 scope); Travel/Milestones/
-// Life keep the existing generic album detail layout until PR 6.
-const ARJUN_ALBUM_ID = BUCKETS[0].id
+// The nav's Photos dropdown links each chapter straight to its Drive folder
+// id (see components/layout/top-nav.tsx PHOTOS_ITEMS). Arjun, Travel,
+// Milestones, and Life each get a dedicated premium chapter component (PR
+// 4 / PR 6); every other album id (including real destination/milestone/
+// life sub-albums nested under those chapters, and any legacy album) falls
+// through to the shared generic detail template below — which PR 6 also
+// upgraded from the old equal-size `PhotoGrid` to `MasonryGallery` +
+// `PhotoLightbox`, so "destination detail" / "full story" views reuse the
+// same gallery primitives rather than a separate one-off implementation.
+const [ARJUN_ID, TRAVEL_ID, MILESTONES_ID, LIFE_ID] = BUCKETS.map((b) => b.id)
 
 export default function AlbumDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const { data, isLoading, error } = useAlbumDetail(id)
 
-  if (id === ARJUN_ALBUM_ID) {
+  if (id === ARJUN_ID) {
     return <ArjunGallery data={data} isLoading={isLoading} error={error} folderId={id} />
   }
+  if (id === TRAVEL_ID) {
+    return <TravelGallery data={data} isLoading={isLoading} error={error} />
+  }
+  if (id === MILESTONES_ID) {
+    return <MilestonesGallery data={data} isLoading={isLoading} error={error} />
+  }
+  if (id === LIFE_ID) {
+    return <LifeGallery data={data} isLoading={isLoading} error={error} />
+  }
+
+  return <GenericAlbumDetail id={id} data={data} isLoading={isLoading} error={error} />
+}
+
+function GenericAlbumDetail({
+  id,
+  data,
+  isLoading,
+  error,
+}: {
+  id: string
+  data: ReturnType<typeof useAlbumDetail>['data']
+  isLoading: boolean
+  error: Error | null
+}) {
+  const [lightboxIndex, setLightboxIndex] = useState(-1)
+  const favoriteIds = useFavoriteIds()
+  const { add, remove } = useToggleFavorite()
+
+  const photos = data?.photos ?? []
+
+  function isFav(p: Photo) {
+    return favoriteIds.has(p.id) || p.is_favorite
+  }
+  function toggleFavorite(p: Photo) {
+    if (isFav(p)) {
+      remove.mutate(p.id)
+    } else {
+      add.mutate({ photo_id: p.id, photo_name: p.name, folder_id: id })
+    }
+  }
+  function toMasonryItem(p: Photo): MasonryGalleryItem {
+    const isVideo = p.mime_type?.startsWith('video/')
+    const thumb = gridThumbnail(p)
+    return {
+      id: p.id,
+      imageUrl: thumb ? mediaUrl(thumb) : null,
+      isVideo,
+      statusLabel: p.processing_status === 'failed' ? 'Unavailable' : 'Processing',
+      alt: p.name,
+      width: p.width,
+      height: p.height,
+      date: shortDate(p.created_time),
+      isFavorite: isFav(p),
+      onToggleFavorite: () => toggleFavorite(p),
+      onClick: () => {
+        const idx = photos.findIndex((x) => x.id === p.id)
+        if (idx >= 0) setLightboxIndex(idx)
+      },
+    }
+  }
+  const slides: LightboxSlide[] = photos.map((p) => {
+    const isVideo = p.mime_type?.startsWith('video/')
+    const meta = { date: shortDate(p.created_time), isFavorite: isFav(p), onToggleFavorite: () => toggleFavorite(p) }
+    if (isVideo) {
+      const videoSrc = p.playback_url ? mediaUrl(p.playback_url) : videoStreamUrl(p.id)
+      const posterSrc = p.poster_url ?? p.thumbnail_url
+      return {
+        type: 'video' as const,
+        sources: [{ src: videoSrc, type: p.playback_url ? 'video/mp4' : undefined }],
+        download: downloadUrl(p.id),
+        poster: posterSrc ? mediaUrl(posterSrc) : undefined,
+        alt: p.name,
+        width: p.width ?? undefined,
+        height: p.height ?? undefined,
+        controls: true,
+        playsInline: true,
+        ...meta,
+      }
+    }
+    return {
+      src: mediaUrl(p.preview_url),
+      download: downloadUrl(p.id),
+      alt: p.name,
+      width: p.width ?? undefined,
+      height: p.height ?? undefined,
+      photoId: p.id,
+      ...meta,
+    }
+  })
 
   const hasSubfolders = (data?.subfolders?.length ?? 0) > 0
   const hasPhotos = (data?.photos?.length ?? 0) > 0
@@ -76,7 +177,7 @@ export default function AlbumDetailPage({ params }: { params: Promise<{ id: stri
 
         {!isLoading && hasPhotos && (
           <p className="mt-3 text-sm text-muted-foreground max-w-md leading-relaxed">
-            {data!.photos.length} {data!.photos.length === 1 ? 'photo' : 'photos'}
+            {photos.length} {photos.length === 1 ? 'photo' : 'photos'}
             {hasSubfolders && ` · ${data!.subfolders.length} ${data!.subfolders.length === 1 ? 'sub-album' : 'sub-albums'}`}
           </p>
         )}
@@ -156,12 +257,19 @@ export default function AlbumDetailPage({ params }: { params: Promise<{ id: stri
                   </h2>
                 </div>
               </div>
-              <PhotoGrid photos={data!.photos} folderId={id} />
+              <MasonryGallery items={photos.map(toMasonryItem)} />
             </section>
           </SectionReveal>
         )}
 
       </div>
+
+      <PhotoLightbox
+        open={lightboxIndex >= 0}
+        index={lightboxIndex}
+        slides={slides}
+        onClose={() => setLightboxIndex(-1)}
+      />
     </div>
   )
 }

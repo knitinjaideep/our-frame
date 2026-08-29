@@ -2,8 +2,12 @@ import { cn } from '@/lib/utils'
 import { TextLink } from './text-link'
 
 interface TimelineEntryProps {
-  /** e.g. "December 25, 2025" or "2024". */
-  date: string
+  /**
+   * e.g. "December 25, 2025" or "2024". Optional: some real milestone data
+   * only has a title and cover photo (no literal date field in the data
+   * model) — omit rather than fabricate a date.
+   */
+  date?: string
   title: string
   description?: string
   imageUrl: string
@@ -45,7 +49,7 @@ export function TimelineEntry({
       )}
     >
       <div className="space-y-2 lg:w-1/3">
-        <p className="text-small tracking-wide text-amber">{date}</p>
+        {date && <p className="text-small tracking-wide text-amber">{date}</p>}
         <h3 className="text-h3">{title}</h3>
         {description && <p className="text-body text-muted-foreground">{description}</p>}
         {fullStoryHref && <TextLink href={fullStoryHref}>View the full story</TextLink>}

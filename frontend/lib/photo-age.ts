@@ -59,3 +59,38 @@ export function shortDate(iso: string | null | undefined): string | undefined {
   if (Number.isNaN(d.getTime())) return undefined
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
+
+/** Latest valid `created_time` in a list of ISO date strings, or null if none. */
+export function latestDate(isoDates: Array<string | null | undefined>): Date | null {
+  let latest: Date | null = null
+  for (const iso of isoDates) {
+    if (!iso) continue
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) continue
+    if (!latest || d > latest) latest = d
+  }
+  return latest
+}
+
+/**
+ * Quiet date-range label derived from real photo capture dates, e.g.
+ * "Summer 2025" is NOT attempted (too much invention) — this stays literal:
+ * "Jul 2025" for a single month, "2024 – 2025" for a span, or just the
+ * single dated month when start/end land in the same month. Returns
+ * undefined when no photo in the set has a usable `created_time` (never
+ * fabricates a date for undated media — see Travel/Milestones in
+ * `docs/redesign/STATE.md` PR 6 notes).
+ */
+export function dateRangeLabel(isoDates: Array<string | null | undefined>): string | undefined {
+  const start = earliestDate(isoDates)
+  const end = latestDate(isoDates)
+  if (!start || !end) return undefined
+  const startLabel = start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+  if (start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth()) {
+    return startLabel
+  }
+  if (start.getFullYear() === end.getFullYear()) {
+    return String(start.getFullYear())
+  }
+  return `${start.getFullYear()} – ${end.getFullYear()}`
+}
