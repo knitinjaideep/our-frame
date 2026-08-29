@@ -9,10 +9,23 @@ import { PhotoGrid } from '@/components/photos/photo-grid'
 import { PhotoGridSkeleton } from '@/components/photos/photo-grid-skeleton'
 import { AlbumGridSkeleton } from '@/components/albums/album-grid-skeleton'
 import { SectionReveal } from '@/components/ui/section-reveal'
+import { ArjunGallery } from '@/components/albums/arjun-gallery'
+import { BUCKETS } from '@/lib/buckets'
+
+// The nav's Photos dropdown links "Arjun" straight to this Drive folder id
+// (see components/layout/top-nav.tsx PHOTOS_ITEMS) — it doubles as the
+// dedicated Arjun album/detail page. Only this specific album gets the
+// premium storytelling gallery treatment (PR 4 scope); Travel/Milestones/
+// Life keep the existing generic album detail layout until PR 6.
+const ARJUN_ALBUM_ID = BUCKETS[0].id
 
 export default function AlbumDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const { data, isLoading, error } = useAlbumDetail(id)
+
+  if (id === ARJUN_ALBUM_ID) {
+    return <ArjunGallery data={data} isLoading={isLoading} error={error} folderId={id} />
+  }
 
   const hasSubfolders = (data?.subfolders?.length ?? 0) > 0
   const hasPhotos = (data?.photos?.length ?? 0) > 0

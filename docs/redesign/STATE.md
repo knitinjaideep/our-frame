@@ -1,6 +1,6 @@
 # Our Frame Premium Redesign State
 
-Status: PR 3 complete
+Status: PR 4 complete
 
 Last updated: 2026-08-29
 
@@ -41,7 +41,7 @@ data safety, backend standards all still apply).
 | 1 | Global Design System + Navigation | Complete | redesign/pr-1-design-system | 8690aca |
 | 2 | Home / Landing | Complete | redesign/pr-2-home (branched from redesign/pr-1-design-system) | e12b11d |
 | 3 | Photos Overview | Complete | redesign/pr-3-photos-overview (branched from redesign/pr-2-home) | 2a377dc |
-| 4 | Arjun / Album Detail (gallery primitives) | Pending | — | — |
+| 4 | Arjun / Album Detail (gallery primitives) | Complete | redesign/pr-4-arjun-gallery (branched from redesign/pr-3-photos-overview) | pending commit |
 | 5 | Photo Lightbox / Viewer | Pending | — | — |
 | 6 | Travel, Milestones, Life | Pending | — | — |
 | 7 | Videos | Pending | — | — |
@@ -51,9 +51,8 @@ data safety, backend standards all still apply).
 
 ## Next Action
 
-Create `redesign/pr-4-arjun-gallery` branch off `redesign/pr-3-photos-overview`
-and dispatch `our-frame-implementer` for PR 4 (Arjun / Album Detail —
-MasonryGallery/GalleryTabs primitives).
+Create `redesign/pr-5-lightbox` branch off `redesign/pr-4-arjun-gallery` and
+dispatch `our-frame-implementer` for PR 5 (Photo Lightbox / Viewer redesign).
 
 ## Completed Checks
 
@@ -134,6 +133,40 @@ MasonryGallery/GalleryTabs primitives).
   present in the final file contents, plus confirmed `ChapterCard`'s
   `variant="rail"` consumer (Home page) is unaffected. Returned
   `VERIFICATION: PASS`.
+- 2026-08-29: PR 4 implementer found the nav's "Arjun" link actually routes
+  to the generic `/albums/[id]` page shared by all four chapters, and
+  scoped the redesign to a single `id === BUCKETS[0].id` branch rendering a
+  new `frontend/components/albums/arjun-gallery.tsx` (breadcrumb, serif
+  title/subtitle, quiet count, Filter/Sort text controls, `GalleryTabs`
+  All/By Age/By Year/Albums, optional Featured memories strip,
+  `MasonryGallery`, `PhotoLightbox`), leaving every other album id's
+  markup untouched. Added `frontend/lib/photo-age.ts` to derive age
+  captions from the earliest-dated photo (no birth-date field exists).
+  Completed `GalleryTabs`' ARIA gap (roving tabindex, arrow/Home/End nav)
+  flagged since PR 1.
+- 2026-08-29: PR 4 implementer `npm run build` passed (26 routes); tsc and
+  lint clean.
+- 2026-08-29: PR 4 reviewer returned `REVIEW STATUS: PASS WITH FIXES` —
+  found and fixed a **media-performance defect**: grid/featured-strip tiles
+  were falling back to `preview_url` (the legacy full-Drive-original-download
+  route) whenever a cached thumbnail wasn't ready yet, which would have hit
+  every un-synced `.MOV` in the chapter. Replaced with a `gridThumbnail()`
+  helper that only ever sources `thumbnail_url`/`poster_url`, rendering an
+  honest processing placeholder otherwise. Also fixed: favorite control was
+  a non-focusable nested `<span>` (keyboard users couldn't favorite from the
+  grid) — rebuilt as a real sibling `<button>` with `aria-pressed` and
+  `group-focus-within` reveal; missing focus ring on photo tiles (clipped by
+  `overflow-hidden`); no video/still distinction in the grid; a
+  favorite-toggle/display predicate mismatch; `aria-controls` pointing at
+  unmounted tabpanels; added an honesty caption on the By Age tab since ages
+  are a derived approximation, not literal fact; reduced bronze/eyebrow
+  weight (was one gold label per age-bucket section, now plain text except
+  the single "Featured Memories" label).
+- 2026-08-29: PR 4 verifier ran `npm run build`, `npx tsc --noEmit`, and
+  `eslint` — all clean — and independently confirmed the `preview_url` fix
+  (grepped for the string, confirmed absence from grid/featured-strip
+  sourcing) and every other reviewer fix in the final file contents.
+  Returned `VERIFICATION: PASS`.
 
 ## Known follow-ups for later PRs
 
@@ -165,6 +198,20 @@ MasonryGallery/GalleryTabs primitives).
   are stale, un-redesigned legacy surfaces the new Photos overview page
   does not link to — leave them alone; they are outside this redesign's
   scope unless a later PR is explicitly asked to retire them.
+- **PR 5 should add a favorite control to `PhotoLightbox`/`ResilientLightbox`
+  itself** — the prompt requires one in the viewer, and it doesn't exist
+  yet (PR 4 only added a keyboard-reachable favorite button in the grid).
+- `MasonryGallery` uses CSS `columns-*`, which fills column-by-column, so
+  on-screen visual order is not strictly chronological even though the
+  lightbox's prev/next follows the real chronological photo order. This is
+  inherent to the primitive; worth a look in PR 10 (Mobile Polish) or a
+  dedicated pass if it becomes a real UX complaint.
+- Age captions ("1st month", "1st year") in `frontend/lib/photo-age.ts` are
+  an approximation derived from the chapter's earliest photo, not a real
+  birth-date field (none exists in the data model). The UI now discloses
+  this ("Ages are estimated..."). A per-chapter reference-date setting
+  would be the real fix if exact ages ever matter — a genuine product
+  decision, intentionally left open.
 
 ## Open Questions
 
