@@ -15,13 +15,15 @@
  * Navigation to a new slide always remounts this component (key={photoId}).
  */
 
-import { useState, useCallback } from 'react'
-import Lightbox from 'yet-another-react-lightbox'
-import Download from 'yet-another-react-lightbox/plugins/download'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import Lightbox, { useController, useLightboxState } from 'yet-another-react-lightbox'
 import Video from 'yet-another-react-lightbox/plugins/video'
 import 'yet-another-react-lightbox/styles.css'
 import type { RenderSlideProps, SlideImage } from 'yet-another-react-lightbox'
+import { X, ChevronLeft, ChevronRight, Heart, Download as DownloadIcon, Info } from 'lucide-react'
 import { thumbnailUrl, contentUrl } from '@/lib/api-client'
+import { IconButton } from '@/components/design-system/icon-button'
+import { cn } from '@/lib/utils'
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -111,7 +113,6 @@ function ImageSlideRenderer({ slide, offset, photoId }: ImageSlideRendererProps)
       )
       return next
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chain.length, attemptIndex, currentSrc, photoId])
 
   const handleManualRetry = useCallback(() => {
@@ -250,7 +251,30 @@ function ImageSlideRenderer({ slide, offset, photoId }: ImageSlideRendererProps)
 // Exported types and component
 // ─────────────────────────────────────────────
 
-export interface ResilientImageSlide {
+/**
+ * Discreet viewer metadata — additive to both slide types. Every field is
+ * optional: pages only pass what they actually have (see PR 5 in
+ * `docs/redesign/PROMPTS.md` — date/location/album/caption/people, shown
+ * underneath the photo or in a details drawer, never overlaid on it).
+ */
+interface LightboxSlideMeta {
+  /** Human-readable capture date, e.g. "Jun 14, 2026". */
+  date?: string
+  /** Free-text caption/note. */
+  caption?: string
+  /** Chapter/album name, e.g. "Arjun". */
+  album?: string
+  /** Location string, when available. */
+  location?: string
+  /** Named people in the photo, when available. */
+  people?: string[]
+  /** Current favorite state — renders the heart control when defined. */
+  isFavorite?: boolean
+  /** Favorite toggle handler for the currently displayed slide. */
+  onToggleFavorite?: () => void
+}
+
+export interface ResilientImageSlide extends LightboxSlideMeta {
   src: string
   download?: string
   alt?: string
@@ -260,7 +284,7 @@ export interface ResilientImageSlide {
   photoId?: string
 }
 
-export type VideoSlide = {
+export type VideoSlide = LightboxSlideMeta & {
   type: 'video'
   sources: { src: string; type?: string }[]
   download?: string
@@ -274,6 +298,196 @@ export type VideoSlide = {
 
 export type LightboxSlide = ResilientImageSlide | VideoSlide
 
+// ─────────────────────────────────────────────
+// Controls — near-invisible translucent overlay
+//
+// Rendered via `render.controls`, which mounts inside the lightbox's own
+// module tree, so `useController`/`useLightboxState` have the right
+// context. Everything here is absolutely positioned over the slide;
+// non-interactive regions stay `pointer-events-none` so native swipe/pinch
+// on the photo underneath is never blocked.
+// ─────────────────────────────────────────────
+
+/** Controls stay fully visible briefly, then fade to a low, still-reachable
+ * opacity after a period of no mouse/touch/keyboard activity. */
+function useAutoHideControls(active: boolean) {
+  const [visible, setVisible] = useState(true)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => {
+    if (!active) return
+    const reveal = () => {
+      setVisible(true)
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => setVisible(false), 3000)
+    }
+    reveal()
+    window.addEventListener('mousemove', reveal)
+    window.addEventListener('touchstart', reveal)
+    window.addEventListener('keydown', reveal)
+    window.addEventListener('focusin', reveal)
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      window.removeEventListener('mousemove', reveal)
+      window.removeEventListener('touchstart', reveal)
+      window.removeEventListener('keydown', reveal)
+      window.removeEventListener('focusin', reveal)
+    }
+  }, [active])
+
+  return visible
+}
+
+const DETAILS_PANEL_ID = 'lightbox-details-panel'
+
+function LightboxControls() {
+  const { close, prev, next } = useController()
+  const { currentSlide } = useLightboxState()
+  const visible = useAutoHideControls(true)
+  const [justFavorited, setJustFavorited] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+
+  const meta = (currentSlide ?? undefined) as (Partial<LightboxSlideMeta> & { download?: string }) | undefined
+
+  // Reset the details drawer whenever the active slide changes, so it never
+  // leaks open across navigation. Adjusting state during render (rather
+  // than in an effect) per https://react.dev/learn/you-might-not-need-an-effect.
+  const activeKey = ('photoId' in (currentSlide ?? {}) ? (currentSlide as ResilientImageSlide).photoId : undefined)
+    ?? (currentSlide as { src?: string } | undefined)?.src
+    ?? (currentSlide as { sources?: { src: string }[] } | undefined)?.sources?.[0]?.src
+  const lastKeyRef = useRef(activeKey)
+  if (lastKeyRef.current !== activeKey) {
+    lastKeyRef.current = activeKey
+    if (detailsOpen) setDetailsOpen(false)
+  }
+  const { date, caption, album, location, people, isFavorite, onToggleFavorite, download } = meta ?? {}
+  const hasMeta = Boolean(date || caption || album || location || (people && people.length > 0))
+
+  function handleFavoriteClick() {
+    onToggleFavorite?.()
+    setJustFavorited(true)
+    window.setTimeout(() => setJustFavorited(false), 260)
+  }
+
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 z-[1] flex flex-col justify-between transition-opacity duration-[var(--motion-standard)] ease-[var(--ease-standard)]"
+      style={{ opacity: visible ? 1 : 0.32 }}
+    >
+      {/* Top-right cluster: favorite / download / details / close.
+          The band itself stays `pointer-events-none` so it never swallows
+          taps meant for the media underneath (e.g. native video controls
+          on a full-height video); only the buttons are interactive. */}
+      <div className="pointer-events-none flex items-start justify-end gap-2 p-3 sm:p-5">
+        {onToggleFavorite && (
+          <IconButton
+            variant="translucent"
+            className="pointer-events-auto"
+            aria-pressed={Boolean(isFavorite)}
+            label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            onClick={handleFavoriteClick}
+            icon={
+              <Heart
+                className={cn('h-[18px] w-[18px] transition-transform duration-200', justFavorited && 'scale-110')}
+                style={{
+                  color: isFavorite ? 'var(--amber)' : 'currentColor',
+                  fill: isFavorite ? 'var(--amber)' : 'none',
+                  transition: 'fill 200ms ease, color 200ms ease',
+                }}
+                aria-hidden
+              />
+            }
+          />
+        )}
+        {download && (
+          <a
+            href={download}
+            download
+            aria-label="Download"
+            title="Download"
+            className="pointer-events-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 text-white/80 backdrop-blur-md transition-colors duration-[var(--motion-fast)] hover:bg-black/50 hover:text-white"
+          >
+            <DownloadIcon className="h-[18px] w-[18px]" aria-hidden />
+          </a>
+        )}
+        {hasMeta && (
+          <IconButton
+            variant="translucent"
+            className="pointer-events-auto"
+            aria-expanded={detailsOpen}
+            aria-controls={DETAILS_PANEL_ID}
+            label={detailsOpen ? 'Hide details' : 'Photo details'}
+            onClick={() => setDetailsOpen((v) => !v)}
+            icon={<Info className="h-[18px] w-[18px]" aria-hidden />}
+          />
+        )}
+        <IconButton
+          variant="translucent"
+          className="pointer-events-auto"
+          label="Close"
+          onClick={() => close()}
+          icon={<X className="h-[18px] w-[18px]" aria-hidden />}
+        />
+      </div>
+
+      {/* Prev / next — near the left/right edges */}
+      <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center justify-between px-2 sm:px-4">
+        <IconButton
+          variant="translucent"
+          label="Previous photo"
+          onClick={() => prev()}
+          className="pointer-events-auto h-11 w-11"
+          icon={<ChevronLeft className="h-5 w-5" aria-hidden />}
+        />
+        <IconButton
+          variant="translucent"
+          label="Next photo"
+          onClick={() => next()}
+          className="pointer-events-auto h-11 w-11"
+          icon={<ChevronRight className="h-5 w-5" aria-hidden />}
+        />
+      </div>
+
+      {/* Discreet metadata — underneath the photo, never overlaid on it.
+          The band stays `pointer-events-none` so it never covers native
+          video controls at the bottom of a full-height video slide; only
+          the caption trigger and the panel itself accept pointer input. */}
+      {hasMeta && (
+        <div className="pointer-events-none flex flex-col items-center gap-1 px-6 pb-6 pt-10 text-center sm:pb-8">
+          {!detailsOpen ? (
+            (date || caption) && (
+              <button
+                type="button"
+                aria-expanded={false}
+                aria-controls={DETAILS_PANEL_ID}
+                onClick={() => setDetailsOpen(true)}
+                className="pointer-events-auto text-small text-white/55 transition-colors duration-[var(--motion-fast)] hover:text-white/85"
+              >
+                {caption ? `“${caption}”` : date}
+              </button>
+            )
+          ) : (
+            <div
+              id={DETAILS_PANEL_ID}
+              className="pointer-events-auto max-w-md space-y-1.5 rounded-2xl px-5 py-4"
+              style={{ background: 'oklch(0.04 0.004 48 / 70%)' }}
+            >
+              {date && <p className="text-small font-medium text-white/85">{date}</p>}
+              {(location || album) && (
+                <p className="text-small text-white/60">{[location, album].filter(Boolean).join(' · ')}</p>
+              )}
+              {caption && <p className="text-small italic text-white/75">&ldquo;{caption}&rdquo;</p>}
+              {people && people.length > 0 && (
+                <p className="text-[0.7rem] uppercase tracking-[0.14em] text-white/45">{people.join(', ')}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface ResilientLightboxProps {
   open: boolean
   index: number
@@ -282,6 +496,20 @@ interface ResilientLightboxProps {
 }
 
 export function ResilientLightbox({ open, index, slides, onClose }: ResilientLightboxProps) {
+  // The library re-seeds its internal index from the `index` prop whenever
+  // the `slides` array identity changes (see `LightboxStateProvider` ->
+  // `reducer` "update" in yet-another-react-lightbox). Consumers rebuild
+  // `slides` whenever favorite state changes — including when the heart is
+  // pressed *inside* the viewer — so without tracking the live index here,
+  // favoriting photo #7 would snap the viewer back to whichever photo it
+  // was opened at. Mirror the current index and feed it back in.
+  const [viewIndex, setViewIndex] = useState(index)
+  const [seedIndex, setSeedIndex] = useState(index)
+  if (seedIndex !== index) {
+    setSeedIndex(index)
+    setViewIndex(index)
+  }
+
   const renderSlide = useCallback(
     ({ slide, offset }: RenderSlideProps) => {
       // Let the Video plugin handle video slides — return undefined to defer
@@ -326,12 +554,22 @@ export function ResilientLightbox({ open, index, slides, onClose }: ResilientLig
       `}</style>
       <Lightbox
         open={open}
-        index={index}
+        index={viewIndex}
         close={onClose}
+        on={{ view: ({ index: i }) => setViewIndex(i) }}
         slides={slides as Parameters<typeof Lightbox>[0]['slides']}
-        plugins={[Download, Video]}
-        render={{ slide: renderSlide }}
-        styles={{ container: { backgroundColor: 'rgba(0,0,0,0.96)' } }}
+        plugins={[Video]}
+        toolbar={{ buttons: [] }}
+        render={{
+          slide: renderSlide,
+          controls: () => <LightboxControls />,
+          buttonPrev: () => null,
+          buttonNext: () => null,
+          buttonClose: () => null,
+        }}
+        // Near-black, not pure black — see `.yarl__root` in globals.css for
+        // the shared backdrop token; a full-screen custom overlay
+        // (`LightboxControls`) replaces the default toolbar/navigation.
       />
     </>
   )

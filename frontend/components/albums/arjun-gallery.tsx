@@ -195,6 +195,16 @@ export function ArjunGallery({ data, isLoading, error, folderId }: ArjunGalleryP
 
   const slides: LightboxSlide[] = useMemo(() => flattenedForTab.map((p) => {
     const isVideo = p.mime_type?.startsWith('video/')
+    // Shared discreet viewer metadata (PR 5) — wired to the same
+    // favorite predicate/handler the grid uses, so the heart in the
+    // lightbox always matches the heart on the tile it was opened from.
+    const meta = {
+      date: shortDate(p.created_time),
+      caption: captionFor(p),
+      album: 'Arjun',
+      isFavorite: isFav(p),
+      onToggleFavorite: () => toggleFavorite(p),
+    }
     if (isVideo) {
       const videoSrc = p.playback_url ? mediaUrl(p.playback_url) : videoStreamUrl(p.id)
       const posterSrc = p.poster_url ?? p.thumbnail_url
@@ -208,6 +218,7 @@ export function ArjunGallery({ data, isLoading, error, folderId }: ArjunGalleryP
         height: p.height ?? undefined,
         controls: true,
         playsInline: true,
+        ...meta,
       }
     }
     return {
@@ -217,8 +228,10 @@ export function ArjunGallery({ data, isLoading, error, folderId }: ArjunGalleryP
       width: p.width ?? undefined,
       height: p.height ?? undefined,
       photoId: p.id,
+      ...meta,
     }
-  }), [flattenedForTab])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [flattenedForTab, favoriteIds])
 
   const hasPhotos = photos.length > 0
 

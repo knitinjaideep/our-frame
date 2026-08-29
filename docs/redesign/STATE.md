@@ -1,6 +1,6 @@
 # Our Frame Premium Redesign State
 
-Status: PR 4 complete
+Status: PR 5 complete
 
 Last updated: 2026-08-29
 
@@ -42,7 +42,7 @@ data safety, backend standards all still apply).
 | 2 | Home / Landing | Complete | redesign/pr-2-home (branched from redesign/pr-1-design-system) | e12b11d |
 | 3 | Photos Overview | Complete | redesign/pr-3-photos-overview (branched from redesign/pr-2-home) | 2a377dc |
 | 4 | Arjun / Album Detail (gallery primitives) | Complete | redesign/pr-4-arjun-gallery (branched from redesign/pr-3-photos-overview) | 3e3a4d9 |
-| 5 | Photo Lightbox / Viewer | Pending | — | — |
+| 5 | Photo Lightbox / Viewer | Complete | redesign/pr-5-lightbox (branched from redesign/pr-4-arjun-gallery) | pending commit |
 | 6 | Travel, Milestones, Life | Pending | — | — |
 | 7 | Videos | Pending | — | — |
 | 8 | Favorites | Pending | — | — |
@@ -51,8 +51,10 @@ data safety, backend standards all still apply).
 
 ## Next Action
 
-Create `redesign/pr-5-lightbox` branch off `redesign/pr-4-arjun-gallery` and
-dispatch `our-frame-implementer` for PR 5 (Photo Lightbox / Viewer redesign).
+Create `redesign/pr-6-travel-milestones-life` branch off
+`redesign/pr-5-lightbox` and dispatch `our-frame-implementer` for PR 6
+(Travel, Milestones, Life — reusing MasonryGallery/PhotoLightbox/
+EditorialEyebrow/SectionHeading).
 
 ## Completed Checks
 
@@ -167,6 +169,37 @@ dispatch `our-frame-implementer` for PR 5 (Photo Lightbox / Viewer redesign).
   (grepped for the string, confirmed absence from grid/featured-strip
   sourcing) and every other reviewer fix in the final file contents.
   Returned `VERIFICATION: PASS`.
+- 2026-08-29: PR 5 implementer redesigned `frontend/components/photos/resilient-lightbox.tsx`
+  (the real lightbox `frontend/components/design-system/photo-lightbox.tsx`
+  wraps, untouched): near-black backdrop via the existing `.yarl__root` CSS
+  var, translucent circular Close/Favorite/Download/Details/Prev/Next
+  controls replacing the default yarl toolbar, a 3s auto-hide-to-0.32-opacity
+  control fade, a discreet caption/date line with an expandable details
+  panel, and — per the PR 4 follow-up — a working favorite control wired to
+  the same `isFav()`/`toggleFavorite()` the Arjun grid uses. Preserved the
+  existing image retry/fallback chain and video plugin unchanged.
+- 2026-08-29: PR 5 implementer `npm run build` passed (26 routes); tsc and
+  lint clean.
+- 2026-08-29: PR 5 reviewer returned `REVIEW STATUS: PASS WITH FIXES` —
+  independently verified from the installed `yet-another-react-lightbox`
+  library source (not just trusting the implementer's report) that
+  Escape/arrow-key navigation and pointer-swipe survive the custom controls
+  override. Found and fixed a **critical bug**: pressing the new favorite
+  control while browsing snapped the viewer back to the originally-opened
+  photo, because the `slides` array's identity change (favoriteIds in its
+  memo deps) caused the library to reset to the fixed `index` prop — fixed
+  with live-index state that only re-seeds on a genuine fresh open, which
+  also benefits the untouched `photo-grid.tsx` consumer. Also fixed:
+  full-width control bands had `pointer-events-auto` and could swallow taps
+  on an underlying video's native scrubber (narrowed to individual
+  buttons); details toggle used `aria-pressed` with no panel linkage (added
+  `aria-expanded`/`aria-controls`/`id`); favorite-heart pulse read as a
+  bounce (`scale-125` → `scale-110`).
+- 2026-08-29: PR 5 verifier ran `npm run build`, `npx tsc --noEmit`, and
+  `eslint` — all clean — and independently confirmed every reviewer fix in
+  the final file contents, plus confirmed
+  `frontend/components/design-system/photo-lightbox.tsx` remained
+  untouched. Returned `VERIFICATION: PASS`.
 
 ## Known follow-ups for later PRs
 
@@ -198,9 +231,6 @@ dispatch `our-frame-implementer` for PR 5 (Photo Lightbox / Viewer redesign).
   are stale, un-redesigned legacy surfaces the new Photos overview page
   does not link to — leave them alone; they are outside this redesign's
   scope unless a later PR is explicitly asked to retire them.
-- **PR 5 should add a favorite control to `PhotoLightbox`/`ResilientLightbox`
-  itself** — the prompt requires one in the viewer, and it doesn't exist
-  yet (PR 4 only added a keyboard-reachable favorite button in the grid).
 - `MasonryGallery` uses CSS `columns-*`, which fills column-by-column, so
   on-screen visual order is not strictly chronological even though the
   lightbox's prev/next follows the real chronological photo order. This is
@@ -212,6 +242,18 @@ dispatch `our-frame-implementer` for PR 5 (Photo Lightbox / Viewer redesign).
   this ("Ages are estimated..."). A per-chapter reference-date setting
   would be the real fix if exact ages ever matter — a genuine product
   decision, intentionally left open.
+- With the Favorites filter active on a gallery page, unfavoriting a photo
+  from inside the lightbox removes that slide and the viewer lands on a
+  neighbor rather than any specifically "right" photo. Not obviously wrong,
+  but PR 8 (Favorites) should make a deliberate call here.
+- Lightbox Prev/Next buttons are labelled "Previous/Next photo" even for
+  video slides — cosmetic, generalize the label in PR 7 (Videos).
+- After the lightbox's 3s control auto-hide, controls sit at opacity 0.32;
+  fine on most photos but `white/80` icons may read faint on very bright
+  images — consider bumping toward ~0.4 during PR 10 (Mobile Polish) after
+  real-device testing.
+- Lightbox ambient background blur (explicitly optional in the PR 5 prompt)
+  was not implemented — real new infrastructure, not required.
 
 ## Open Questions
 
