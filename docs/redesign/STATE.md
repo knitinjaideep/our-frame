@@ -1,6 +1,6 @@
 # Our Frame Premium Redesign State
 
-Status: PR 6 complete
+Status: PR 7 complete
 
 Last updated: 2026-08-29
 
@@ -44,18 +44,15 @@ data safety, backend standards all still apply).
 | 4 | Arjun / Album Detail (gallery primitives) | Complete | redesign/pr-4-arjun-gallery (branched from redesign/pr-3-photos-overview) | 3e3a4d9 |
 | 5 | Photo Lightbox / Viewer | Complete | redesign/pr-5-lightbox (branched from redesign/pr-4-arjun-gallery) | a90c98a |
 | 6 | Travel, Milestones, Life | Complete | redesign/pr-6-travel-milestones-life (branched from redesign/pr-5-lightbox) | fe8cdbd |
-| 7 | Videos | Pending | — | — |
+| 7 | Videos | Complete | redesign/pr-7-videos (branched from redesign/pr-6-travel-milestones-life) | pending commit |
 | 8 | Favorites | Pending | — | — |
 | 9 | Memories / On This Day | Pending | — | — |
 | 10 | Mobile Experience Polish | Pending | — | — |
 
 ## Next Action
 
-Create `redesign/pr-7-videos` branch off
-`redesign/pr-6-travel-milestones-life` and dispatch `our-frame-implementer`
-for PR 7 (Videos page). Note: investigate the "Arjun videos unreachable"
-bug (see "Pre-existing bugs found during redesign work" below) as context
-before starting — it directly affects what Videos-page data is available.
+Create `redesign/pr-8-favorites` branch off `redesign/pr-7-videos` and
+dispatch `our-frame-implementer` for PR 8 (Favorites page).
 
 ## Completed Checks
 
@@ -235,6 +232,30 @@ before starting — it directly affects what Videos-page data is available.
   the final file contents, plus confirmed `preview_url` is used only for
   the two hero images and lightbox slides, never grid/card tiles. Returned
   `VERIFICATION: PASS`.
+- 2026-08-29: PR 7 implementer rewrote `frontend/app/videos/page.tsx` as a
+  cinematic film library (eyebrow "Stories in Motion", heading "Family
+  Films", one featured film + grouped supporting tiles, posters sourced
+  from cached `poster_url`/`thumbnail_url` only), reusing the existing
+  `PhotoLightbox`/`ResilientLightbox` Video plugin for playback rather than
+  building a separate player, and generalized the lightbox's Prev/Next
+  labels to say "video" instead of always "photo" on video slides.
+  Investigated (did not fix) the Arjun-videos-unreachable bug from PR 6 and
+  found it doesn't affect this page — see the updated bug entry above.
+- 2026-08-29: PR 7 implementer `npm run build` passed (26 routes); tsc and
+  lint clean.
+- 2026-08-29: PR 7 reviewer independently re-confirmed the video-reachability
+  finding via direct SQLite queries and reading `sections_service.py` (not
+  trusting the implementer's numbers). Returned `REVIEW STATUS: PASS WITH
+  FIXES` — fixed a real bug where reopening the featured film after
+  browsing to another one would silently reopen on the previously-viewed
+  slide (the page was clamping the lightbox `index` prop to 0, defeating
+  the PR-5 live-index re-seed logic that only re-seeds when that prop
+  actually changes), and fixed misleading screen-reader labels on
+  still-processing video tiles (announced "Play" instead of "still
+  processing").
+- 2026-08-29: PR 7 verifier ran `npm run build`, `npx tsc --noEmit`, and
+  `eslint` — all clean — and independently confirmed both reviewer fixes in
+  the final file contents. Returned `VERIFICATION: PASS`.
 
 ## Pre-existing bugs found during redesign work (not caused by this redesign)
 
@@ -253,13 +274,20 @@ user 2026-08-29, not yet fixed, out of scope for the current 10-PR redesign:
    it to Arjun is a natural fast-follow, but is a real behavior change to
    already-committed work and should be its own reviewed change, not
    silently folded into an unrelated PR.
-2. **36 of Arjun's videos are unreachable in any view.** Backend bug in
-   `_flatten_subfolders()` (`backend/services/album_service.py`): when a
-   structural folder (e.g. `Arjun/Videos`) has no child sub-albums of its
-   own, the function returns only its flattened children and silently
+2. **36 of Arjun's videos are unreachable via the album/gallery views.**
+   Backend bug in `_flatten_subfolders()` (`backend/services/album_service.py`):
+   when a structural folder (e.g. `Arjun/Videos`) has no child sub-albums of
+   its own, the function returns only its flattened children and silently
    drops the folder's own direct photos/videos. `Arjun/Videos` has 0
-   children, so its 36 files appear in no album view anywhere in the app.
-   Relevant context for PR 7 (Videos).
+   children, so its 36 files appear in no `/albums/{id}` view anywhere.
+   **Update (PR 7):** this bug does NOT affect the dedicated Videos page —
+   `get_video_files()` in `backend/services/sections_service.py` queries
+   video folders directly via `photo_repo.get_by_folder()`, bypassing
+   `_flatten_subfolders()` entirely. All 51 real videos in the dataset
+   (36 under `Arjun/Videos`, 15 under a nested Pregnancy-period folder) are
+   reachable and shown on `/videos`. The bug's remaining real-world impact
+   is scoped to `_flatten_subfolders()`'s callers (album/gallery browsing),
+   not video discovery specifically.
 
 ## Known follow-ups for later PRs
 
@@ -340,6 +368,21 @@ user 2026-08-29, not yet fixed, out of scope for the current 10-PR redesign:
   concurrent-write pressure than before. Acceptable today (default pysqlite
   timeout should absorb it); worth monitoring, and moot once the stated
   Postgres migration happens.
+- `/videos/arjun` and `/videos/family-travel` (older per-chapter video
+  pages) remain un-redesigned while `/videos` (the new all-videos page) is
+  redesigned — the Videos nav dropdown currently spans two visual
+  languages. Candidate for a future PR, not required by current scope.
+- `media_items.duration_ms` exists in the backend and is populated for
+  synced videos, but isn't exposed via `PhotoResponse`/`media_response_fields`
+  or `frontend/types` — the redesigned Videos page correctly omits duration
+  rather than fabricating it, but exposing it would be a small, real
+  improvement for a future media-cache PR.
+- One video has a ready poster but a `processing_status: failed` playback
+  derivative — clicking it re-attempts the transcode (retryable by design,
+  pre-existing behavior) but the UI can't distinguish "poster ready,
+  playback failed" from "fully ready" ahead of the click. A per-derivative
+  (not item-level) status field in the API would let the UI be honest about
+  this; not introduced by the redesign, not fixed here.
 
 ## Open Questions
 

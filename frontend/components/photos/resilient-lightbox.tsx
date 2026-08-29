@@ -349,6 +349,13 @@ function LightboxControls() {
 
   const meta = (currentSlide ?? undefined) as (Partial<LightboxSlideMeta> & { download?: string }) | undefined
 
+  // Slide-type-aware nav labels: "Previous/Next photo" reads wrong on a
+  // video slide (PR 7 follow-up from PR 5 — see `docs/redesign/STATE.md`).
+  const isVideoSlide = Boolean(
+    currentSlide && 'type' in currentSlide && (currentSlide as { type?: string }).type === 'video',
+  )
+  const mediaNoun = isVideoSlide ? 'video' : 'photo'
+
   // Reset the details drawer whenever the active slide changes, so it never
   // leaks open across navigation. Adjusting state during render (rather
   // than in an effect) per https://react.dev/learn/you-might-not-need-an-effect.
@@ -434,14 +441,14 @@ function LightboxControls() {
       <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center justify-between px-2 sm:px-4">
         <IconButton
           variant="translucent"
-          label="Previous photo"
+          label={`Previous ${mediaNoun}`}
           onClick={() => prev()}
           className="pointer-events-auto h-11 w-11"
           icon={<ChevronLeft className="h-5 w-5" aria-hidden />}
         />
         <IconButton
           variant="translucent"
-          label="Next photo"
+          label={`Next ${mediaNoun}`}
           onClick={() => next()}
           className="pointer-events-auto h-11 w-11"
           icon={<ChevronRight className="h-5 w-5" aria-hidden />}
