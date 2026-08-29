@@ -3,6 +3,23 @@ import { ArrowUpRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EditorialEyebrow } from './editorial-eyebrow'
 
+/**
+ * Cover-tile aspect ratios per mosaic size, exported so the Photos overview
+ * skeleton renders the exact same shapes as the loaded cards (no layout
+ * shift, and no second copy of these strings to drift).
+ *
+ * The `lg` tile must stay both wider AND taller than `md` at the breakpoint
+ * where the mosaic actually becomes multi-column (`lg:`), otherwise a
+ * narrower-but-portrait tile ends up visually heavier than the "dominant"
+ * one. Below `lg:` the mosaic is a single column, so both sizes use the same
+ * landscape ratio — a portrait ratio at full tablet width produces a card
+ * taller than the viewport.
+ */
+export const CHAPTER_COVER_ASPECT = {
+  lg: 'aspect-[4/5] sm:aspect-[16/10] lg:aspect-[16/11]',
+  md: 'aspect-[4/5] sm:aspect-[16/10] lg:aspect-[4/3]',
+} as const
+
 interface ChapterCardProps {
   href: string
   /** Small uppercase label, e.g. "GROWING UP, FRAME BY FRAME". */
@@ -26,6 +43,13 @@ interface ChapterCardProps {
    * floating chapter rail (PR 2): icon + title + subtitle in a slim row.
    */
   variant?: 'cover' | 'rail'
+  /**
+   * Only applies to the 'cover' variant. Lets the Photos overview mosaic
+   * (PR 3) make one or two chapters visually dominant instead of four
+   * identical tiles — 'lg' (default) is a taller, larger-type tile; 'md' is
+   * a shorter, quieter tile.
+   */
+  size?: 'lg' | 'md'
 }
 
 /**
@@ -47,6 +71,7 @@ export function ChapterCard({
   icon,
   className,
   variant = 'cover',
+  size = 'lg',
 }: ChapterCardProps) {
   if (variant === 'rail') {
     return (
@@ -81,7 +106,7 @@ export function ChapterCard({
             <p className="truncate text-small text-muted-foreground/85">{description ?? eyebrow}</p>
           )}
         </div>
-        <ArrowUpRight className="relative z-10 h-3.5 w-3.5 shrink-0 text-foreground/50 opacity-0 transition-all duration-[var(--motion-fast)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:opacity-100" />
+        <ArrowUpRight className="relative z-10 h-3.5 w-3.5 shrink-0 text-foreground/50 opacity-0 transition-all duration-[var(--motion-fast)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:opacity-100 group-focus-visible:-translate-y-0.5 group-focus-visible:translate-x-0.5 group-focus-visible:opacity-100" />
       </Link>
     )
   }
@@ -94,7 +119,12 @@ export function ChapterCard({
         className,
       )}
     >
-      <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted sm:aspect-[4/3]">
+      <div
+        className={cn(
+          'relative w-full overflow-hidden bg-muted',
+          CHAPTER_COVER_ASPECT[size],
+        )}
+      >
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -108,25 +138,40 @@ export function ChapterCard({
             {icon && <span className="text-muted-foreground/50">{icon}</span>}
           </div>
         )}
-        {/* Gentle overlay for text legibility only — never a strong filter */}
+        {/* Gentle overlay for text legibility only — never a strong filter.
+            The `lg` tile carries a taller text block (bigger serif title +
+            description), so its scrim reaches a little higher; the top half
+            of the photograph stays untouched in both sizes. */}
         <div
           className="pointer-events-none absolute inset-0 transition-opacity duration-[var(--motion-standard)] group-hover:opacity-90"
           style={{
-            background: 'linear-gradient(to top, oklch(0.05 0.006 46 / 82%) 0%, oklch(0.05 0.006 46 / 15%) 55%, transparent 100%)',
+            background:
+              size === 'lg'
+                ? 'linear-gradient(to top, oklch(0.05 0.006 46 / 84%) 0%, oklch(0.05 0.006 46 / 34%) 42%, transparent 78%)'
+                : 'linear-gradient(to top, oklch(0.05 0.006 46 / 82%) 0%, oklch(0.05 0.006 46 / 15%) 55%, transparent 100%)',
           }}
         />
-        <div className="absolute inset-x-0 bottom-0 p-5">
+        <div className={cn('absolute inset-x-0 bottom-0', size === 'lg' ? 'p-6 sm:p-7' : 'p-5')}>
           {icon && <span className="mb-2 inline-flex text-amber">{icon}</span>}
-          {eyebrow && <EditorialEyebrow className="mb-1">{eyebrow}</EditorialEyebrow>}
-          <h3 className="font-serif text-2xl italic font-medium text-foreground">{title}</h3>
-          <div className="mt-1 flex items-center gap-2">
+          {eyebrow && <EditorialEyebrow className="mb-1.5">{eyebrow}</EditorialEyebrow>}
+          <h3
+            className={cn(
+              'font-serif italic font-medium text-foreground',
+              size === 'lg' ? 'text-3xl sm:text-4xl' : 'text-2xl',
+            )}
+          >
+            {title}
+          </h3>
+          <div className="mt-1.5 flex items-center gap-2">
             {meta && <span className="text-small">{meta}</span>}
           </div>
           {description && (
             <p className="mt-1.5 text-small text-muted-foreground/90 max-w-[26rem]">{description}</p>
           )}
         </div>
-        <ArrowUpRight className="absolute right-4 top-4 h-4 w-4 text-foreground/70 opacity-0 transition-all duration-[var(--motion-fast)] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100" />
+        {/* Keyboard parity: the arrow affordance must also appear on focus,
+            not only on hover. */}
+        <ArrowUpRight className="absolute right-4 top-4 h-4 w-4 text-foreground/70 opacity-0 transition-all duration-[var(--motion-fast)] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100 group-focus-visible:translate-x-0.5 group-focus-visible:-translate-y-0.5 group-focus-visible:opacity-100" />
       </div>
     </Link>
   )

@@ -1,6 +1,6 @@
 # Our Frame Premium Redesign State
 
-Status: PR 2 complete
+Status: PR 3 complete
 
 Last updated: 2026-08-29
 
@@ -40,7 +40,7 @@ data safety, backend standards all still apply).
 |---|---|---|---|---|
 | 1 | Global Design System + Navigation | Complete | redesign/pr-1-design-system | 8690aca |
 | 2 | Home / Landing | Complete | redesign/pr-2-home (branched from redesign/pr-1-design-system) | e12b11d |
-| 3 | Photos Overview | Pending | — | — |
+| 3 | Photos Overview | Complete | redesign/pr-3-photos-overview (branched from redesign/pr-2-home) | pending commit |
 | 4 | Arjun / Album Detail (gallery primitives) | Pending | — | — |
 | 5 | Photo Lightbox / Viewer | Pending | — | — |
 | 6 | Travel, Milestones, Life | Pending | — | — |
@@ -51,8 +51,9 @@ data safety, backend standards all still apply).
 
 ## Next Action
 
-Create `redesign/pr-3-photos-overview` branch off `redesign/pr-2-home` and
-dispatch `our-frame-implementer` for PR 3 (Photos overview page).
+Create `redesign/pr-4-arjun-gallery` branch off `redesign/pr-3-photos-overview`
+and dispatch `our-frame-implementer` for PR 4 (Arjun / Album Detail —
+MasonryGallery/GalleryTabs primitives).
 
 ## Completed Checks
 
@@ -105,6 +106,34 @@ dispatch `our-frame-implementer` for PR 3 (Photos overview page).
 - 2026-08-29: PR 2 verifier ran `npm run build`, `npx tsc --noEmit`, and
   `eslint` — all clean — and independently confirmed each reviewer fix is
   present in the final file contents. Returned `VERIFICATION: PASS`.
+- 2026-08-29: PR 3 implementer rewrote `frontend/app/photos/page.tsx` as an
+  asymmetric mosaic (Arjun/Life dominant at `lg:col-span-7`,
+  Travel/Milestones at `lg:col-span-5`) using real `photo_count`/thumbnail
+  data from `useRootBuckets()`, with a matching loading skeleton; added an
+  additive `size?: 'lg' | 'md'` prop to `ChapterCard`'s `cover` variant.
+- 2026-08-29: PR 3 implementer `npm run build` passed (26 routes); tsc and
+  lint clean; confirmed no regression vs 8 pre-existing unrelated
+  `components/onboarding/*` lint errors already on the base branch.
+- 2026-08-29: PR 3 reviewer returned `REVIEW STATUS: PASS WITH FIXES` —
+  fixed the mosaic's aspect ratios (the "dominant" cards were actually
+  shorter in area than the "secondary" ones; added a shared
+  `CHAPTER_COVER_ASPECT` constant so dominant tiles are genuinely ~1.85x
+  larger), fixed a tablet-width layout bug (portrait cards rendering
+  near-viewport-height between 640-1024px), added a real error/empty state
+  via `EmptyState` (previously: four blank blank countless dark cards on
+  fetch failure or an unsynced workspace — the exact "unexplained black
+  cards" pattern `.claude/rules/frontend.md` forbids), added
+  `group-focus-visible:` parity for the hover-only arrow affordance, and
+  set `imageAlt=""` on chapter thumbnails since the card already carries a
+  text label in the same link. Reviewer confirmed real (non-fabricated)
+  photo counts/images and left the `#chapters` anchor and fixed-pattern
+  mosaic order as deliberate, documented judgment calls rather than
+  escalating them.
+- 2026-08-29: PR 3 verifier ran `npm run build`, `npx tsc --noEmit`, and
+  `eslint` — all clean — and independently confirmed each reviewer fix is
+  present in the final file contents, plus confirmed `ChapterCard`'s
+  `variant="rail"` consumer (Home page) is unaffected. Returned
+  `VERIFICATION: PASS`.
 
 ## Known follow-ups for later PRs
 
@@ -127,6 +156,15 @@ dispatch `our-frame-implementer` for PR 3 (Photos overview page).
   slideshow photos" — benign today since `has_media === false` correctly
   routes to `HomeSetupView`'s `no_media` state, but worth a real skeleton if
   this ever becomes user-visible.
+- No flat "all photos across every chapter" route exists yet. PR 3's "View
+  all photos" action anchors to `#chapters` in-page as an honest
+  interpretation rather than inventing an out-of-scope page/route. A real
+  `/photos/all` (or similar) is a candidate for a future PR, not required
+  by the current 10-PR redesign scope.
+- `frontend/app/albums/page.tsx` and `/photography` (redirects to `/life`)
+  are stale, un-redesigned legacy surfaces the new Photos overview page
+  does not link to — leave them alone; they are outside this redesign's
+  scope unless a later PR is explicitly asked to retire them.
 
 ## Open Questions
 

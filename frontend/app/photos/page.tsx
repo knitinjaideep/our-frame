@@ -1,103 +1,118 @@
 'use client'
-import { motion } from 'framer-motion'
-import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
 import { useRootBuckets } from '@/hooks/use-root-buckets'
-import { useAlbumDetail } from '@/hooks/use-albums'
-import { AlbumCard } from '@/components/albums/album-card'
-import { AlbumGridSkeleton } from '@/components/albums/album-grid-skeleton'
 import { SectionReveal } from '@/components/ui/section-reveal'
+import { ImageOff } from 'lucide-react'
+import { PageIntro, ChapterCard, TextLink, EmptyState } from '@/components/design-system'
+import { CHAPTER_COVER_ASPECT } from '@/components/design-system/chapter-card'
+import { mediaUrl } from '@/lib/api-client'
 import { BUCKETS } from '@/lib/buckets'
-import type { Album } from '@/types'
+import { cn } from '@/lib/utils'
 
-/** Albums strip for one bucket — loads subfolders from the album detail endpoint */
-function BucketAlbums({ bucketId, accentColor }: { bucketId: string; accentColor: string }) {
-  const { data, isLoading } = useAlbumDetail(bucketId)
-  const subfolders: Album[] = data?.subfolders ?? []
+/**
+ * Chapter labels + mosaic sizing, zipped onto `BUCKETS` by index (same
+ * pattern as `HERO_CHAPTER_META` in `home-feed-view.tsx`). Drive folder ids
+ * live once in `lib/buckets.ts` — not repeated here.
+ *
+ * `span`/`size` create the asymmetric editorial mosaic: Arjun and Life are
+ * the two visually dominant chapters (wide + tall), Travel and Milestones
+ * sit smaller beside them — not four identical tiles.
+ */
+const MOSAIC_META = [
+  { label: 'Arjun', span: 'lg:col-span-7', size: 'lg' as const },
+  { label: 'Travel', span: 'lg:col-span-5', size: 'md' as const },
+  { label: 'Milestones', span: 'lg:col-span-5', size: 'md' as const },
+  { label: 'Life', span: 'lg:col-span-7', size: 'lg' as const },
+]
 
-  if (isLoading) return <AlbumGridSkeleton count={4} />
+const CHAPTERS = BUCKETS.map((bucket, i) => ({ ...bucket, ...MOSAIC_META[i] }))
 
-  if (subfolders.length === 0) {
-    return (
-      <p className="text-sm italic" style={{ color: 'var(--muted-foreground)' }}>
-        No albums found in this folder yet.
-      </p>
-    )
-  }
-
+function ChapterMosaicSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
-      {subfolders.map((album) => (
-        <AlbumCard key={album.id} album={album} />
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
+      {CHAPTERS.map((chapter) => (
+        <div
+          key={chapter.id}
+          className={cn(
+            'overflow-hidden rounded-2xl skeleton-shimmer',
+            chapter.span,
+            CHAPTER_COVER_ASPECT[chapter.size],
+          )}
+        />
       ))}
     </div>
   )
 }
 
 export default function PhotosPage() {
-  const { data: bucketsData, isLoading: bucketsLoading } = useRootBuckets()
-
+  const { data: bucketsData, isLoading: bucketsLoading, isError } = useRootBuckets()
   const allBuckets = bucketsData?.albums ?? []
-  const buckets = BUCKETS.map(meta => ({
-    ...meta,
-    album: allBuckets.find(a => a.id === meta.id) ?? null,
+  // Every chapter is a fixed Drive folder, so a chapter with no matching
+  // album has no cover photograph and no count. Rendering four of those
+  // would be four unexplained dark cards — show an honest state instead.
+  const resolved = CHAPTERS.map((chapter) => ({
+    chapter,
+    album: allBuckets.find((a) => a.id === chapter.id) ?? null,
   }))
+  const hasChapters = resolved.some((r) => r.album !== null)
 
   return (
-    <div>
-      {/* ── Page header ── */}
-      <motion.div
-        className="content-padding pt-12 pb-16"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      >
-        <p className="text-eyebrow-gold mb-3">Our Story in Frames</p>
-        <h1 className="text-display-sm font-serif text-foreground">Photos</h1>
-        <p className="mt-3 text-sm text-muted-foreground max-w-md leading-relaxed">
-          Four chapters. Every frame we have captured together.
-        </p>
-      </motion.div>
+    <div className="content-padding pb-24 pt-14 sm:pt-16">
+      <div className="mx-auto max-w-[var(--container-max)]">
+        {/* ── Page header ── */}
+        <SectionReveal>
+          <PageIntro
+            eyebrow="Our Story in Frames"
+            title="Photos"
+            description="Four chapters. Every frame we have captured together."
+            action={<TextLink href="#chapters">View all photos</TextLink>}
+            className="mb-16 sm:mb-20"
+          />
+        </SectionReveal>
 
-      {/* ── Albums per section ── */}
-      <div className="pb-24">
-        {buckets.map((bucket, i) => (
-          <SectionReveal key={bucket.id} delay={i * 0.04}>
-            <section className="content-padding mb-20">
-              {/* Section header */}
-              <div className="flex items-end justify-between mb-10">
-                <div className="space-y-1.5">
-                  <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: bucket.accentColor }}>
-                    {bucket.eyebrow}
-                  </p>
-                  <h2
-                    className="font-serif leading-[0.95]"
-                    style={{ fontSize: 'clamp(1.7rem, 3.2vw, 2.5rem)', fontStyle: 'italic', fontWeight: 500, color: 'var(--foreground)' }}
-                  >
-                    {bucket.album?.name ?? '…'}
-                  </h2>
-                </div>
-                {bucket.album && (
-                  <Link
-                    href={`/albums/${bucket.album.id}`}
-                    className="flex items-center gap-1.5 text-xs font-medium tracking-[0.12em] uppercase transition-colors hover:text-foreground shrink-0"
-                    style={{ color: 'var(--muted-foreground)' }}
-                  >
-                    View all
-                    <ArrowRight className="h-3 w-3" />
-                  </Link>
-                )}
-              </div>
+        {/* ── Asymmetric editorial chapter mosaic ── */}
+        <div id="chapters" className="scroll-mt-24">
+          {bucketsLoading ? (
+            <ChapterMosaicSkeleton />
+          ) : isError || !hasChapters ? (
+            <EmptyState
+              icon={<ImageOff className="h-6 w-6" />}
+              title={isError ? 'We could not load your chapters' : 'No chapters yet'}
+              description={
+                isError
+                  ? 'Something went wrong reaching your library. Try again in a moment.'
+                  : 'Once your Drive folders finish syncing, your four chapters will appear here.'
+              }
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
+              {resolved.map(({ chapter, album }, i) => {
+                const imageUrl = album?.thumbnail_url ? mediaUrl(album.thumbnail_url) : undefined
+                const meta =
+                  album?.photo_count != null
+                    ? `${album.photo_count.toLocaleString()} photo${album.photo_count === 1 ? '' : 's'}`
+                    : undefined
 
-              {/* Albums grid for this bucket */}
-              {bucket.album ? (
-                <BucketAlbums bucketId={bucket.album.id} accentColor={bucket.accentColor} />
-              ) : (
-                <AlbumGridSkeleton count={4} />
-              )}
-            </section>
-          </SectionReveal>
-        ))}
+                return (
+                  <SectionReveal key={chapter.id} delay={i * 0.05} className={chapter.span}>
+                    <ChapterCard
+                      href={album ? `/albums/${album.id}` : '/photos'}
+                      eyebrow={chapter.eyebrow}
+                      title={chapter.label}
+                      meta={meta}
+                      description={chapter.description}
+                      imageUrl={imageUrl}
+                      // Decorative: the chapter label, title, count and
+                      // description already sit inside this link, so an alt
+                      // repeating "Arjun" would just double the link name.
+                      imageAlt=""
+                      size={chapter.size}
+                    />
+                  </SectionReveal>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
