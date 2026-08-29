@@ -1,6 +1,217 @@
-# Our Frame — Warm Memory Book Design System
+# Our Frame — Design System
 
-> **Emotional goal:** A quiet Sunday afternoon flipping through a beautiful family memory book.
+> **Status (2026-08-29):** Superseded direction. The "Premium Cinematic
+> System" below (added in PR 1 of the redesign,
+> `docs/redesign/PROMPTS.md`/`docs/redesign/MILESTONES.md`) is now the
+> single source of truth for new work. The original "Warm Memory Book"
+> section further down is kept for historical reference only — do not
+> invent new tokens from it. See the "Ruling: design-system direction
+> change" note in `docs/redesign/MILESTONES.md`.
+
+---
+
+# Part 1 — Premium Cinematic System (current)
+
+> **Emotional goal:** A private, cinematic evening spent with a beautifully
+> bound family archive — near-black, intimate, editorial, photo-first.
+> Not a SaaS dashboard, not Instagram, not Netflix, not an orange/black
+> theme template.
+
+## 1. Design Direction
+
+Dark-first, near-black, warm-charcoal surfaces. A restrained antique
+bronze/gold accent (~5–10% of the visual experience) is used only for
+labels, active-state indicators, and small icon accents — never as a
+dominant fill. Photography is always the star; UI chrome stays quiet.
+
+This app is dark-only (see `app/layout.tsx` — `className="dark"`,
+"no light/dark switching"). Three internal presets exist as CSS
+`data-theme` variants (`warm_dark` default, `cool_dark`, `soft_light`) for
+possible future use, but the shipped experience is `warm_dark`.
+
+## 2. Semantic Color Tokens
+
+All tokens live in `frontend/app/globals.css` under `:root` /
+`[data-theme="warm_dark"]` and are bridged into Tailwind via `@theme inline`.
+**Always consume them through semantic Tailwind classes or `var(--token)` —
+never hardcode hex/oklch values in component code** (existing legacy inline
+`oklch(...)` usage predates this rule and is being phased out, not a
+pattern to copy).
+
+| Concept (brief) | Token(s) | Tailwind class |
+|---|---|---|
+| Background primary (very deep charcoal) | `--background` | `bg-background` |
+| Background elevated (cards/panels) | `--card` | `bg-card` |
+| Background muted (subtle fills, tab bars) | `--muted` | `bg-muted` |
+| Text primary (warm ivory) | `--foreground` | `text-foreground` |
+| Text secondary (muted warm gray) | `--muted-foreground` | `text-muted-foreground` |
+| Accent — restrained antique bronze | `--amber`, `--primary` | `text-amber`, `bg-primary` |
+| Accent subtle fill (icon containers) | `--amber-muted` | `bg-amber-muted` |
+| Accent hover/border | `--amber-border`, `--amber-hover` | `border-amber` |
+| Border (low-opacity warm gray) | `--border` | `border-border` |
+| Destructive | `--destructive` | `text-destructive` / `bg-destructive/5` |
+| Focus ring | `--ring` | `outline-ring/50`, `:focus-visible` |
+
+Reference values (warm_dark): background `oklch(0.118 0.010 46)` (near-black
+warm charcoal), card `oklch(0.155 0.012 48)` (elevated), foreground
+`oklch(0.948 0.012 72)` (warm ivory), accent `oklch(0.70 0.145 58)`
+(bronze-gold), border `oklch(1 0 0 / 7%)` (near-invisible).
+
+**Bronze accent rule:** icons, eyebrow labels, active-nav indicators, and
+occasional small highlights only. Never a background fill on large
+surfaces, never on error states, never more than 2–3 visible bronze
+elements on screen at once.
+
+## 3. Typography
+
+- **Serif display** (`--font-serif`, Playfair Display): page titles, H1/H2,
+  emotional headings, quotes, album/chapter titles.
+- **Sans body/UI** (`--font-sans`, Geist Sans): navigation, metadata,
+  buttons, controls, body copy.
+- Avoid excessive uppercase — reserve it for small editorial eyebrow labels
+  (`.text-eyebrow`, `.text-eyebrow-gold`).
+
+Typography scale (utility classes in `app/globals.css`):
+
+| Token / class | Size | Use |
+|---|---|---|
+| `.text-display` | 56–120px (`clamp(3.5rem, 9vw, 7.5rem)`) | Hero slideshow title only |
+| `.text-h1` | 44–60px (`clamp(2.75rem, 5.2vw, 3.75rem)`) | Page titles (serif) |
+| `.text-h2` | 32–40px (`clamp(2rem, 3.6vw, 2.5rem)`) | Section titles (serif) |
+| `.text-h3` | 24–30px (`clamp(1.5rem, 2.4vw, 1.875rem)`) | Sub-section titles (sans) |
+| `.text-body` | 15px | Body copy (sans) |
+| `.text-small` | 13px | Metadata / captions (sans, muted) |
+| `.text-eyebrow` / `.text-eyebrow-gold` | ~10px, tracked, uppercase | Eyebrow labels |
+
+## 4. Spacing, Layout, Radius, Shadow, Motion Tokens
+
+Defined in `app/globals.css` (`:root`), theme-agnostic:
+
+- **Spacing:** `--space-1` (4px) through `--space-24` (96px). Interior page
+  container: `--container-max` (88rem / 1408px) — use `content-padding`
+  utility for responsive side padding. Photography pages may exceed this
+  width where visual impact benefits (see `docs/redesign/PROMPTS.md`).
+- **Radius:** `--radius: 0.75rem` (12px) base, scaled via
+  `--radius-sm`/`md`/`lg`/`xl`/`2xl`/`3xl` (`rounded-sm` … `rounded-3xl`).
+  Target 12–20px (`rounded-lg`/`rounded-xl`) for most components; larger
+  radii (`rounded-2xl`/`3xl`) are reserved for big surfaces (hero,
+  full-bleed cards) per section 8 below.
+- **Shadow:** extremely restrained — `shadow-warm` (resting) /
+  `shadow-warm-hover` (hover) map to `--shadow-card` /
+  `--shadow-card-hover`, both plain neutral drop shadows (no colored glow).
+  Prefer contrast/layering/spacing over visible elevation. Never use raw
+  `shadow-xl`/`shadow-2xl` or colored glow shadows on new components.
+- **Motion:** `--motion-fast` (165ms, micro-interactions), `--motion-standard`
+  (260ms, default transitions), `--motion-slow` (520ms, editorial
+  reveals/image transitions), `--ease-standard` /`--ease-in-out` easing
+  curves. Global `@media (prefers-reduced-motion: reduce)` rule collapses
+  all animation/transition durations to near-zero. Components using
+  framer-motion should also call `useReducedMotion()` and skip
+  transform/opacity animation when true (see `TopNav`).
+  - Allowed: tiny scale (1–2%), opacity, translate 2–6px, slow image reveal.
+  - Avoid: bouncing/spring physics, exaggerated parallax, glowing animation.
+
+## 5. Buttons
+
+Defined in `components/ui/button.tsx` (`cva` variants) — extend this file,
+don't add a parallel button component.
+
+| Variant | Recipe |
+|---|---|
+| Primary (`variant="default"`) | `bg-primary text-primary-foreground` — warm bronze background, dark text, restrained radius |
+| Secondary (`variant="outline"`/`"secondary"`) | transparent/subtle-fill, `border-border`, cream text |
+| Tertiary | Plain text + arrow — use the `TextLink` primitive, not a `Button` variant |
+
+Avoid stacking multiple prominent buttons on one screen.
+
+## 6. Icon Library
+
+`lucide-react` — the one consistent thin-line icon library already used
+throughout the app (nav, buttons, empty states). Do not introduce a second
+icon library. No emoji anywhere in the UI.
+
+## 7. Reusable Component Primitives (PR 1)
+
+Live in `frontend/components/design-system/` (barrel export
+`components/design-system/index.ts`), except where an existing component
+was extended in place:
+
+| Component | Location | Notes |
+|---|---|---|
+| `PageIntro` | `design-system/page-intro.tsx` | Eyebrow + H1 + description + quiet action |
+| `EditorialEyebrow` | `design-system/editorial-eyebrow.tsx` | Small tracked uppercase label |
+| `ChapterCard` | `design-system/chapter-card.tsx` | Photo-led chapter tile (Home rail / Photos mosaic) |
+| `PhotoGrid` | `components/photos/photo-grid.tsx` | Pre-existing; extended in later PRs, not duplicated |
+| `MasonryGallery` | `design-system/masonry-gallery.tsx` | CSS-columns masonry, real aspect ratios preserved |
+| `GalleryTabs` | `design-system/gallery-tabs.tsx` | Elegant text tabs, restrained bronze underline |
+| `PhotoLightbox` | `design-system/photo-lightbox.tsx` | Thin contract wrapper around `ResilientLightbox`; PR 5 redesigns the visual language in place |
+| `EmptyState` | `design-system/empty-state.tsx` | Centered editorial empty state |
+| `SectionHeading` | `components/ui/section-header.tsx` (`SectionHeading` export, alias of `SectionHeader`) | Eyebrow + title + subtitle + action |
+| `TextLink` | `design-system/text-link.tsx` | Tertiary "text + arrow" action |
+| `IconButton` | `design-system/icon-button.tsx` | Restrained circular icon control (ghost / translucent) |
+| `FeaturedStory` | `design-system/featured-story.tsx` | Large photo + editorial statement |
+| `TimelineEntry` | `design-system/timeline-entry.tsx` | Alternating date/title/photo chronological entry |
+
+`FeaturedStory`, `TimelineEntry`, `MasonryGallery`, and `PhotoLightbox` ship
+in PR 1 as visual primitives with stable prop contracts; real page content
+is wired up in PR 4/5/6/9 per `docs/redesign/MILESTONES.md`.
+
+## 8. Navigation
+
+`components/layout/top-nav.tsx` (desktop) — slim bar, brand left, links
+center, avatar right. Two variants via `data-variant` on `.top-nav`:
+
+- `transparent` — floats over the Home hero (`/home` route only): no solid
+  background, subtle top-down gradient wash for legibility, no border.
+- `solid` — near-black surface (`oklch(0.09 0.006 46 / 96%)`) with a
+  1px `border-border` bottom divider, used on every other interior page.
+
+Active state: a 1.5px restrained bronze underline (`.top-nav__active-bar`,
+`opacity: 0.8`, no box-shadow/glow) — never a thick glowing underline. Hover
+state brightens link text and adds a near-invisible background tint; it
+never fills the link with a solid bronze block.
+
+Photos/Videos use elegant floating dropdown menus (`.nav-dropdown`):
+generous padding, `border-border`, restrained shadow, no aggressive glow.
+
+Mobile: hamburger opens a full-screen sheet (`.mobile-sheet`) with large
+serif links (Home, Photos, Videos, Favorites, Memories), an inline
+accordion under Photos/Videos for sub-destinations (Arjun/Travel/
+Milestones/Life, All Photos), and a quiet profile row (avatar, settings,
+sign out) at the bottom. No bottom tab bar, no nested dropdown-in-dropdown.
+
+## 9. Accessibility
+
+- Global `:focus-visible` outline (`app/globals.css`, base layer) using
+  `--ring` — every interactive element gets a visible keyboard focus ring.
+- Icon-only controls (`IconButton`) require a `label` prop, used as
+  `aria-label`/`title`.
+- Nav uses `aria-current="page"`, `aria-expanded` on dropdown/accordion
+  triggers, and `role="dialog"`/`aria-modal` on the mobile sheet.
+- `prefers-reduced-motion: reduce` is respected globally (see section 4)
+  and explicitly in components that drive framer-motion animations.
+- Maintain sufficient contrast between `--foreground`/`--muted-foreground`
+  and `--background`/`--card` when introducing new text/surface pairings.
+- Provide descriptive `alt` text for all photo/video imagery where the
+  API/data provides a name or caption.
+
+## 10. Anti-Patterns (carried forward, still apply)
+
+Semantic tokens over hardcoded values, `skeleton-shimmer` over
+`animate-pulse`, no raw `shadow-xl`/`shadow-2xl` on cards, no more than 2–3
+bronze accents visible at once, no emoji. See the "Anti-Patterns to Avoid"
+table in Part 2 below — it still applies verbatim under the new palette.
+
+---
+
+# Part 2 — Warm Memory Book (superseded, historical reference)
+
+The following was the original light+dark amber design system. It has been
+superseded by the Premium Cinematic System above as of PR 1
+(2026-08-29). Component recipes, spacing rhythm, and anti-pattern guidance
+below are still broadly useful as *structural* reference (grid gaps, hover
+lift amounts, etc.) — but color/typography/shadow specifics should defer to
+Part 1.
 
 ---
 
