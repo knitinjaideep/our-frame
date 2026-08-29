@@ -38,7 +38,7 @@ data safety, backend standards all still apply).
 
 | PR | Name | Status | Branch | Commit |
 |---|---|---|---|---|
-| 1 | Global Design System + Navigation | Complete | redesign/pr-1-design-system | pending commit |
+| 1 | Global Design System + Navigation | Complete | redesign/pr-1-design-system | 8690aca |
 | 2 | Home / Landing | Pending | — | — |
 | 3 | Photos Overview | Pending | — | — |
 | 4 | Arjun / Album Detail (gallery primitives) | Pending | — | — |
