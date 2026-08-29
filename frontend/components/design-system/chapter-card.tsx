@@ -19,6 +19,13 @@ interface ChapterCardProps {
   /** Optional line icon shown alongside the label (used on the Home rail). */
   icon?: React.ReactNode
   className?: string
+  /**
+   * 'cover' (default) — large photo-led tile used by the Photos overview
+   * mosaic (PR 3).
+   * 'rail' — compact translucent glass tile used by the Home hero's
+   * floating chapter rail (PR 2): icon + title + subtitle in a slim row.
+   */
+  variant?: 'cover' | 'rail'
 }
 
 /**
@@ -39,7 +46,46 @@ export function ChapterCard({
   imageAlt,
   icon,
   className,
+  variant = 'cover',
 }: ChapterCardProps) {
+  if (variant === 'rail') {
+    return (
+      <Link
+        href={href}
+        className={cn(
+          // `border-amber-border` is not a Tailwind token in this project
+          // (only the plain `.border-amber` CSS class exists), so the hover
+          // border must reference the CSS variable directly.
+          'card-lift group relative flex items-center gap-3 overflow-hidden rounded-xl border border-white/10 bg-card/60 px-4 py-3.5 backdrop-blur-md transition-colors duration-[var(--motion-standard)] hover:border-[var(--amber-border)] hover:bg-card/75',
+          className,
+        )}
+      >
+        {imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageUrl}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full object-cover opacity-[0.16] transition-opacity duration-[var(--motion-slow)] group-hover:opacity-25"
+            loading="lazy"
+          />
+        )}
+        {icon && (
+          <span className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-muted text-amber">
+            {icon}
+          </span>
+        )}
+        <div className="relative z-10 min-w-0 flex-1">
+          <h3 className="truncate font-serif text-base italic font-medium text-foreground">{title}</h3>
+          {(description ?? eyebrow) && (
+            <p className="truncate text-small text-muted-foreground/85">{description ?? eyebrow}</p>
+          )}
+        </div>
+        <ArrowUpRight className="relative z-10 h-3.5 w-3.5 shrink-0 text-foreground/50 opacity-0 transition-all duration-[var(--motion-fast)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:opacity-100" />
+      </Link>
+    )
+  }
+
   return (
     <Link
       href={href}

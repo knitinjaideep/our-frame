@@ -1,13 +1,16 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
+import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { mediaUrl, previewUrl } from '@/lib/api-client'
+import { cn } from '@/lib/utils'
+import { buttonVariants } from '@/components/ui/button'
+import { EditorialEyebrow } from '@/components/design-system/editorial-eyebrow'
 import type { Photo } from '@/types'
 
 interface HeroSlideshowProps {
   photos: Photo[]
-  familyName?: string
 }
 
 const KB_ORIGINS = [
@@ -20,7 +23,7 @@ const KB_ORIGINS = [
   'center bottom',
 ]
 
-export function HeroSlideshow({ photos, familyName = 'Our Frame' }: HeroSlideshowProps) {
+export function HeroSlideshow({ photos }: HeroSlideshowProps) {
   const [index, setIndex]   = useState(0)
   const [prev, setPrev]     = useState<number | null>(null)
   const [loaded, setLoaded] = useState<Record<number, boolean>>({})
@@ -73,18 +76,22 @@ export function HeroSlideshow({ photos, familyName = 'Our Frame' }: HeroSlidesho
             `,
           }}
         />
-        <div className="relative z-10 w-full pb-20 space-y-3 content-padding">
-          <p className="text-[10px] font-semibold tracking-[0.30em] uppercase"
-            style={{ color: 'var(--amber)', opacity: 0.75 }}>
-            Our Frame
-          </p>
-          <h1 className="font-serif leading-[0.95] text-white"
-            style={{ fontSize: 'clamp(3.5rem, 9vw, 7rem)', fontStyle: 'italic', fontWeight: 500 }}>
-            Our Story
+        <div className="relative z-10 w-full max-w-2xl space-y-5 pb-32 content-padding">
+          <EditorialEyebrow style={{ color: 'var(--amber-bright)' }}>Welcome Home</EditorialEyebrow>
+          <h1 className="text-display text-white drop-shadow-2xl">
+            Every frame holds a story.
           </h1>
-          <p className="font-sans text-[11px] font-semibold tracking-[0.28em] uppercase text-gold-shimmer mt-1">
-            Kotcherlakota
+          <p className="max-w-md text-body" style={{ color: 'oklch(1 0 0 / 80%)' }}>
+            A place for our favorite people, our biggest milestones, and the
+            little moments in between.
           </p>
+          <Link
+            href="/photos"
+            className={cn(buttonVariants({ size: 'lg' }), 'mt-2 h-11 gap-2 px-6 text-[0.9rem] tracking-wide')}
+          >
+            Explore Our Story
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
       </section>
     )
@@ -106,6 +113,7 @@ export function HeroSlideshow({ photos, familyName = 'Our Frame' }: HeroSlidesho
           alt={photos[prev].name}
           origin={KB_ORIGINS[prev % KB_ORIGINS.length]}
           active={false}
+          reduce={!!reduce}
           onLoad={() => {}}
         />
       )}
@@ -117,6 +125,7 @@ export function HeroSlideshow({ photos, familyName = 'Our Frame' }: HeroSlidesho
         alt={currentPhoto.name}
         origin={KB_ORIGINS[index % KB_ORIGINS.length]}
         active={true}
+        reduce={!!reduce}
         onLoad={() => setLoaded((p) => ({ ...p, [index]: true }))}
       />
 
@@ -124,59 +133,66 @@ export function HeroSlideshow({ photos, familyName = 'Our Frame' }: HeroSlidesho
       <div
         className="absolute inset-0 z-20 pointer-events-none"
         style={{
+          // The editorial block (eyebrow → headline → copy → CTA) is tall and
+          // left-aligned, so the bottom scrim has to stay meaningfully dark
+          // well past the old 55% stop or the top of the headline lands on an
+          // ungraded region of a bright photograph. Kept as a smooth ramp so
+          // the photo still reads as a photo rather than a muddy overlay.
           background: `
-            linear-gradient(to top,    oklch(0.04 0.004 48 / 90%) 0%,  oklch(0.04 0.004 48 / 50%) 28%, transparent 55%),
+            linear-gradient(to top,    oklch(0.04 0.004 48 / 90%) 0%,  oklch(0.04 0.004 48 / 62%) 34%, oklch(0.04 0.004 48 / 30%) 62%, transparent 88%),
             linear-gradient(to bottom, oklch(0.04 0.004 48 / 50%) 0%,  transparent 22%),
-            linear-gradient(to right,  oklch(0.04 0.004 48 / 35%) 0%,  transparent 42%)
+            linear-gradient(to right,  oklch(0.04 0.004 48 / 45%) 0%,  oklch(0.04 0.004 48 / 18%) 40%, transparent 62%)
           `,
         }}
       />
 
       {/* ── Hero text — uses content-padding for consistent offset ── */}
       <motion.div
-        className="absolute bottom-24 z-30 pointer-events-none max-w-xl content-padding"
+        className="absolute bottom-32 z-30 max-w-2xl content-padding md:bottom-36"
         style={{ left: 0 }}
         initial={{ opacity: 0, y: reduce ? 0 : 28 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1.1, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: reduce ? 0 : 1.1, delay: reduce ? 0 : 0.45, ease: [0.16, 1, 0.3, 1] }}
       >
-        <p
-          className="mb-3 font-sans text-[9px] font-semibold tracking-[0.30em] uppercase"
-          style={{ color: 'var(--amber)', opacity: 0.80 }}
+        {/* Brighter bronze + a soft shadow: the base --amber is too dim to
+            clear AA at this 10px size when it sits over photography. */}
+        <EditorialEyebrow
+          className="mb-3"
+          style={{ color: 'var(--amber-bright)', textShadow: '0 1px 14px oklch(0 0 0 / 70%)' }}
         >
-          Our Frame
-        </p>
+          Welcome Home
+        </EditorialEyebrow>
 
         <h1
-          className="font-serif leading-[0.92] text-white drop-shadow-2xl"
-          style={{
-            fontSize: 'clamp(3.25rem, 7vw, 6.5rem)',
-            fontStyle: 'italic',
-            fontWeight: 500,
-            textShadow: '0 2px 40px oklch(0 0 0 / 50%)',
-          }}
+          className="text-display text-white"
+          style={{ textShadow: '0 2px 40px oklch(0 0 0 / 50%)' }}
         >
-          Our Story
+          Every frame holds a story.
         </h1>
 
-        {/* Family name — gold shimmer, editorial */}
         <p
-          className="mt-4 font-sans text-[13px] font-semibold tracking-[0.32em] uppercase text-gold-shimmer"
-          style={{ letterSpacing: '0.32em' }}
+          className="mt-5 max-w-md text-body"
+          style={{ color: 'oklch(1 0 0 / 80%)', textShadow: '0 1px 18px oklch(0 0 0 / 60%)' }}
         >
-          {familyName || 'Our Frame'}
+          A place for our favorite people, our biggest milestones, and the
+          little moments in between.
         </p>
 
-        <p
-          className="mt-2 font-sans text-[10px] font-light tracking-[0.20em] uppercase"
-          style={{ color: 'oklch(1 0 0 / 30%)' }}
+        <Link
+          href="/photos"
+          className={cn(buttonVariants({ size: 'lg' }), 'mt-7 h-11 gap-2 px-6 text-[0.9rem] tracking-wide')}
         >
-          Every moment, preserved
-        </p>
+          Explore Our Story
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
       </motion.div>
 
-      {/* ── Scroll indicator ── */}
-      <div className="absolute bottom-8 left-1/2 z-30 -translate-x-1/2 flex flex-col items-center gap-1.5 pointer-events-none">
+      {/* ── Scroll indicator ──
+          Anchored in the clear band between the floating chapter rail (which
+          is pulled up over the hero's bottom ~56px — see home-feed-view.tsx)
+          and the editorial text block above (bottom-32/36). At the old
+          bottom-8 it was smudged behind the rail's backdrop blur. */}
+      <div className="absolute bottom-20 left-1/2 z-30 -translate-x-1/2 flex flex-col items-center gap-1.5 pointer-events-none">
         <div
           className="h-8 w-px"
           style={{
@@ -187,7 +203,7 @@ export function HeroSlideshow({ photos, familyName = 'Our Frame' }: HeroSlidesho
 
       {/* ── Slide counter ── */}
       {photos.length > 1 && (
-        <div className="absolute bottom-8 right-8 z-30 flex items-center gap-3 md:right-12 lg:right-16 xl:right-20">
+        <div className="absolute bottom-20 right-8 z-30 flex items-center gap-3 md:right-12 lg:right-16 xl:right-20">
           <div className="flex items-center gap-1.5">
             {photos.slice(0, 12).map((_, i) => (
               <button
@@ -252,10 +268,11 @@ interface SlideImageProps {
   alt: string
   origin: string
   active: boolean
+  reduce: boolean
   onLoad: () => void
 }
 
-function SlideImage({ src, alt, origin, active, onLoad }: SlideImageProps) {
+function SlideImage({ src, alt, origin, active, reduce, onLoad }: SlideImageProps) {
   return (
     <div
       className="absolute inset-0 transition-opacity duration-[1400ms] ease-in-out"
@@ -269,7 +286,11 @@ function SlideImage({ src, alt, origin, active, onLoad }: SlideImageProps) {
         className="absolute inset-0 h-full w-full object-cover"
         style={{
           transformOrigin: origin,
-          animation: active ? 'kenBurns 20s ease-out forwards' : 'none',
+          // Gentle Ken Burns scale/parallax — skipped entirely for
+          // prefers-reduced-motion (the global CSS rule collapses
+          // transition durations, but a running @keyframes animation
+          // isn't a transition, so it needs an explicit opt-out here).
+          animation: active && !reduce ? 'kenBurns 20s ease-out forwards' : 'none',
         }}
       />
     </div>

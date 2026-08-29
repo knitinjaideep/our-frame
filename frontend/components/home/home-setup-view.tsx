@@ -594,7 +594,10 @@ export function HomeSetupView({ setupState, workspaceId, workspaceName, userName
   const displayName = localWorkspaceName ?? 'Your archive'
 
   return (
-    <div className="content-padding py-16 sm:py-24 max-w-2xl mx-auto space-y-12">
+    /* `/home` is a full-bleed-hero route, so the shell's <main> deliberately
+       applies no top padding (see conditional-shell.tsx). The setup view is
+       NOT a hero, so it owns its own clearance under the fixed top nav. */
+    <div className="content-padding pt-[calc(var(--topbar-height)+4rem)] pb-16 sm:pt-[calc(var(--topbar-height)+6rem)] sm:pb-24 max-w-2xl mx-auto space-y-12">
 
       {/* Welcome heading */}
       <motion.div

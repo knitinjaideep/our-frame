@@ -5,6 +5,8 @@ interface EditorialEyebrowProps {
   /** 'gold' (default) uses the restrained bronze accent; 'muted' for quiet contexts. */
   tone?: 'gold' | 'muted'
   className?: string
+  /** Escape hatch for context-specific tuning (e.g. legibility over photography). */
+  style?: React.CSSProperties
   as?: keyof React.JSX.IntrinsicElements
 }
 
@@ -19,10 +21,14 @@ export function EditorialEyebrow({
   children,
   tone = 'gold',
   className,
+  style,
   as: Tag = 'p',
 }: EditorialEyebrowProps) {
   return (
-    <Tag className={cn(tone === 'gold' ? 'text-eyebrow-gold' : 'text-eyebrow', className)}>
+    <Tag
+      className={cn(tone === 'gold' ? 'text-eyebrow-gold' : 'text-eyebrow', className)}
+      style={style}
+    >
       {children}
     </Tag>
   )

@@ -11,6 +11,11 @@ const NO_SHELL_EXACT = ['/']
 // Prefix-match paths that render without the nav shell
 const NO_SHELL_PREFIX = ['/login']
 
+// Routes that render their own full-bleed hero and need the transparent nav
+// to float directly over it — <main> must not add top padding here, or the
+// nav sits over page background instead of the hero photograph.
+const FULL_BLEED_HERO_ROUTES = ['/home']
+
 /** Updates document.title to the workspace name once it loads. */
 function WorkspaceTitle() {
   const { workspace } = useWorkspace()
@@ -32,11 +37,13 @@ export function ConditionalShell({ children }: { children: React.ReactNode }) {
     return <>{children}</>
   }
 
+  const isFullBleedHero = FULL_BLEED_HERO_ROUTES.includes(pathname)
+
   return (
     <ThemeProvider>
       <WorkspaceTitle />
       <TopNav />
-      <main className="min-h-screen pt-[var(--topbar-height)]">
+      <main className={isFullBleedHero ? 'min-h-screen' : 'min-h-screen pt-[var(--topbar-height)]'}>
         {children}
       </main>
     </ThemeProvider>

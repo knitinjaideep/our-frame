@@ -462,19 +462,14 @@
 
 /* ═══════════════════════════════════════════════════════
    HERO SLIDESHOW
-   Top nav overlays the hero — hero fills full viewport,
-   text sits above the nav via z-index layering.
+   Full-bleed — <main> applies no top padding on the Home route
+   (see conditional-shell.tsx), so the hero fills the entire viewport
+   from y=0 and the fixed, transparent top nav floats directly over the
+   photograph. Text/controls sit above the nav via z-index layering.
    ═══════════════════════════════════════════════════════ */
 .hero-slideshow {
-  /* Subtract topbar so hero fills from below the nav */
-  height: calc(100dvh - var(--topbar-height));
-}
-@media (min-width: 1024px) {
-  .hero-slideshow {
-    /* On large screens the nav overlays the hero with glass effect */
-    height: 100dvh;
-    margin-top: calc(-1 * var(--topbar-height));
-  }
+  height: 100dvh;
+  min-height: 34rem;
 }
 
 /* ═══════════════════════════════════════════════════════
