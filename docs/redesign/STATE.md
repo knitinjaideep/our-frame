@@ -1,6 +1,6 @@
 # Our Frame Premium Redesign State
 
-Status: PR 7 complete
+Status: PR 8 complete
 
 Last updated: 2026-08-29
 
@@ -45,14 +45,14 @@ data safety, backend standards all still apply).
 | 5 | Photo Lightbox / Viewer | Complete | redesign/pr-5-lightbox (branched from redesign/pr-4-arjun-gallery) | a90c98a |
 | 6 | Travel, Milestones, Life | Complete | redesign/pr-6-travel-milestones-life (branched from redesign/pr-5-lightbox) | fe8cdbd |
 | 7 | Videos | Complete | redesign/pr-7-videos (branched from redesign/pr-6-travel-milestones-life) | f5b7d5c |
-| 8 | Favorites | Pending | — | — |
+| 8 | Favorites | Complete | redesign/pr-8-favorites (branched from redesign/pr-7-videos) | pending commit |
 | 9 | Memories / On This Day | Pending | — | — |
 | 10 | Mobile Experience Polish | Pending | — | — |
 
 ## Next Action
 
-Create `redesign/pr-8-favorites` branch off `redesign/pr-7-videos` and
-dispatch `our-frame-implementer` for PR 8 (Favorites page).
+Create `redesign/pr-9-memories` branch off `redesign/pr-8-favorites` and
+dispatch `our-frame-implementer` for PR 9 (Memories / On This Day page).
 
 ## Completed Checks
 
@@ -256,6 +256,31 @@ dispatch `our-frame-implementer` for PR 8 (Favorites page).
 - 2026-08-29: PR 7 verifier ran `npm run build`, `npx tsc --noEmit`, and
   `eslint` — all clean — and independently confirmed both reviewer fixes in
   the final file contents. Returned `VERIFICATION: PASS`.
+- 2026-08-29: PR 8 implementer rewrote `frontend/app/favorites/page.tsx`
+  ("The Ones We Love", real saved-photo count, `MasonryGallery`+
+  `PhotoLightbox` for the with-favorites state, `EmptyState`-based empty
+  state with a discovery row and a client-side-loop "Select"/bulk-remove
+  action since no bulk backend endpoint exists), and added additive
+  `selected`/`onToggleSelect` props to `MasonryGalleryItem`.
+- 2026-08-29: PR 8 implementer `npm run build` passed (26 routes); tsc and
+  lint clean.
+- 2026-08-29: PR 8 reviewer returned `REVIEW STATUS: PASS WITH FIXES` —
+  found the empty-state "Recently Captured" row was **materially
+  misleading** (verified against the real database: it showed only
+  2023-dated photos from a hero-scored pool while the library's actual
+  newest photo is from 2026) and fixed it by re-sourcing from a
+  library-wide pool and relabeling it "From The Collection" rather than
+  falsely implying recency (see follow-up note below — a true "recently
+  captured" feature needs a new backend endpoint). Also fixed a bulk-remove
+  partial-failure gap (`Promise.all` → `Promise.allSettled` with retryable
+  failed-id tracking and a status message), an error-state branch that
+  rendered a stray count/Select bar, and a lightbox-shows-empty-slide edge
+  case when the last favorite is removed mid-view.
+- 2026-08-29: PR 8 verifier ran `npm run build`, `npx tsc --noEmit`, and
+  `eslint` — all clean — and independently confirmed every reviewer fix in
+  the final file contents, plus confirmed `MasonryGalleryItem`'s new props
+  are additive and don't affect any other consumer. Returned
+  `VERIFICATION: PASS`.
 
 ## Pre-existing bugs found during redesign work (not caused by this redesign)
 
@@ -330,6 +355,17 @@ user 2026-08-29, not yet fixed, out of scope for the current 10-PR redesign:
   this ("Ages are estimated..."). A per-chapter reference-date setting
   would be the real fix if exact ages ever matter — a genuine product
   decision, intentionally left open.
+- No endpoint returns photos ordered by recency. PR 8's Favorites empty
+  state wants a "Recently captured" row, but every available source is
+  quality-scored, not date-ordered: `/home/feed` `hero_photos` returns (on
+  the real database) only 4 photos, all from one root album, all from 2023,
+  while the newest library photo is from 2026; `/home/slideshow`'s
+  no-favorites fallback is library-wide but still score-ranked. PR 8 sources
+  the row from `/home/slideshow`, orders it newest-first, and labels it
+  honestly ("From the collection") instead of claiming recency. A real
+  `/photos/recent` endpoint (or a `sort=created_time` option) is the proper
+  fix and would let that section use the prompt's literal label — a small
+  backend addition, deliberately not made inside a frontend-only redesign PR.
 - With the Favorites filter active on a gallery page, unfavoriting a photo
   from inside the lightbox removes that slide and the viewer lands on a
   neighbor rather than any specifically "right" photo. Not obviously wrong,

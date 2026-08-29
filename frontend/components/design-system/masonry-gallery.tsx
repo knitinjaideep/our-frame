@@ -1,4 +1,4 @@
-import { Film, Heart, Play } from 'lucide-react'
+import { Check, Film, Heart, Play } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface MasonryGalleryItem {
@@ -26,6 +26,16 @@ export interface MasonryGalleryItem {
   /** Label for the processing tile shown when `imageUrl` is absent. */
   statusLabel?: string
   onClick?: () => void
+  /**
+   * Bulk-selection state (Favorites page "Select" mode, PR 8). When
+   * `onToggleSelect` is defined, a quiet selection mark renders in the
+   * opposite corner from the favorite heart. The caller decides what the
+   * tile's main `onClick` does while selection mode is active (toggle
+   * selection vs. open the lightbox) — this primitive only renders the
+   * affordance.
+   */
+  selected?: boolean
+  onToggleSelect?: (event: React.MouseEvent) => void
 }
 
 interface MasonryGalleryProps {
@@ -188,6 +198,27 @@ export function MasonryGallery({
                   }}
                   aria-hidden
                 />
+              </button>
+            )}
+
+            {/* Selection mark (Favorites "Select" mode, PR 8) — mirrors the
+                favorite button's pattern in the opposite corner. */}
+            {item.onToggleSelect && (
+              <button
+                type="button"
+                aria-pressed={Boolean(item.selected)}
+                aria-label={item.selected ? `Deselect ${item.alt}` : `Select ${item.alt}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  item.onToggleSelect?.(e)
+                }}
+                className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border backdrop-blur-sm transition-colors duration-[var(--motion-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--amber)]"
+                style={{
+                  background: item.selected ? 'var(--amber)' : 'oklch(0.04 0.004 48 / 55%)',
+                  borderColor: item.selected ? 'var(--amber)' : 'oklch(1 0 0 / 25%)',
+                }}
+              >
+                {item.selected && <Check className="h-3.5 w-3.5" style={{ color: 'oklch(0.08 0.006 46)' }} aria-hidden />}
               </button>
             )}
           </div>
