@@ -40,7 +40,7 @@ data safety, backend standards all still apply).
 |---|---|---|---|---|
 | 1 | Global Design System + Navigation | Complete | redesign/pr-1-design-system | 8690aca |
 | 2 | Home / Landing | Complete | redesign/pr-2-home (branched from redesign/pr-1-design-system) | e12b11d |
-| 3 | Photos Overview | Complete | redesign/pr-3-photos-overview (branched from redesign/pr-2-home) | pending commit |
+| 3 | Photos Overview | Complete | redesign/pr-3-photos-overview (branched from redesign/pr-2-home) | 2a377dc |
 | 4 | Arjun / Album Detail (gallery primitives) | Pending | — | — |
 | 5 | Photo Lightbox / Viewer | Pending | — | — |
 | 6 | Travel, Milestones, Life | Pending | — | — |
