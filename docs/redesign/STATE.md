@@ -45,7 +45,7 @@ data safety, backend standards all still apply).
 | 5 | Photo Lightbox / Viewer | Complete | redesign/pr-5-lightbox (branched from redesign/pr-4-arjun-gallery) | a90c98a |
 | 6 | Travel, Milestones, Life | Complete | redesign/pr-6-travel-milestones-life (branched from redesign/pr-5-lightbox) | fe8cdbd |
 | 7 | Videos | Complete | redesign/pr-7-videos (branched from redesign/pr-6-travel-milestones-life) | f5b7d5c |
-| 8 | Favorites | Complete | redesign/pr-8-favorites (branched from redesign/pr-7-videos) | pending commit |
+| 8 | Favorites | Complete | redesign/pr-8-favorites (branched from redesign/pr-7-videos) | df5d739 |
 | 9 | Memories / On This Day | Pending | — | — |
 | 10 | Mobile Experience Polish | Pending | — | — |
 
