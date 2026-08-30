@@ -4,7 +4,7 @@
   "functions": {
     "main.py": {
       "maxDuration": 60,
-      "excludeFiles": "{**/googleapiclient/discovery_cache/documents/**,tests/**,data/**}"
+      "excludeFiles": "{tests/**,data/**}"
     }
   }
 }

@@ -3,7 +3,13 @@ uvicorn[standard]==0.24.0
 python-dotenv==1.0.0
 google-auth-oauthlib==1.1.0
 google-auth==2.23.4
-google-api-python-client==2.108.0
+# Vendored copy of google-api-python-client==2.108.0 with the unused
+# googleapiclient/discovery_cache/documents/ static-discovery JSON cache
+# (~90MB, none of it read at runtime — every build() call in this codebase
+# passes static_discovery=False) stripped out. Same source otherwise; see
+# backend/vendor/google-api-python-client/. Fixes the Vercel Python function
+# bundle exceeding the 225MB size limit.
+./vendor/google-api-python-client
 python-multipart==0.0.6
 
 # Database
