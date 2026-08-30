@@ -82,7 +82,7 @@ work does not change them.)
 | 1 | Design Memory / Source of Truth | Verified — PASS | redesign-v2/pr-1-design-memory | 361a7ea |
 | 2 | Shared Photos Architecture | Verified — PASS | redesign-v2/pr-2-photos-architecture | 4ea1614 |
 | 3 | Home Page | Verified — PASS | redesign-v2/pr-3-home | 3a700bb |
-| 4 | Photos Overview | Reviewed — PASS WITH FIXES | redesign-v2/pr-4-photos-overview | 78e8607 |
+| 4 | Photos Overview | Verified — PASS | redesign-v2/pr-4-photos-overview | 78e8607 |
 | 5 | Category Pages | Pending | redesign-v2/pr-5-category-pages | — |
 | 6 | Album Pages | Pending | redesign-v2/pr-6-album-pages | — |
 | 7 | Metadata, Thumbnail Selection, Image Quality | Pending | redesign-v2/pr-7-metadata-covers | — |
@@ -992,3 +992,81 @@ Before continuing:
 6. Remember the Home-page "no Recently Captured section" deviation from the
    source guide — do not silently reintroduce it.
 7. Never push/merge a redesign-v2 branch without explicit user approval.
+
+- 2026-08-30: Verified PR 4 (`our-frame-verifier`) — **PASS**. Independently
+  verified all reviewer fixes and implementation claims against the actual code:
+
+  (a) **No `size` prop in ChapterCardProps:** Read
+  `frontend/components/design-system/chapter-card.tsx` lines 28–51; the prop
+  list has no `size` field. Lines 73–109 show the 'rail' variant (unchanged);
+  lines 111–180 show the 'cover' variant (now the only variant) with no
+  `size ===` conditionals anywhere — scrim, padding, title size (text-3xl
+  sm:text-4xl), and aspect ratio all single-valued.
+
+  (b) **Single aspect-[4/3] at all breakpoints:** Line 26 confirms
+  `CHAPTER_COVER_ASPECT = 'aspect-[4/3]'` (no object/map, no breakpoint
+  variants). No prior `{ lg: ..., md: ... }` structure. Line 122 applies it
+  without conditional.
+
+  (c) **Description fixed height:** Line 163 confirms description renders as
+  `line-clamp-2 min-h-[2.4375rem]`, constraining the text block to exactly
+  two lines (= 2 × 13px × 1.5 line-height). This ensures eyebrow/title
+  vertical position is identical across all four cards regardless of
+  description length.
+
+  (d) **No col-span, true 2x2 grid:** `frontend/app/photos/page.tsx` line 30
+  and line 82 both show `grid-cols-1 sm:grid-cols-2 sm:gap-8` (no
+  `col-span-*` anywhere, no 12-column layout). Desktop: 2 columns + 2 rows;
+  mobile: 1 column × 4 rows.
+
+  (e) **Using overviewEyebrow:** Line 96 confirms `eyebrow={chapter.overviewEyebrow}`,
+  not `chapter.eyebrow`. Comment on lines 94–95 explicitly explains the
+  distinction: short board-2 form here vs. longer category-page form for PR 5.
+
+  (f) **overviewEyebrow is additive:** `frontend/lib/buckets.ts` lines 5–8
+  comment documents the pattern: two eyebrow strings per bucket. All four
+  entries now have both `eyebrow` (unchanged, used by category pages) and
+  `overviewEyebrow` (new, used by Photos overview). Arjun differs (lines 13–14:
+  `'Growing Up, Frame by Frame'` vs. `'Growing Up'`); Travel/Milestones/Life
+  have matching pairs (lines 21–22, 29–30, 37–38). The `eyebrow` field is
+  untouched, so PR 5 category pages still get the longer form.
+
+  (g) **Test harness truly deleted:** `ls -la
+  frontend/app/login/` returns only `page.tsx` (278 bytes, the canonical
+  login gate, unchanged from before PR 4). No `pr4-*` or measurement harness
+  routes present. `npm run build` output shows exactly 26 routes with no
+  additions or stray test paths.
+
+  (h) **bucket-card.tsx deletion safe:** `grep -rn "BucketCard\|bucket-card\|
+  components/buckets"` across `frontend/app`, `components`, `hooks`, `lib`,
+  `types` returns one match: a comment in `home-feed-view.tsx` explaining
+  its removal. `grep "world-card"` in `frontend/app/albums/page.tsx` confirms
+  all 8 `.world-card*` classes still in use (`world-card`, `__bg`, `__glow`,
+  `__noise`, `__content`, `__eyebrow`, `__title`, `__desc`, `__accent-line`,
+  `__arrow`, `worlds-grid`), so leaving `globals.css` untouched was correct.
+
+  (i) **No unrelated files touched:** `git diff --stat redesign-v2/pr-3-home...HEAD`
+  shows exactly 5 files changed: `docs/redesign-v2/STATE.md` (this file),
+  `frontend/app/photos/page.tsx`, `frontend/components/buckets/bucket-card.tsx`
+  (deleted), `frontend/components/design-system/chapter-card.tsx`,
+  `frontend/lib/buckets.ts`. No backend, auth, media-cache, `.env`, token, DB,
+  or generated media files touched.
+
+  (j) **Checks run:** `./node_modules/.bin/tsc --noEmit` → clean (no output).
+  `./node_modules/.bin/eslint app/photos components/design-system/chapter-card.tsx lib/buckets.ts` →
+  clean (no output). `npm run build` → passes with route list showing exactly
+  26 routes: all existing routes present, no test routes added, no `/photos`
+  dropped.
+
+  (k) **Live page visibility:** `/photos` is behind `AuthGate` with no
+  backend session available in this environment (same constraint noted in
+  implementer's and reviewer's entries). Attempted to view page via dev server
+  results in HTML 404 page. Live authenticated view with real Drive thumbnails
+  remains a task for PR 8 (final consistency audit) or user manual check, as
+  noted in the review entry.
+
+  All acceptance criteria met: uniform 2x2 grid with identical card
+  width/height/aspect/radius/padding/text-placement; desktop 2×2, mobile
+  single column; header untouched; no category has special/asymmetric layout;
+  build passes. No defects found; PR 4 ready for merge decision.
+
