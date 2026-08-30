@@ -7,8 +7,6 @@ import { useRootBuckets } from '@/hooks/use-root-buckets'
 import { useSlideshow } from '@/hooks/use-slideshow'
 import { HeroSlideshow } from '@/components/home/hero-slideshow'
 import { PhotoGrid } from '@/components/photos/photo-grid'
-import { AlbumGridSkeleton } from '@/components/albums/album-grid-skeleton'
-import { BucketCard } from '@/components/buckets/bucket-card'
 import { ChapterCard } from '@/components/design-system/chapter-card'
 import { SectionReveal } from '@/components/ui/section-reveal'
 import { BUCKETS } from '@/lib/buckets'
@@ -91,17 +89,17 @@ function SectionHead({
 export function HomeFeedView() {
   const { data, error } = useHomeFeed()
   const { data: slideshowPhotos } = useSlideshow()
-  const { data: bucketsData, isLoading: bucketsLoading } = useRootBuckets()
+  const { data: bucketsData } = useRootBuckets()
   const { workspace } = useWorkspace()
 
   const hasThrowbacks = (data?.throwbacks ?? []).length > 0
 
+  // Used only to back the chapter rail's real thumbnails below — the
+  // "Photos" section that used to repeat these same four categories as
+  // BucketCards was removed (see PR 3 in docs/redesign-v2/STATE.md): the
+  // chapter rail is the single, sole representation of Arjun/Travel/
+  // Milestones/Life on Home now.
   const allBuckets = bucketsData?.albums ?? []
-  const buckets = BUCKETS.map(meta => ({
-    ...meta,
-    album: allBuckets.find(a => a.id === meta.id) ?? null,
-  }))
-  const hasBuckets = !bucketsLoading && buckets.some(b => b.album !== null)
 
   return (
     <div>
@@ -164,30 +162,6 @@ export function HomeFeedView() {
             </div>
           </div>
         )}
-
-        {(hasBuckets || bucketsLoading) && (
-          <SectionReveal>
-            <section className="content-padding">
-              <SectionHead
-                eyebrow="Our Story in Frames"
-                title="Photos"
-                href="/photos"
-                linkLabel="Browse all"
-              />
-              {bucketsLoading ? (
-                <AlbumGridSkeleton count={4} />
-              ) : (
-                <div className="worlds-grid">
-                  {buckets.map((bucket, i) => (
-                    <BucketCard key={bucket.id} {...bucket} index={i} />
-                  ))}
-                </div>
-              )}
-            </section>
-          </SectionReveal>
-        )}
-
-        <Divider />
 
         <SectionReveal delay={0.04}>
           <section className="content-padding">

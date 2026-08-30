@@ -13,20 +13,9 @@ interface HeroSlideshowProps {
   photos: Photo[]
 }
 
-const KB_ORIGINS = [
-  'center center',
-  'top left',
-  'bottom right',
-  'top right',
-  'bottom left',
-  'center top',
-  'center bottom',
-]
-
 export function HeroSlideshow({ photos }: HeroSlideshowProps) {
   const [index, setIndex]   = useState(0)
   const [prev, setPrev]     = useState<number | null>(null)
-  const [loaded, setLoaded] = useState<Record<number, boolean>>({})
   const timerRef            = useRef<ReturnType<typeof setInterval> | null>(null)
   const reduce              = useReducedMotion()
 
@@ -46,9 +35,14 @@ export function HeroSlideshow({ photos }: HeroSlideshowProps) {
 
   useEffect(() => {
     if (photos.length < 2) return
+    // Autoplay is suppressed for prefers-reduced-motion: an unattended,
+    // self-advancing full-bleed slideshow is exactly the moving content that
+    // setting asks us to stop. The prev/next arrows and the dots still work,
+    // so no content becomes unreachable.
+    if (reduce) return
     timerRef.current = setInterval(() => advance(1), 10000)
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [advance, photos.length])
+  }, [advance, photos.length, reduce])
 
   useEffect(() => {
     if (photos.length === 0) return
@@ -60,12 +54,15 @@ export function HeroSlideshow({ photos }: HeroSlideshowProps) {
     img.src = next.preview_url ? mediaUrl(next.preview_url) : previewUrl(next.id)
   }, [index, photos])
 
-  /* ── Empty state ── */
+  /* ── Empty state ──
+     Height/min-height come from `.hero-slideshow` in globals.css only: an
+     inline `minHeight` here (or on the real hero below) wins over the
+     stylesheet and would undo the shorter 78dvh/26rem mobile hero. */
   if (photos.length === 0) {
     return (
       <section
         className="hero-slideshow relative flex w-full items-end overflow-hidden"
-        style={{ minHeight: 540, background: 'oklch(0.10 0.006 50)' }}
+        style={{ background: 'oklch(0.10 0.006 50)' }}
       >
         <div
           className="absolute inset-0 opacity-40"
@@ -97,37 +94,35 @@ export function HeroSlideshow({ photos }: HeroSlideshowProps) {
     )
   }
 
-  const currentPhoto = photos[index]
+  /* ── Slide stack ──
+     Rendered as ONE keyed array rather than two separate JSX slots. With
+     separate slots, changing `key={`slide-${index}`}` unmounted the outgoing
+     node and mounted the incoming one already at `opacity: 1`, so neither
+     side ever ran its 1400ms opacity transition and the "cross-fade" was in
+     practice a hard cut. Keying by photo index inside a single array lets
+     React preserve the outgoing node so it can actually animate out.
+
+     Order matters: the incoming (active) slide is rendered FIRST, i.e.
+     underneath, at full opacity, and the outgoing slide LAST, on top, fading
+     1 → 0. That is a true dissolve — the alternative (fade the incoming in
+     over black) dips to ~25% black mid-transition. */
+  const slideStack =
+    prev !== null && prev !== index && photos[prev] ? [index, prev] : [index]
 
   return (
-    <section
-      className="hero-slideshow relative w-full overflow-hidden bg-black"
-      style={{ minHeight: 540 }}
-    >
-
-      {/* ── Previous slide (fading out) ── */}
-      {prev !== null && photos[prev] && (
-        <SlideImage
-          key={`prev-${prev}`}
-          src={photos[prev].preview_url ? mediaUrl(photos[prev].preview_url) : previewUrl(photos[prev].id)}
-          alt={photos[prev].name}
-          origin={KB_ORIGINS[prev % KB_ORIGINS.length]}
-          active={false}
-          reduce={!!reduce}
-          onLoad={() => {}}
-        />
-      )}
-
-      {/* ── Active slide ── */}
-      <SlideImage
-        key={`slide-${index}`}
-        src={currentPhoto.preview_url ? mediaUrl(currentPhoto.preview_url) : previewUrl(currentPhoto.id)}
-        alt={currentPhoto.name}
-        origin={KB_ORIGINS[index % KB_ORIGINS.length]}
-        active={true}
-        reduce={!!reduce}
-        onLoad={() => setLoaded((p) => ({ ...p, [index]: true }))}
-      />
+    <section className="hero-slideshow relative w-full overflow-hidden bg-black">
+      {slideStack.map((i) => {
+        const photo = photos[i]
+        return (
+          <SlideImage
+            key={i}
+            src={photo.preview_url ? mediaUrl(photo.preview_url) : previewUrl(photo.id)}
+            alt={photo.name}
+            active={i === index}
+            reduce={!!reduce}
+          />
+        )
+      })}
 
       {/* ── Cinematic gradient overlay ── */}
       <div
@@ -274,35 +269,78 @@ export function HeroSlideshow({ photos }: HeroSlideshowProps) {
   )
 }
 
-/* ── Individual slide ── */
+/* ── Individual slide ──
+   Every slide must start showing the COMPLETE photograph — no cropped
+   faces/subjects at the first frame, per docs/OUR-FRAME-DESIGN-SYSTEM.md
+   §7. The foreground image always uses object-fit: contain (never
+   `cover`, which can crop a face on close-up portraits or group shots
+   whose aspect ratio doesn't match the hero band). A blurred, darkened
+   copy of the same photograph fills the letterboxed space behind it —
+   this reads as an intentional cinematic frame rather than empty bars,
+   and naturally disappears for landscape photos whose aspect ratio
+   already fills the hero. Ken Burns (when enabled) only ever scales the
+   contained image up a hair from its centered rest position, so any
+   "crop" it introduces eats into the letterbox margin, never the
+   subject itself. */
 interface SlideImageProps {
   src: string
   alt: string
-  origin: string
   active: boolean
   reduce: boolean
-  onLoad: () => void
 }
 
-function SlideImage({ src, alt, origin, active, reduce, onLoad }: SlideImageProps) {
+function SlideImage({ src, alt, active, reduce }: SlideImageProps) {
   return (
     <div
       className="absolute inset-0 transition-opacity duration-[1400ms] ease-in-out"
-      style={{ opacity: active ? 1 : 0 }}
+      // Stacking is set explicitly rather than left to DOM order: the
+      // outgoing slide must sit ON TOP of the incoming one so it can dissolve
+      // away over a fully-opaque new photograph. Both stay below the z-20
+      // gradient scrim and the z-30 chrome.
+      style={{ opacity: active ? 1 : 0, zIndex: active ? 0 : 1 }}
       aria-hidden={!active}
     >
+      {/* Blurred/darkened backdrop — fills the frame behind letterboxed
+          (typically portrait) photos instead of cropping/stretching them.
+          Same `src` as the foreground, so this costs no extra network
+          request — the browser serves the second <img> from cache.
+
+          The overscale has to exceed the blur's reach (~3× the radius) or
+          the blurred copy fades to transparent before it reaches the frame
+          edge and the black section background shows through as a smoky
+          band along the top/bottom. Verified in a headless-Chrome harness at
+          the real 1440×738 hero size: blur(48px)/scale(1.15) bled visibly;
+          blur(40px)/scale(1.45) covers cleanly. */}
+      <img
+        src={src}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover"
+        style={{ filter: 'blur(40px) brightness(0.55) saturate(1.05)', transform: 'scale(1.45)' }}
+      />
+
+      {/* Full, uncropped photograph — always visible from the first frame. */}
       <img
         src={src}
         alt={alt}
-        onLoad={onLoad}
-        className="absolute inset-0 h-full w-full object-cover"
+        className="absolute inset-0 h-full w-full object-contain"
         style={{
-          transformOrigin: origin,
-          // Gentle Ken Burns scale/parallax — skipped entirely for
+          transformOrigin: 'center center',
+          // Gentle Ken Burns scale — skipped entirely for
           // prefers-reduced-motion (the global CSS rule collapses
           // transition durations, but a running @keyframes animation
           // isn't a transition, so it needs an explicit opt-out here).
-          animation: active && !reduce ? 'kenBurns 20s ease-out forwards' : 'none',
+          // Starts at scale(1) (full image, nothing pre-zoomed) and caps
+          // at scale(1.03), well inside the docs/OUR-FRAME-DESIGN-SYSTEM.md
+          // §7 range of scale(1.02)–(1.04), over 10s (within the 8–12s
+          // range) — no panning, center-anchored only.
+          //
+          // Deliberately NOT gated on `active`: a slide node is only ever
+          // mounted while it is the active one, and gating on `active` would
+          // reset `animation` to 'none' the instant it becomes the outgoing
+          // slide, snapping it from scale(1.03) back to scale(1) in full view
+          // during the 1400ms fade-out.
+          animation: reduce ? 'none' : 'kenBurns 10s ease-out forwards',
         }}
       />
     </div>

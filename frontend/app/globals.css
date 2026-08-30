@@ -469,13 +469,23 @@
 /* ═══════════════════════════════════════════════════════
    HERO SLIDESHOW
    Full-bleed — <main> applies no top padding on the Home route
-   (see conditional-shell.tsx), so the hero fills the entire viewport
-   from y=0 and the fixed, transparent top nav floats directly over the
+   (see conditional-shell.tsx), so the hero fills the viewport from y=0
+   and the fixed, transparent top nav floats directly over the
    photograph. Text/controls sit above the nav via z-index layering.
+   Intentionally shorter than 100dvh (per docs/OUR-FRAME-DESIGN-SYSTEM.md
+   §7 / docs/redesign-v2/PROMPTS.md PR 3): ~78–84vh on desktop so the
+   floating chapter rail below reads as an intentional part of the
+   composition instead of being pushed off-screen.
    ═══════════════════════════════════════════════════════ */
 .hero-slideshow {
-  height: 100dvh;
-  min-height: 34rem;
+  height: 82dvh;
+  min-height: 30rem;
+}
+@media (max-width: 640px) {
+  .hero-slideshow {
+    height: 78dvh;
+    min-height: 26rem;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -483,7 +493,7 @@
    ═══════════════════════════════════════════════════════ */
 @keyframes kenBurns {
   0%   { transform: scale(1.0); }
-  100% { transform: scale(1.10); }
+  100% { transform: scale(1.03); }
 }
 
 @keyframes shimmer {

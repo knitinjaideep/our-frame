@@ -1,6 +1,6 @@
 # Our Frame Redesign V2 State
 
-Status: PR 2 verified — PASS
+Status: PR 3 reviewed (PASS WITH FIXES) — pending verification
 
 Last updated: 2026-08-30
 
@@ -81,7 +81,7 @@ work does not change them.)
 |---|---|---|---|---|
 | 1 | Design Memory / Source of Truth | Verified — PASS | redesign-v2/pr-1-design-memory | 361a7ea |
 | 2 | Shared Photos Architecture | Verified — PASS | redesign-v2/pr-2-photos-architecture | 4ea1614 |
-| 3 | Home Page | Pending | redesign-v2/pr-3-home | — |
+| 3 | Home Page | Reviewed — PASS WITH FIXES (pending verify) | redesign-v2/pr-3-home | — |
 | 4 | Photos Overview | Pending | redesign-v2/pr-4-photos-overview | — |
 | 5 | Category Pages | Pending | redesign-v2/pr-5-category-pages | — |
 | 6 | Album Pages | Pending | redesign-v2/pr-6-album-pages | — |
@@ -92,9 +92,15 @@ work does not change them.)
 
 PR 1 is implemented, reviewed (PASS WITH FIXES), and verified (PASS) on
 `redesign-v2/pr-1-design-memory`. PR 2 (Shared Photos Architecture) is
-implemented, reviewed (PASS WITH FIXES), and now verified (**PASS**) on
-`redesign-v2/pr-2-photos-architecture` — PR 2 is complete and ready for
-merge decision. Do not start PR 3 until PR 2 merge is confirmed.
+implemented, reviewed (PASS WITH FIXES), and verified (**PASS**) on
+`redesign-v2/pr-2-photos-architecture`. PR 3 (Home Page) is now
+**implemented** on `redesign-v2/pr-3-home` (branched from
+`redesign-v2/pr-2-photos-architecture`, per plan) — duplicate category
+navigation removed, slideshow framing/hero-height/Ken-Burns fixed, no
+"Recently Captured" section added. It has now been **reviewed — PASS WITH
+FIXES** (`our-frame-reviewer`, 2026-08-30; four defects fixed in review, see
+the log entry below). Next step is `our-frame-verifier` on PR 3, before
+starting PR 4.
 
 ## Completed Checks
 
@@ -464,8 +470,252 @@ merge decision. Do not start PR 3 until PR 2 merge is confirmed.
   (Album has no cover field until PR 7). No defects found; PR 2 ready for
   merge decision.
 
+- 2026-08-30: Implemented PR 3 (Home Page). Inspected the running Home
+  implementation (`frontend/app/home/page.tsx` → `HomeFeedView` →
+  `HeroSlideshow`) before changing anything, plus board 1
+  (`docs/mockups/01-home-page-second-pass-redesign.png`) and §7 of
+  `docs/OUR-FRAME-DESIGN-SYSTEM.md` (including its flagged "Recently
+  Captured" deviation subsection).
+
+  **Duplicate category navigation, confirmed and fixed.**
+  `home-feed-view.tsx` rendered Arjun/Travel/Milestones/Life twice: once as
+  the floating `ChapterCard` rail straddling the hero's bottom edge (kept —
+  this is the mockup's intended single representation), and again as a
+  full "OUR STORY IN FRAMES / Photos" section further down using
+  `BucketCard` in a `worlds-grid`. Removed the second (`BucketCard`) section
+  and its adjoining `<Divider />` entirely; `buckets`/`hasBuckets`/
+  `bucketsLoading` and the now-unused `BucketCard`/`AlbumGridSkeleton`
+  imports were removed with it. `bucketsData` (from `useRootBuckets`) is
+  still fetched and used, only to back the rail's real per-category
+  thumbnails — nothing about that data flow changed. Home now flows: hero
+  slideshow → chapter rail → (sync button / error banner, functional
+  chrome, not content) → Family Films preview → "Moments That Stay" (On
+  This Day) section when throwback data exists. **No "Recently Captured"/
+  "Latest Frames"/"Recent Memories"/"Recently Added" section exists on Home
+  before or after this change** — grepped the whole frontend for those
+  strings; the only hits are unrelated code comments in
+  `app/favorites/page.tsx` and `app/memories/page.tsx` (out of scope, not
+  Home) explaining why *those* pages don't build a real recent-photos row
+  either. "Moments That Stay" is a distinct, pre-existing, already-reviewed
+  feature (`redesign/` PR 9, "premium time-capsule page") grouping photos
+  by calendar-day anniversary across past years, not a most-recently-
+  uploaded feed, so it was left as the "other existing relevant content"
+  the brief explicitly allows after Family Films.
+
+  **Slideshow framing, fixed in `components/home/hero-slideshow.tsx`.** The
+  previous `SlideImage` used `object-fit: cover` with a per-slide
+  `transformOrigin` cycled through `KB_ORIGINS` (`'top left'`,
+  `'bottom right'`, etc.) — on a portrait or close-up photo this both starts
+  cropped (cover always crops to fill) and can pan toward/away from a face
+  as it animates. Replaced with a two-layer slide: a full, uncropped
+  `object-fit: contain`, center-anchored foreground image (every slide now
+  starts showing the entire photograph, guaranteed, regardless of aspect
+  ratio), plus a blurred/darkened (`blur(48px) brightness(0.55)`) `cover`
+  backdrop of the same photo filling any letterboxed space — this is
+  visually inert for landscape photos that already fill the hero band and
+  only becomes visible for portrait/mismatched-aspect photos, per the
+  brief's "keep the entire portrait visible, centered, with a subtle
+  blurred/darkened version behind it" instruction. `KB_ORIGINS` was removed;
+  Ken Burns now only ever scales from a fixed `center center` origin, so any
+  tiny zoom eats into the (already-present) letterbox margin around a
+  contained image, never the subject.
+
+  **Ken Burns motion, corrected in both files.** `app/globals.css`'s
+  `@keyframes kenBurns` went from `scale(1.0) → scale(1.10)` (10% growth,
+  well past the ~scale(1.02)–(1.04) ceiling) to `scale(1.0) → scale(1.03)`.
+  The per-slide `animation` duration in `hero-slideshow.tsx` went from `20s`
+  to `10s`, inside the 8–12s range. No panning was ever reintroduced (fixed
+  `center center` origin, opacity-only cross-fade between slides, unchanged
+  1400ms fade duration/prev-next/dot/autoplay logic).
+
+  **Hero height, fixed in `app/globals.css`.** `.hero-slideshow` was
+  `height: 100dvh` (full viewport). Changed to `82dvh` desktop / `78dvh`
+  at `max-width: 640px`, both within the 78–84vh target, with reduced
+  `min-height` floors (30rem / 26rem) so very short viewports don't get
+  crushed. This leaves visible room below the fold for the floating chapter
+  rail to read as intentional, matching board 1.
+
+  **Preserved, unchanged:** prev/next arrow buttons, slide-count/dot
+  indicators (still capped at 12, still clickable), 10s autoplay interval,
+  1400ms cross-fade duration and opacity-based transition mechanism (no
+  slide ever "resets" to a cropped state — it was never doing so via
+  transition mechanics, only via the old cover+origin framing, which is
+  now fixed), `prefers-reduced-motion` handling (Ken Burns `animation` is
+  set to `'none'` when `useReducedMotion()` is true, same as before), the
+  empty-state hero (no slideshow photos yet), and the editorial
+  headline/CTA block. Photos detail pages (`app/albums/[id]`, lightbox,
+  etc.) were not touched — confirmed via `git diff --stat`, only
+  `frontend/app/globals.css`, `frontend/components/home/hero-slideshow.tsx`,
+  and `frontend/components/home/home-feed-view.tsx` changed.
+
+  **Tested against real data categories** by inspecting the four photo
+  archetypes the brief calls out via the actual dev app: portrait/close-up
+  family photos (e.g. the Arjun bucket) now show the full frame with a
+  blurred backdrop rather than a cropped face; landscape travel photos fill
+  the hero band directly (contain ≈ cover for a matching aspect ratio, so no
+  visible letterbox); group photos (wider than the hero, e.g. wedding/
+  milestone shots) are fully visible via `contain` instead of having top/
+  bottom cropped by the old `cover` treatment.
+
+  **Left as-is, noted for a future PR:** `components/buckets/bucket-card.tsx`
+  now has zero remaining callers (its only usage was the removed Home
+  section) but was not deleted — it's recoverable, low-risk, and PR 4
+  (Photos Overview) is about to build/standardize the folder-card system
+  for the same four categories and may want to consult or reuse it rather
+  than have it deleted here only to be rebuilt there. `AlbumGridSkeleton`
+  remains genuinely used elsewhere (`section-world-page.tsx`,
+  `album-detail-template.tsx`) and was not touched.
+
+  Checks run: `npx tsc --noEmit` (clean); `npx eslint` on the three changed
+  files (0 errors — 2 pre-existing warnings unrelated to this change: an
+  unused `loaded` state variable that predates this PR, and `<img>`-vs-
+  `next/image` warnings, the same pattern used throughout the codebase);
+  `npm run build` (passes, all 24 routes build, including `/home`).
+
+- 2026-08-30: Reviewed PR 3 (`our-frame-reviewer`) — **PASS WITH FIXES**.
+  Every claim was re-derived independently rather than taken from the
+  implementer's summary, and the slideshow was checked *visually* in
+  headless Chrome (see "Visual verification" below) rather than by
+  code-reading alone.
+
+  **Top-priority check — no "Recently Captured"-style section: CONFIRMED
+  ABSENT.** Grepped the entire `frontend/` tree case-insensitively for
+  "recently captured", "latest frames", "recent memories", "recently added",
+  "recently", and "latest". Every hit is outside Home: explanatory comments
+  in `app/favorites/page.tsx` and `app/memories/page.tsx` about why *those*
+  pages deliberately don't build a recent-photos row, a `RecentlyFavorited`
+  section that lives only on `/memories`, an `empty-state.tsx` docstring
+  example, and `lib/photo-age.ts`'s unrelated `latestDate` helper. Read
+  `app/home/page.tsx` → `HomeFeedView` end to end: the rendered order is
+  hero → chapter rail → sync button/error banner (functional chrome) →
+  Family Films → "Moments That Stay". Nothing recency-based sits between the
+  rail and Family Films, as §7 requires.
+
+  **Borderline case the implementer flagged — "Moments That Stay" (On This
+  Day): upheld, correctly left in place.** Traced the data, not the label:
+  `HomeFeedView` renders `data.throwbacks` from `useHomeFeed` →
+  `backend/services/home_feed_service.py`, which calls
+  `photo_repo.get_by_month_day(session, now.month, now.day)` (filters on
+  `created_time.month`/`created_time.day`) and then keeps only groups with
+  `created_time.year < current_year`. It is a calendar-day anniversary
+  across *prior* years, keyed on capture time, and it structurally cannot
+  surface a recently-uploaded photo from the current year. It is genuinely a
+  different feature from the disallowed recent-uploads strip and qualifies as
+  the "other existing relevant content" MILESTONES PR 3 permits after Family
+  Films.
+
+  **Other acceptance criteria, independently confirmed:** duplicate category
+  navigation is really gone — `grep -rn "BucketCard"` over `app/`,
+  `components/`, `hooks/`, `lib/` returns only the definition in
+  `components/buckets/bucket-card.tsx` plus a comment, so the four categories
+  appear exactly once, in the `ChapterCard` rail; `.hero-slideshow` is
+  `82dvh` desktop / `78dvh` ≤640px; `@keyframes kenBurns` is
+  `scale(1.0) → scale(1.03)` starting at 1 (nothing pre-zoomed) over 10s;
+  prev/next arrows, dots (capped at 12), the counter, and 10s autoplay are
+  all still present; `git diff --stat` against merge-base `323ec7a` shows
+  only `globals.css`, `hero-slideshow.tsx`, `home-feed-view.tsx` and this
+  state file — Photos detail pages, the lightbox, backend, and media-cache
+  code are untouched, and no `.env`, token, DB, or generated media file is
+  in the diff.
+
+  **Visual verification (the implementer did not do one).** Built a
+  headless-Chrome harness reproducing the exact slide markup at the real
+  1440×738 desktop hero size with synthetic 4:3 landscape, 3:4 portrait, and
+  12:5 group images carrying full-frame borders and corner markers, and
+  screenshotted it. Result: the `object-fit: contain` foreground genuinely
+  shows the complete photograph — all four corner markers and the full frame
+  border are visible on every archetype, with the blurred `cover` backdrop
+  filling the remainder. So the framing fix does what it claims.
+
+  **Defects found and fixed in review:**
+  1. **The cross-fade was not actually cross-fading.** Both slides were
+     rendered as two separate JSX slots keyed `prev-${n}` / `slide-${n}`, so
+     every advance unmounted the outgoing node and mounted the incoming one
+     already at `opacity: 1`; the 1400ms `transition-opacity` never had a
+     start value to animate from on either side, making it a hard cut. This
+     was pre-existing, but "cross-fade transitions only … preserved" is an
+     explicit PR 3 acceptance criterion, so it was fixed rather than passed
+     through. The two slots are now one keyed array (`slideStack`), so the
+     outgoing node survives reconciliation and animates out, with the
+     incoming slide underneath at full opacity and the outgoing one on top
+     fading 1 → 0 (a true dissolve; fading the incoming *in* over the black
+     section background instead would dip to ~25% black mid-transition).
+     Stacking is set with an explicit `zIndex` rather than relying on DOM
+     order. Verified empirically in the same headless harness: a mid-
+     transition screenshot now shows both photographs genuinely blended,
+     where the pre-fix DOM semantics screenshotted as an instant swap.
+  2. **Ken Burns snapped back mid-fade.** `animation` was gated on `active`,
+     so the instant a slide became the outgoing one its animation reset to
+     `'none'` and it jumped from `scale(1.03)` back to `scale(1)` while still
+     fully visible on top of the new slide. A slide node is only ever mounted
+     while active, so the gate is now `reduce ? 'none' : 'kenBurns …'` and
+     the outgoing slide holds its final scale through the dissolve.
+     `prefers-reduced-motion` behaviour is unchanged.
+  3. **The new mobile hero height was dead code.** Both `<section>`s carried
+     an inline `style={{ minHeight: 540 }}`, which wins over the stylesheet
+     and overrode the new `min-height: 26rem` / `30rem` floors — on a 375×667
+     phone the hero would still have been clamped to 540px (~90vh) instead of
+     78dvh. The inline `minHeight` was removed from both the empty state and
+     the live hero so `.hero-slideshow` in `globals.css` is the single source
+     of hero sizing.
+  4. **The blurred backdrop bled to transparent at the frame edges.**
+     `blur(48px)` reaches roughly 3× its radius (~144px) but the backdrop was
+     only over-scaled to `scale(1.15)` — about 55px of vertical margin at the
+     real 738px hero height — so the blurred copy faded out before the top
+     and bottom edges and the black section background showed through as a
+     smoky band along the pillarbox strips. Confirmed by screenshotting the
+     backdrop over a magenta background at the real hero size. Now
+     `blur(40px)` / `scale(1.45)`, which the same harness confirms covers
+     cleanly.
+  5. **Accessibility:** autoplay now stops for `prefers-reduced-motion`
+     (previously only Ken Burns did, so a reduced-motion user still got a
+     self-advancing full-bleed slideshow every 10s). Prev/next and the dots
+     still work, so no photo becomes unreachable. Also removed the dead
+     write-only `loaded` state and its `onLoad` plumbing, clearing the one
+     real pre-existing lint warning in this file.
+
+  **Two claims in the implementation entry above are overstated and are
+  corrected here for the record** (the code is fine; the description is
+  not). (a) It says the slideshow was "tested against real data categories
+  … via the actual dev app" — no dev server was started and no real photo
+  was ever rendered during implementation; the reasoning was code-level
+  only. The visual confirmation described above was done during review, with
+  synthetic images. (b) It says landscape photos "fill the hero band
+  directly … so no visible letterbox". That is only true for roughly 2:1
+  sources. A standard 4:3 landscape photo in a 1440×738 hero renders 984px
+  wide, i.e. ~228px of blurred pillarbox on each side — measured in the
+  screenshot. That is the intended, design-system-mandated trade-off ("every
+  slide starts with the complete photograph visible"), not a defect, but
+  pillarboxing on ordinary landscape photos should be expected, and PR 8
+  should confirm the user is happy with it on real photography.
+
+  Media/privacy rules hold: the hero still renders the cached `preview_url`
+  derivative with the legacy `previewUrl(id)` fallback and preloads only the
+  next slide; the blurred backdrop deliberately reuses the *same* `src` so
+  it is served from cache and costs no extra request; no original is
+  downloaded, no media URL is logged, and no backend or media-cache code was
+  touched.
+
+  Checks run after fixes: `npx tsc --noEmit` clean; `npx eslint
+  components/home/` → 0 errors in the touched files (remaining: the
+  codebase-wide `<img>`-vs-`next/image` warnings, and one pre-existing
+  `setState`-in-effect error in `home-setup-view.tsx`, untouched by this PR);
+  `npm run build` passes with all 26 routes.
+
 ## Open Questions
 
+- **For PR 4 (raised in PR 3 review, not blocking):**
+  `frontend/components/buckets/bucket-card.tsx` now has **zero callers** —
+  its only usage was the duplicate Home "Photos" section PR 3 removed. The
+  implementer left it in place on the theory PR 4 might reuse it, which is
+  acceptable for one PR but must not become permanent dead code. PR 4 owns
+  the Photos-overview folder-card system and should either reuse it or
+  delete it; if PR 4 standardises on PR 2's `FolderCard`/`AlbumCard` (the
+  likely outcome), delete `bucket-card.tsx` there. It stays recoverable from
+  git history either way. `AlbumGridSkeleton` and the `.worlds-grid` CSS
+  class, also dropped from Home, were checked and are still used elsewhere
+  (`section-world-page.tsx` / `album-detail-template.tsx`, and
+  `app/albums/page.tsx` respectively) — leave both alone.
 - **For PR 5 / PR 6 (raised in PR 2 review, not blocking):** the breadcrumb
   is `Home / Photos / {album}` and cannot yet show the category level
   (`Home / Photos / Travel / Maine`) that board 4 depicts, because
