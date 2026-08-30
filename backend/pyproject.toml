@@ -1,0 +1,36 @@
+[project]
+name = "our-frame-backend"
+version = "0.1.0"
+requires-python = "~=3.13.0"
+dependencies = [
+  "fastapi==0.104.1",
+  "uvicorn[standard]==0.24.0",
+  "python-dotenv==1.0.0",
+  "google-auth-oauthlib==1.1.0",
+  "google-auth==2.23.4",
+  "google-api-python-client",
+  "python-multipart==0.0.6",
+  "sqlmodel",
+  "pydantic-settings",
+  "sqlalchemy>=2.0.36",
+  "psycopg[binary]>=3.2.0",
+  "pillow",
+  "pillow-heif",
+  "requests==2.31.0",
+  "supabase>=2.10.0",
+  "cryptography>=42.0.0",
+]
+
+# Vercel auto-converts requirements.txt into a pyproject.toml of its own on
+# every build, but its converter mis-resolves local path dependencies (it
+# double-applies the project's Root Directory setting, since the generated
+# file already lives inside backend/ but the converted path is expressed as
+# if relative to the repo root — see backend/vendor/google-api-python-client
+# for what this is pointing at and why). Vercel prefers a pyproject.toml over
+# requirements.txt when both exist, so this hand-written file — with the
+# path correctly expressed relative to backend/, where this file actually
+# lives — replaces the auto-conversion entirely and sidesteps the bug.
+# requirements.txt is kept in sync for `pip install -r requirements.txt`
+# local-dev workflows referenced in README.md/docs/SETUP.md.
+[[tool.uv.sources.google-api-python-client]]
+path = "./vendor/google-api-python-client"
