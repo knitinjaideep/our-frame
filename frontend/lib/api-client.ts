@@ -14,7 +14,7 @@ function storedSessionToken(): string | null {
 // where the cross-origin cookie never lands (the same reason /auth/callback
 // hands the token to the frontend in the first place). `/sync` is not under
 // `/api`, but its workspace-scoped calls are authenticated just the same.
-const AUTHENTICATED_PATH_PREFIXES = ['/api/', '/sync/']
+const AUTHENTICATED_PATH_PREFIXES = ['/api/', '/sync/', '/media/', '/drive/file/']
 
 function withSessionToken(path: string): string {
   const token = storedSessionToken()
@@ -70,7 +70,7 @@ export const apiClient = {
 /** Build the full URL for a media asset (thumbnail/preview) served by FastAPI */
 export function mediaUrl(path: string): string {
   if (path.startsWith('http')) return path
-  return `${API_BASE}${path}`
+  return `${API_BASE}${withSessionToken(path)}`
 }
 
 /**
@@ -105,21 +105,21 @@ export function albumCoverUrl(path: string): string {
 }
 
 export function thumbnailUrl(photoId: string, size = 600): string {
-  return `${API_BASE}/drive/file/${encodeURIComponent(photoId)}/thumbnail?s=${size}`
+  return `${API_BASE}${withSessionToken(`/drive/file/${encodeURIComponent(photoId)}/thumbnail?s=${size}`)}`
 }
 
 export function previewUrl(photoId: string, width = 1600): string {
-  return `${API_BASE}/drive/file/${encodeURIComponent(photoId)}/preview?w=${width}`
+  return `${API_BASE}${withSessionToken(`/drive/file/${encodeURIComponent(photoId)}/preview?w=${width}`)}`
 }
 
 export function contentUrl(photoId: string): string {
-  return `${API_BASE}/drive/file/${encodeURIComponent(photoId)}/content`
+  return `${API_BASE}${withSessionToken(`/drive/file/${encodeURIComponent(photoId)}/content`)}`
 }
 
 export function downloadUrl(photoId: string): string {
-  return `${API_BASE}/drive/file/${encodeURIComponent(photoId)}/download`
+  return `${API_BASE}${withSessionToken(`/drive/file/${encodeURIComponent(photoId)}/download`)}`
 }
 
 export function videoStreamUrl(fileId: string): string {
-  return `${API_BASE}/drive/file/${encodeURIComponent(fileId)}/stream`
+  return `${API_BASE}${withSessionToken(`/drive/file/${encodeURIComponent(fileId)}/stream`)}`
 }
