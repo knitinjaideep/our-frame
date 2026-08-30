@@ -9,7 +9,7 @@ import { useWorkspace } from '@/hooks/use-workspace'
 // Exact-match paths that render without the nav shell
 const NO_SHELL_EXACT = ['/']
 // Prefix-match paths that render without the nav shell
-const NO_SHELL_PREFIX = ['/login']
+const NO_SHELL_PREFIX = ['/login', '/onboarding']
 
 // Routes that render their own full-bleed hero and need the transparent nav
 // to float directly over it — <main> must not add top padding here, or the
