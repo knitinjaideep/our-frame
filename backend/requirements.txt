@@ -3,13 +3,14 @@ uvicorn[standard]==0.24.0
 python-dotenv==1.0.0
 google-auth-oauthlib==1.1.0
 google-auth==2.23.4
-# Vendored copy of google-api-python-client==2.108.0 with the unused
-# googleapiclient/discovery_cache/documents/ static-discovery JSON cache
-# (~90MB, none of it read at runtime — every build() call in this codebase
-# passes static_discovery=False) stripped out. Same source otherwise; see
-# backend/vendor/google-api-python-client/. Fixes the Vercel Python function
-# bundle exceeding the 225MB size limit.
-./vendor/google-api-python-client
+# Prebuilt wheel of the vendored google-api-python-client==2.108.0 copy in
+# backend/vendor/google-api-python-client/ (its discovery_cache/documents/
+# static-discovery JSON cache — ~90MB, never read at runtime since every
+# build() call in this codebase passes static_discovery=False — stripped
+# out). Referencing the built .whl directly (rather than the source
+# directory) avoids Vercel's Python builder treating this as a package
+# needing from-source "force-bundling" for the deploy target.
+./vendor/wheels/google_api_python_client-2.108.0-py3-none-any.whl
 python-multipart==0.0.6
 
 # Database
