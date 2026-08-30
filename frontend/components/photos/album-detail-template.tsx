@@ -1,7 +1,8 @@
 'use client'
 import { useMemo } from 'react'
 import { ImageOff } from 'lucide-react'
-import { ageCaption, earliestDate } from '@/lib/photo-age'
+import { ageCaption, dateRangeLabel, earliestDate } from '@/lib/photo-age'
+import { albumCoverUrl } from '@/lib/api-client'
 import { AlbumHeader, type BreadcrumbItem } from './album-header'
 import { CategoryHeader } from './category-header'
 import { FolderGrid } from './folder-grid'
@@ -99,69 +100,84 @@ export function AlbumDetailTemplate({ id, data, isLoading, error, meta }: AlbumD
       p.created_time ? ageCaption(new Date(p.created_time), ageStart).label : undefined
   }, [ageStart])
 
+  // A specific album's date range, derived from its own photos' real
+  // capture dates (never fabricated) — location has no backing field yet
+  // (PR 7), so it's simply omitted until then. Category landing pages don't
+  // get a date range; they fan out to many folders, not one dated set.
+  const dateRange = useMemo(
+    () => (isCategory ? undefined : dateRangeLabel(photos.map((p) => p.created_time))),
+    [isCategory, photos],
+  )
+  // Rendered ~1400px wide in the header band, so it asks for the larger
+  // cached derivative rather than the 400px card thumbnail — see
+  // `albumCoverUrl`. Still the album's own real cover; never a placeholder.
+  const coverImageUrl =
+    !isCategory && data?.album.thumbnail_url ? albumCoverUrl(data.album.thumbnail_url) : undefined
+
   return (
-    <div>
-      {/* ── Header — CategoryHeader (compact, 48–64px margin) for the four
-          chapter buckets; AlbumHeader for every leaf album/sub-album ── */}
-      <div className={isCategory ? 'content-padding pt-14 pb-14' : 'content-padding pt-12 pb-16'}>
-        {isCategory ? (
-          <CategoryHeader
-            breadcrumbs={breadcrumbs}
-            eyebrow={meta?.eyebrow ?? 'Photos'}
-            title={title}
-            description={meta?.description}
-            countLabel={countLabel}
-            isLoading={isLoading}
-          />
-        ) : (
-          <AlbumHeader
-            breadcrumbs={breadcrumbs}
-            eyebrow={meta?.eyebrow ?? 'Album'}
-            title={title}
-            description={meta?.description}
-            countLabel={countLabel}
-            isLoading={isLoading}
-          />
-        )}
-      </div>
-
-      {error && (
-        <div className="content-padding mb-8">
-          <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-5 py-4 text-sm text-destructive">
-            Failed to load this album.
-          </div>
+    <div className="content-padding pb-24">
+      <div className="mx-auto max-w-[var(--container-max)]">
+        {/* ── Header — CategoryHeader (compact, 48–64px margin) for the four
+            chapter buckets; AlbumHeader (full-bleed cover photo + gradient
+            scrim when one exists, §10) for every leaf album/sub-album ── */}
+        <div className={isCategory ? 'pt-14 pb-14' : 'pt-10 pb-14 sm:pt-12 sm:pb-16'}>
+          {isCategory ? (
+            <CategoryHeader
+              breadcrumbs={breadcrumbs}
+              eyebrow={meta?.eyebrow ?? 'Photos'}
+              title={title}
+              description={meta?.description}
+              countLabel={countLabel}
+              isLoading={isLoading}
+            />
+          ) : (
+            <AlbumHeader
+              breadcrumbs={breadcrumbs}
+              eyebrow={meta?.eyebrow ?? 'Album'}
+              title={title}
+              description={meta?.description}
+              dateRange={dateRange}
+              countLabel={countLabel}
+              isLoading={isLoading}
+              coverImageUrl={coverImageUrl}
+            />
+          )}
         </div>
-      )}
 
-      <div className="pb-24">
+        {error && (
+          <div className="mb-8">
+            <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-5 py-4 text-sm text-destructive">
+              Failed to load this album.
+            </div>
+          </div>
+        )}
+
         {isLoading ? (
           <>
             <SectionReveal>
-              <section className="content-padding mb-20">
+              <section className="mb-20">
                 {!isCategory && <SkeletonHeading />}
                 <AlbumGridSkeleton count={isCategory ? 6 : 4} variant={isCategory ? 'category' : 'default'} />
               </section>
             </SectionReveal>
             <SectionReveal delay={0.04}>
-              <section className="content-padding mb-20">
+              <section className="mb-20">
                 <SkeletonHeading />
                 <PhotoGridSkeleton count={12} />
               </section>
             </SectionReveal>
           </>
         ) : !hasSubfolders && !hasPhotos && !error ? (
-          <div className="content-padding">
-            <EmptyState
-              icon={<ImageOff className="h-6 w-6" />}
-              title="Nothing here yet"
-              description={meta?.emptyMessage ?? 'Once photos land in this Drive folder, they will appear here.'}
-            />
-          </div>
+          <EmptyState
+            icon={<ImageOff className="h-6 w-6" />}
+            title="Nothing here yet"
+            description={meta?.emptyMessage ?? 'Once photos land in this Drive folder, they will appear here.'}
+          />
         ) : (
           <>
             {hasSubfolders && (
               <SectionReveal>
-                <section className="content-padding mb-20">
+                <section className="mb-20">
                   {/* Category landing pages: the folder grid begins right
                       under the header, no section label — board 3 shows no
                       "Inside this Album" heading on a category page. Leaf
@@ -174,7 +190,7 @@ export function AlbumDetailTemplate({ id, data, isLoading, error, meta }: AlbumD
 
             {hasPhotos && (
               <SectionReveal delay={hasSubfolders ? 0.04 : 0}>
-                <section className="content-padding mb-20">
+                <section className="mb-20">
                   {/* The album title already appears once in the header —
                       design system §10 forbids repeating it here, so this
                       label only exists to separate the two sections when

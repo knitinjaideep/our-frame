@@ -1,5 +1,6 @@
 'use client'
 import { useMemo, useState } from 'react'
+import { Grid2x2, Grid3x3, LayoutGrid } from 'lucide-react'
 import { MasonryGallery, PhotoLightbox, type MasonryGalleryItem, type LightboxSlide } from '@/components/design-system'
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/use-favorites'
 import { mediaUrl, downloadUrl, videoStreamUrl } from '@/lib/api-client'
@@ -13,7 +14,8 @@ interface AlbumPhotoGridProps {
   folderId: string
   /** Album/chapter name, surfaced in the lightbox's discreet metadata. */
   albumName?: string
-  density?: 'default' | 'tight'
+  /** Initial view density — the "View" toggle (below) lets the visitor change it afterwards. */
+  density?: 'loose' | 'default' | 'tight'
   /**
    * Optional per-photo caption (e.g. Arjun's "6th month" age label). Content,
    * not layout — supplied by the page so every album keeps one gallery
@@ -60,6 +62,7 @@ export function AlbumPhotoGrid({
   const [lightboxIndex, setLightboxIndex] = useState(-1)
   const [filter, setFilter] = useState<FilterValue>('all')
   const [sort, setSort] = useState<SortValue>('newest')
+  const [viewDensity, setViewDensity] = useState<NonNullable<AlbumPhotoGridProps['density']>>(density ?? 'default')
   const favoriteIds = useFavoriteIds()
   const { add, remove } = useToggleFavorite()
 
@@ -159,31 +162,34 @@ export function AlbumPhotoGrid({
   return (
     <>
       {controlsVisible && (
-        <div className="mb-8 flex items-center gap-5 text-small text-muted-foreground">
-          <GalleryControl
-            label="Filter"
-            value={filter}
-            options={[
-              { value: 'all', label: 'All' },
-              { value: 'favorites', label: 'Favorites' },
-            ]}
-            onChange={(v) => {
-              setFilter(v as FilterValue)
-              setLightboxIndex(-1)
-            }}
-          />
-          <GalleryControl
-            label="Sort"
-            value={sort}
-            options={[
-              { value: 'newest', label: 'Newest' },
-              { value: 'oldest', label: 'Oldest' },
-            ]}
-            onChange={(v) => {
-              setSort(v as SortValue)
-              setLightboxIndex(-1)
-            }}
-          />
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-x-5 gap-y-3 text-small text-muted-foreground">
+          <div className="flex items-center gap-5">
+            <GalleryControl
+              label="Filter"
+              value={filter}
+              options={[
+                { value: 'all', label: 'All' },
+                { value: 'favorites', label: 'Favorites' },
+              ]}
+              onChange={(v) => {
+                setFilter(v as FilterValue)
+                setLightboxIndex(-1)
+              }}
+            />
+            <GalleryControl
+              label="Sort"
+              value={sort}
+              options={[
+                { value: 'newest', label: 'Newest' },
+                { value: 'oldest', label: 'Oldest' },
+              ]}
+              onChange={(v) => {
+                setSort(v as SortValue)
+                setLightboxIndex(-1)
+              }}
+            />
+          </div>
+          <ViewDensityControl value={viewDensity} onChange={setViewDensity} />
         </div>
       )}
 
@@ -192,7 +198,7 @@ export function AlbumPhotoGrid({
           No favorites in this album yet.
         </p>
       ) : (
-        <MasonryGallery density={density} items={visiblePhotos.map(toMasonryItem)} />
+        <MasonryGallery density={viewDensity} items={visiblePhotos.map(toMasonryItem)} />
       )}
 
       <PhotoLightbox
@@ -244,6 +250,56 @@ function GalleryControl({
           </button>
         </span>
       ))}
+    </div>
+  )
+}
+
+const VIEW_DENSITY_OPTIONS: {
+  value: NonNullable<AlbumPhotoGridProps['density']>
+  label: string
+  icon: typeof LayoutGrid
+}[] = [
+  { value: 'loose', label: 'Loose', icon: LayoutGrid },
+  { value: 'default', label: 'Default', icon: Grid2x2 },
+  { value: 'tight', label: 'Tight', icon: Grid3x3 },
+]
+
+/**
+ * The 3-option grid-density toggle from board 4
+ * (`docs/mockups/04-album-page-shared-editorial-template.png`) /
+ * `docs/OUR-FRAME-DESIGN-SYSTEM.md` §10 — quiet chrome, active option marked
+ * in bronze, sitting on the right of the Filter/Sort row. Wires the
+ * `MasonryGallery` `density` prop that already existed but had no control
+ * (flagged as an open item after PR 5).
+ */
+function ViewDensityControl({
+  value,
+  onChange,
+}: {
+  value: NonNullable<AlbumPhotoGridProps['density']>
+  onChange: (value: NonNullable<AlbumPhotoGridProps['density']>) => void
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="opacity-60">View</span>
+      <div className="flex items-center gap-1 rounded-full border border-border p-1">
+        {VIEW_DENSITY_OPTIONS.map(({ value: v, label, icon: Icon }) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => onChange(v)}
+            aria-pressed={value === v}
+            aria-label={`${label} view`}
+            className="flex h-6 w-6 items-center justify-center rounded-full transition-colors"
+            style={{
+              color: value === v ? 'oklch(0.08 0.006 46)' : 'var(--muted-foreground)',
+              background: value === v ? 'var(--amber)' : 'transparent',
+            }}
+          >
+            <Icon className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

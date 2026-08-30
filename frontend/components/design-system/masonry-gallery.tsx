@@ -43,13 +43,17 @@ interface MasonryGalleryProps {
   /**
    * Named density preset. Tailwind requires literal class names to appear
    * in source for its scanner, so presets are static class strings rather
-   * than a dynamically-templated breakpoint map.
+   * than a dynamically-templated breakpoint map. Three presets back the
+   * album gallery's "View" density toggle
+   * (`docs/OUR-FRAME-DESIGN-SYSTEM.md` §10, board 4).
    */
-  density?: 'default' | 'tight'
+  density?: 'loose' | 'default' | 'tight'
   className?: string
 }
 
 const DENSITY_CLASSES: Record<NonNullable<MasonryGalleryProps['density']>, string> = {
+  // fewer, larger tiles — 1 col mobile -> 2 tablet -> 3 desktop
+  loose: 'columns-1 sm:columns-2 md:columns-2 lg:columns-3',
   // 2 cols mobile -> 3 tablet -> 4 desktop
   default: 'columns-2 sm:columns-2 md:columns-3 lg:columns-4',
   // slightly denser rhythm for candid/relaxed galleries (e.g. Life, PR 6)

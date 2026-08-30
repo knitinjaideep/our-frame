@@ -73,6 +73,37 @@ export function mediaUrl(path: string): string {
   return `${API_BASE}${path}`
 }
 
+/**
+ * Full URL for an album's cover photo when it is rendered large (the album
+ * header's full-bleed cover band, `docs/OUR-FRAME-DESIGN-SYSTEM.md` §10/§12).
+ *
+ * `Album.thumbnail_url` is built by the backend for *card*-sized use: for a
+ * media-synced file it points at the cached `thumbnail` derivative, which is
+ * only 400px on its longest edge (`backend/services/media_derivative_service
+ * .py`'s `PHOTO_DERIVATIVE_SIZES`). Stretching that across a ~1400px header
+ * band is exactly the "never enlarge a small source image" case §12 forbids,
+ * so the cached-route form is upgraded to the `grid` derivative (900px) —
+ * still a precomputed, on-disk-cached derivative sourced from Google's CDN
+ * thumbnail (never a full-original download), and already generated for any
+ * photo that has appeared in a gallery, so this reuses a derivative rather
+ * than adding work.
+ *
+ * `preview` (1800px) is deliberately *not* used: it is excluded from the
+ * CDN shortcut and generating it downloads the full original, which a header
+ * image must not trigger.
+ *
+ * Any other shape (absolute URL, or the legacy `/drive/file/...` fallback used
+ * for files that have not been media-synced yet) is passed through unchanged —
+ * the legacy route re-downloads the original on every request, so silently
+ * asking it for a larger size would add a Drive fetch per page view *and*
+ * break browser-cache sharing with the folder card that requests the same URL.
+ * PR 7 owns the real fix (a proper cover field + responsive sizes).
+ */
+export function albumCoverUrl(path: string): string {
+  const upgraded = path.startsWith('/media/file/') ? path.replace(/\/thumbnail$/, '/grid') : path
+  return mediaUrl(upgraded)
+}
+
 export function thumbnailUrl(photoId: string, size = 600): string {
   return `${API_BASE}/drive/file/${encodeURIComponent(photoId)}/thumbnail?s=${size}`
 }

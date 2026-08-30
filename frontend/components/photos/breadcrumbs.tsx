@@ -19,7 +19,18 @@ export interface BreadcrumbItem {
  * genuinely the same element in both — so it lives here once rather than
  * being copy-pasted into each.
  */
-export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
+export interface BreadcrumbsProps {
+  items: BreadcrumbItem[]
+  /**
+   * Renders in white/ivory instead of the default muted/foreground tokens —
+   * used by `AlbumHeader` when it sits on top of a full-bleed cover photo
+   * (§10), where the default `--muted-foreground` value doesn't have enough
+   * contrast against an arbitrary photograph.
+   */
+  light?: boolean
+}
+
+export function Breadcrumbs({ items, light }: BreadcrumbsProps) {
   return (
     <nav className="mb-5 flex flex-wrap items-center gap-1.5 text-xs" aria-label="Breadcrumb">
       {items.map((crumb, i) => (
@@ -27,16 +38,20 @@ export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
           {i > 0 && (
             <ChevronRight
               className="h-3 w-3 shrink-0"
-              style={{ color: 'var(--muted-foreground)', opacity: 0.4 }}
+              style={{ color: light ? 'oklch(1 0 0 / 55%)' : 'var(--muted-foreground)', opacity: light ? 1 : 0.4 }}
               aria-hidden
             />
           )}
           {crumb.href ? (
-            <Link href={crumb.href} className="transition-colors" style={{ color: 'var(--muted-foreground)' }}>
+            <Link
+              href={crumb.href}
+              className="transition-colors"
+              style={{ color: light ? 'oklch(1 0 0 / 78%)' : 'var(--muted-foreground)' }}
+            >
               {crumb.label}
             </Link>
           ) : (
-            <span style={{ color: 'var(--foreground)' }}>{crumb.label}</span>
+            <span style={{ color: light ? 'oklch(1 0 0 / 96%)' : 'var(--foreground)' }}>{crumb.label}</span>
           )}
         </span>
       ))}

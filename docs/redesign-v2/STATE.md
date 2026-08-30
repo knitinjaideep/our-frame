@@ -1,6 +1,6 @@
 # Our Frame Redesign V2 State
 
-Status: PR 4 reviewed — PASS WITH FIXES (pending verification)
+Status: PR 6 reviewed (PASS WITH FIXES) — pending verification
 
 Last updated: 2026-08-30
 
@@ -84,7 +84,7 @@ work does not change them.)
 | 3 | Home Page | Verified — PASS | redesign-v2/pr-3-home | 3a700bb |
 | 4 | Photos Overview | Verified — PASS | redesign-v2/pr-4-photos-overview | 78e8607 |
 | 5 | Category Pages | Verified — PASS | redesign-v2/pr-5-category-pages | 8492caa |
-| 6 | Album Pages | Pending | redesign-v2/pr-6-album-pages | — |
+| 6 | Album Pages | Reviewed — PASS WITH FIXES | redesign-v2/pr-6-album-pages | — |
 | 7 | Metadata, Thumbnail Selection, Image Quality | Pending | redesign-v2/pr-7-metadata-covers | — |
 | 8 | Final Consistency Audit | Pending | redesign-v2/pr-8-consistency-audit | — |
 
@@ -1361,3 +1361,303 @@ Before continuing:
 
   All acceptance criteria met: one shared category page shell used by all four category buckets, compact `CategoryHeader` component separate from `AlbumHeader` with shared breadcrumb logic extracted, Milestones timeline and Life separate theme removed (was done in PR 2), folder grid uniform across categories (1/2/3 columns via `variant='category'`), fold card anatomy applied globally (glyph + count line), existing URLs and data preserved, build passes. No defects found; PR 5 ready for merge decision.
 
+- 2026-08-30: Implemented PR 6 (Album Pages). Read `docs/OUR-FRAME-DESIGN-
+  SYSTEM.md` §10, `docs/redesign-v2/PROMPTS.md`/`MILESTONES.md` PR 6, and
+  visually inspected `docs/mockups/04-album-page-shared-editorial-template.png`
+  before touching anything, then read `components/photos/album-header.tsx`,
+  `album-detail-template.tsx`, `category-header.tsx`, `breadcrumbs.tsx`,
+  `album-photo-grid.tsx`, and `types/index.ts`'s `Album`/`AlbumDetail` shapes
+  to see exactly what already existed before writing anything.
+
+  **Duplicate-title pattern: confirmed already fixed, not present in the
+  current tree.** PR 2's reviewer had already removed the "ALBUM / {title}"
+  then "PHOTOS / {title}" duplication (`album-detail-template.tsx`'s photo
+  section label only renders — as "Also in here" — when the album *also* has
+  subfolders, and never repeats the title). Re-verified this is still true
+  by reading the current file line by line before assuming PR 6's job was to
+  fix a live bug; it was not. PR 6's real remaining job, per PR 5's own
+  "left open" notes, was the full-bleed cover-photo treatment §10 requires
+  and the full-width/capped-width inconsistency PR 5's reviewer flagged.
+
+  **Full-bleed cover photo + gradient scrim, built in `AlbumHeader`
+  (leaf albums only).** Added an optional `coverImageUrl` prop. When present
+  (the album's own `Album.thumbnail_url`, resolved via the existing
+  `mediaUrl()` — the same field `AlbumCard` already uses for folder covers,
+  not a new backend field), the header renders as a photo band: the cover
+  image absolutely positioned behind the text, a dark left-to-right gradient
+  scrim (per §10's literal wording) plus a light bottom scrim so the count
+  line stays legible regardless of image content, with breadcrumb/eyebrow/
+  title/meta/description/count in white/ivory tones on top
+  (`Breadcrumbs` grew a `light` prop for this — off by default, so
+  `CategoryHeader`'s usage is untouched). When no cover exists yet (an
+  unsynced folder with `thumbnail_url: null`), the header **gracefully falls
+  back to the original flat treatment** — never a black card, matching
+  `.claude/CLAUDE.md`'s "avoid black placeholder cards" rule. `CategoryHeader`
+  was deliberately left alone: §10 reserves this treatment for a specific
+  album's own header, not a category landing page that fans out to many
+  folders with no single cover of its own — this was flagged as the right
+  call by PR 5's own review and is upheld here, not just asserted.
+
+  The negative-margin technique used to let the cover image bleed to the
+  edges of the shared content column while the text stays aligned with the
+  rest of the page (`-mx-5 md:-mx-8 lg:-mx-10 xl:-mx-12 2xl:-mx-14`,
+  cancelled back out by re-applying `content-padding` around the text
+  overlay) is documented in the component's own docstring, including the
+  one honest limitation it has: on very wide monitors (roughly ≥1920px),
+  where `mx-auto max-w-[var(--container-max)]` starts centering the content
+  column with extra whitespace beyond `content-padding` on each side, the
+  cover image bleeds only to the padded edge, not that additional centering
+  margin. This is the same limitation `/photos`' identical
+  `content-padding` + `mx-auto max-w-container` pattern already has for any
+  full-bleed element — not a new problem introduced here, and not worth a
+  bespoke viewport-relative calc() for a family photo archive's realistic
+  screen sizes.
+
+  **Optional location/date support — used the real derived-date-range
+  helper that already existed, invented nothing.** `AlbumHeader` already
+  had `location`/`dateRange` props (added, unwired, by PR 2) but
+  `AlbumDetailTemplate` never populated them. Checked `lib/photo-age.ts`
+  first per the task's explicit hint — `dateRangeLabel()`/`latestDate()`
+  already existed (built for the equivalent `docs/redesign/` PR 6, confirmed
+  via grep), producing a literal "Jul 2025" / "2024 – 2025" style label
+  derived only from real photo `created_time` values, never fabricating a
+  date. Wired `dateRangeLabel(photos.map(p => p.created_time))` into
+  `AlbumHeader`'s `dateRange` for leaf albums (omitted for category pages,
+  which have no single dated set). Rendered with a small `Calendar` icon per
+  §10's "date range with a calendar icon" instruction; added a matching
+  `MapPin` icon for `location`, which stays `undefined` and is gracefully
+  omitted — there is still no location field anywhere in `Album`/`Photo`
+  (confirmed via `types/index.ts` and `backend/schemas/album.py`), and
+  inventing one would violate `.claude/CLAUDE.md`'s "never fabricate data"
+  rule. That's PR 7's job.
+
+  **Full-width vs. capped-width fix.** `AlbumDetailTemplate` previously
+  applied `content-padding` separately to the header, the error banner, and
+  each gallery/folder section, with no `max-w-[var(--container-max)]`
+  anywhere — the exact inconsistency PR 5's reviewer logged against `/photos`.
+  Restructured to the same pattern `/photos` already uses: one outer
+  `content-padding` wrapper, one inner `mx-auto max-w-[var(--container-max)]`
+  around the entire page body (header, error state, folder grid, photo
+  grid), with the per-section `content-padding` classes removed now that
+  they're redundant. `AlbumHeader`'s cover-photo band is the one deliberate
+  exception (see above) — it bleeds *within* that shared container rather
+  than being capped a second time.
+
+  **View-density toggle, wired — closes the PR 5 open item.** PR 5's review
+  had flagged that `AlbumPhotoGrid`/`MasonryGallery` already had a `density`
+  prop with no control to change it, and that PR 6 should wire the toggle
+  rather than build a second control system. Added a third `'loose'`
+  density preset to `MasonryGallery` (1/2/3 columns) alongside the existing
+  `'default'` (2/3/4) and `'tight'` (2/3/4/5), matching board 4's 3-option
+  view toggle, and a small bronze-highlighted `ViewDensityControl` in
+  `AlbumPhotoGrid`, sitting to the right of the existing Filter/Sort row
+  (board 4's exact layout: Filter/Sort left, View right). `AlbumPhotoGrid`
+  now owns density as internal state (seeded from the existing `density`
+  prop, which callers can still use to set an initial value) rather than a
+  parent-controlled value, since no caller was actually driving it.
+
+  **Shared gallery component: confirmed no divergence remains.**
+  `AlbumPhotoGrid` (built in PR 2, extended by PR 2's review with Filter/
+  Sort) is already the single gallery used by every album/category with
+  photos — grepped for any other `MasonryGallery`/photo-grid usage under
+  `app/albums`, `app/{arjun,travel,milestones,life}` and found none. Natural
+  aspect ratios were already preserved (`MasonryGallery`'s CSS-columns
+  layout with real `width`/`height` aspect-ratio, no forced square crop);
+  not changed here beyond the new density option.
+
+  **Visual verification.** No backend session exists in this environment
+  (the same recurring constraint every prior PR has hit), so a temporary
+  harness was built at `app/login/pr6-harness` (public `AuthGate` prefix)
+  rendering the real `AlbumDetailTemplate` with two synthetic cases: (1) a
+  "Maine" leaf album with a cover photo, six photos with real varying
+  `created_time`s (to prove the derived date-range label), and a
+  description; (2) an "Unsynced Folder" leaf album with no cover and no
+  photos, to prove the graceful flat-header/empty-state fallback. Cover/
+  photo images were served from temporary static SVG files under
+  `public/pr6-harness/` (an absolute `http://localhost:3000/...` URL, so
+  `mediaUrl()`'s `startsWith('http')` passthrough behaves the same way it
+  would for a real backend-served thumbnail — a plain `data:` URI was tried
+  first and silently broke, because `mediaUrl()` treats anything not
+  starting with `http` as a relative backend path and prefixes it with
+  `API_BASE`, corrupting the URI; this is correct behavior for real
+  `Album.thumbnail_url` values and not something to change for a harness).
+  Screenshotted via headless Google Chrome directly at 1440px and 1920px,
+  and via an iframe wrapper (`app/login/pr6-frame`, also temporary) at 375/
+  768px, the same technique PR 4/5 used to work around headless Chrome
+  clamping small direct window widths. Result: single "ALBUM / Maine"
+  header (no duplicate title), full-bleed cover photo with a legible
+  left-to-right scrim, breadcrumb/eyebrow/title/date-icon-row/description/
+  count all present and none fabricated, Filter/Sort/View control row,
+  masonry gallery with genuinely varied tile heights from the synthetic
+  width/height data, and the no-cover album correctly falling back to a
+  flat header with an honest empty state (not a black card). At 1920px the
+  header/content column is left-aligned within the extra centering
+  whitespace described above — the one documented limitation, not a defect
+  in the header itself. **Both harness routes and the temporary
+  `public/pr6-harness/` SVGs were deleted before finishing** — `git status
+  --short` below shows no `login/pr6-harness`, `login/pr6-frame`, or
+  `public/pr6-harness` files, and the build's route list has no stray route.
+
+  **Not touched:** `CategoryHeader` (only `Breadcrumbs` grew a new, default-
+  off `light` prop it doesn't use), Favorites, Memories, Videos, backend,
+  Drive, auth, or media-cache code — confirmed via `git status --short`
+  showing only `frontend/components/design-system/masonry-gallery.tsx`,
+  `frontend/components/photos/{album-detail-template,album-header,
+  album-photo-grid,breadcrumbs}.tsx`, and this state file.
+
+  Checks run: `./node_modules/.bin/tsc --noEmit` (clean); `./node_modules/
+  .bin/eslint components/design-system/masonry-gallery.tsx components/photos
+  app/albums` (0 errors, 0 warnings on touched files — the pre-existing
+  `<img>`-vs-`next/image` warnings in untouched files like `photo-card.tsx`
+  are unaffected); `npm run build` (passes, all 26 routes, including
+  `/albums/[id]`, `/arjun`–`/life`, and every `/videos/*` route, with no
+  leftover harness route).
+
+  Files changed: `frontend/components/design-system/masonry-gallery.tsx`,
+  `frontend/components/photos/album-detail-template.tsx`,
+  `frontend/components/photos/album-header.tsx`,
+  `frontend/components/photos/album-photo-grid.tsx`,
+  `frontend/components/photos/breadcrumbs.tsx`, and this state file.
+
+  **Left open for the reviewer/PR 7:** (1) live authenticated view with real
+  Drive thumbnails is still unseen, the same recurring constraint every PR
+  since PR 2 has logged; (2) `location` remains permanently omitted until
+  PR 7 adds a real field — `AlbumHeader` is wired to show it the moment that
+  data exists, via the same `MapPin` row already built for `dateRange`;
+  (3) the ultra-wide (≥1920px) centering-margin limitation on the cover
+  bleed, described above, inherited from the pre-existing `/photos` layout
+  pattern rather than introduced here; (4) `dateRangeLabel` is derived from
+  whatever page of photos happens to be loaded for that album — for a very
+  large album this is still the complete set (the API returns all photos
+  for an album in one response, confirmed via `useAlbumDetail`), so this is
+  not a pagination-truncation risk today, but would need re-checking if
+  album pagination is ever introduced.
+
+
+- 2026-08-30: Reviewed PR 6 (Album Pages) — **PASS WITH FIXES**. Every
+  implementation claim was re-derived from the code rather than trusted, and
+  the one genuinely visual question (scrim legibility) was measured, not
+  eyeballed from a comment.
+
+  **Confirmed correct as implemented.**
+  1. *Single title, every code path.* `AlbumHeader` renders exactly one
+     `<h1>`; `AlbumDetailTemplate`'s photo section label is `"Also in here" /
+     "Photos"` and only renders when the album *also* has sub-albums, so no
+     path (cover/no-cover × sub-albums/no sub-albums) repeats the album name.
+     The implementer's claim that the "ALBUM / X" → "PHOTOS / X" duplication
+     was already gone (fixed during PR 2's review) is true.
+  2. *Cover treatment is gated on real data.* `hasCover = Boolean(coverImageUrl)`
+     and `coverImageUrl` is only set from `data.album.thumbnail_url` — no
+     placeholder, gradient-only, or fabricated image anywhere. With no cover
+     the component returns the original flat header (`if (!hasCover) return
+     <div>{textBlock}</div>`), which still renders breadcrumb/eyebrow/title/
+     count — not an empty or black card.
+  3. *`isCategory` boundary is enforced structurally, twice.* `CategoryHeader`
+     is a separate component with no cover prop and no `<img>` (unchanged by
+     this PR — `git diff` shows zero lines), it is rendered from the
+     `isCategory` branch that never reaches `AlbumHeader`, and `coverImageUrl`
+     is *additionally* guarded by `!isCategory`. Not convention — branching.
+  4. *No fabricated metadata.* `location` is never passed by any caller
+     (`grep -rn "location=" app components` → no hits) and is gracefully
+     omitted; there is still no location field in `types/index.ts`'s `Album`/
+     `Photo` or `backend/schemas/album.py`, so this is honest. `dateRange`
+     comes from `dateRangeLabel(photos.map(p => p.created_time))` in
+     `lib/photo-age.ts`, which returns `undefined` unless real `created_time`
+     values exist and only ever emits "Mon YYYY" / "YYYY" / "YYYY – YYYY"
+     derived from them. Nothing invented.
+  5. *Width consistency genuinely fixed.* `album-detail-template.tsx` now
+     opens `<div className="content-padding pb-24"><div className="mx-auto
+     max-w-[var(--container-max)]">`, byte-for-byte the same pattern as
+     `app/photos/page.tsx` lines 54–55. Closes the item PR 5's review left
+     open. The cover band's negative margins (`-mx-5 md:-mx-8 lg:-mx-10
+     xl:-mx-12 2xl:-mx-14`) were checked against `globals.css`'s
+     `.content-padding` (1.25/2/2.5/3/3.5rem at 0/768/1024/1280/1536) and the
+     Tailwind breakpoints — they cancel exactly.
+  6. *View-density toggle is wired end-to-end,* not inert UI:
+     `ViewDensityControl` → `setViewDensity` → `<MasonryGallery
+     density={viewDensity}>` → `DENSITY_CLASSES` (`loose` 1/2/3, `default`
+     2/3/4, `tight` 2/3/4/5). Buttons carry `aria-pressed`/`aria-label`. The
+     `density` prop is now the *initial* value only, which is correct since no
+     caller drives it.
+  7. *No harness residue.* `git status` (including untracked) is clean of
+     `pr6-harness`/`pr6-frame`; `frontend/app/login/` contains only
+     `page.tsx`; `frontend/public/` holds only the 5 stock Next SVGs;
+     `grep -rn "pr6" app components public` returns nothing; `npm run build`
+     lists the same 26 routes.
+  8. *One shared gallery.* `AlbumPhotoGrid` has exactly one consumer
+     (`AlbumDetailTemplate`), which every `/albums/[id]` renders through, so
+     all four categories' leaf albums share it. The only other direct
+     `MasonryGallery` consumer is `/favorites` (out of scope, untouched).
+  9. *Scope held.* `git diff --stat` vs the merge-base with
+     `redesign-v2/pr-5-category-pages`: frontend components only, plus the one
+     reviewer-added `lib/api-client.ts` helper below. No backend, no Drive,
+     no auth, no media-cache service, no Favorites/Memories/Videos, and no PR
+     7 metadata fields started. No `.env`, token, DB, or generated media in
+     the diff.
+
+  **Defects found and fixed in review.**
+  (a) **The cover band rendered a 400px image at ~1400px wide.**
+      `Album.thumbnail_url` is built by `services/media_response_service.py`
+      for *card* use: for a media-synced file it points at the cached
+      `thumbnail` derivative, which `PHOTO_DERIVATIVE_SIZES` caps at **400px**
+      on the long edge. Stretching that across the new full-bleed header is a
+      ~3.5x upscale — precisely the case `docs/OUR-FRAME-DESIGN-SYSTEM.md` §12
+      ("never enlarge a small source image") forbids, and a visible quality
+      regression on every album page. Added `albumCoverUrl()` to
+      `lib/api-client.ts` (the layer that already owns media-URL shapes, so no
+      route knowledge leaks into a component) which upgrades the cached
+      `/media/file/{id}/thumbnail` form to `/grid` (900px). `grid` is
+      deliberate: it is CDN-shortcut-eligible, so it is generated from
+      Google's pre-rendered thumbnail and cached on disk — it never downloads
+      a full original, and it is already generated for any photo that has
+      appeared in a gallery, so this **reuses** a derivative rather than
+      creating work. `preview` (1800px) was rejected precisely because it is
+      excluded from the CDN shortcut and would pull the full original for a
+      header image. The legacy `/drive/file/...` fallback (unsynced files) is
+      passed through unchanged: that route re-downloads the original per
+      request, so quietly asking it for a larger `s` would add a Drive fetch
+      per page view *and* break browser-cache sharing with the folder card
+      requesting the same URL. Same authenticated route, same auth surface as
+      the existing `AlbumCard` `<img>`; no new unauthenticated media path.
+      A genuinely high-DPI cover remains PR 7's job (it owns image quality and
+      a real cover field).
+  (b) **The scrim did not actually guarantee legible text.** The comment
+      claimed legibility; the numbers did not. The left-to-right scrim is
+      92% → 72% at 32% → **18% at 62%** → 4%, so white text past ~60% of the
+      band sits at roughly 1.2:1 over a bright sky. Album titles are real
+      Drive folder names and are frequently long: at `text-display-sm`'s 44px
+      the unconstrained `<h1>` runs well past that point. Verified
+      empirically rather than by argument — rendered the exact gradient stops,
+      type sizes and copy over a synthetic blown-out sky in headless Chrome:
+      the "before" screenshot shows the tail of a realistic long title
+      ("...the Long Weekend After") sitting white-on-pale-blue and effectively
+      unreadable. Fixed three ways: the title is capped at `max-w-2xl` when a
+      cover is present so every line stays in the dark zone (also closer to
+      board 4's left-third composition); the whole overlay carries a
+      `text-shadow` (the same defensive treatment PR 5's review added to
+      `AlbumCard` over its thumbnails); and the bottom scrim was strengthened
+      from `55% → transparent@45%` to `68% → 22%@42% → transparent@68%`, which
+      carries most of the load on narrow screens where a horizontal gradient
+      has no room to work and the bottom-anchored copy spans the full width.
+      Re-screenshotted after: the title wraps inside the legible region.
+
+  **Not fixed, deliberately.** (i) Minor layout shift: while the album is
+  loading there is no cover, so the flat header renders and is replaced by
+  the 20–28rem band once data arrives. Reserving the height would mean
+  guessing whether a cover exists; leaving it honest is better than a
+  speculative empty band, and PR 7 (which adds a real cover field) is the
+  natural place to revisit. (ii) The ≥1920px centering-margin limit on the
+  cover bleed — real, inherited from the pre-existing `/photos` container
+  pattern, correctly documented by the implementer. (iii) Live authenticated
+  view with real Drive thumbnails is still unseen (the recurring constraint
+  since PR 2) — with fix (a) in place, the reviewer's specific ask for PR 8 /
+  the user's manual check is to confirm the 900px `grid` derivative looks
+  acceptable in the header on a Retina screen; if not, PR 7 should add a
+  purpose-sized cover derivative rather than reaching for `preview`.
+
+  Checks run after fixes: `./node_modules/.bin/tsc --noEmit` (clean);
+  `eslint components/photos components/design-system/masonry-gallery.tsx
+  lib/api-client.ts app/albums` (0 errors; 1 pre-existing `<img>` warning in
+  `photo-card.tsx`, untouched by this PR); `npm run build` (passes, 26
+  routes, no stray harness route). No product, hosting, or privacy decision
+  was needed; nothing blocked.
