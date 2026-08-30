@@ -1,20 +1,12 @@
-'use client'
-import { useSections } from '@/hooks/use-sections'
-import { SectionWorldPage } from '@/components/sections/section-world-page'
+import { redirect } from 'next/navigation'
+import { BUCKETS } from '@/lib/buckets'
 
-export default function ArjunPage() {
-  const { data, isLoading, error } = useSections()
-
-  return (
-    <SectionWorldPage
-      albums={data?.featured_child ?? []}
-      isLoading={isLoading}
-      error={error}
-      eyebrow="Growing Up, Frame by Frame"
-      heading="Arjun"
-      description="Every milestone, every laugh. A chapter written in light."
-      emptyMessage="No Arjun albums found. Map a Google Drive folder to this section in Settings."
-      accentColor="amber"
-    />
-  )
+// `/arjun` predates the current Photos IA (Home → Photos → Category →
+// Album). The canonical route for this chapter is `/albums/{bucketId}`
+// (what the top-nav Photos dropdown links to, and what
+// `AlbumDetailTemplate` renders — docs/redesign-v2 PR 2). Redirect rather
+// than delete, so any existing link/bookmark to `/arjun` keeps working,
+// without maintaining a second, divergent implementation of the same page.
+export default function ArjunRedirect() {
+  redirect(`/albums/${BUCKETS[0].id}`)
 }

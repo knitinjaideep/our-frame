@@ -23,6 +23,7 @@ import type { RenderSlideProps, SlideImage } from 'yet-another-react-lightbox'
 import { X, ChevronLeft, ChevronRight, Heart, Download as DownloadIcon, Info } from 'lucide-react'
 import { thumbnailUrl, contentUrl } from '@/lib/api-client'
 import { IconButton } from '@/components/design-system/icon-button'
+import { PhotoContextMenu } from '@/components/design-system/photo-context-menu'
 import { cn } from '@/lib/utils'
 
 // ─────────────────────────────────────────────
@@ -473,15 +474,18 @@ function LightboxControls({ onToggleRef }: { onToggleRef: MutableRefObject<(() =
           />
         )}
         {download && (
-          <a
-            href={download}
-            download
-            aria-label="Download"
-            title="Download"
-            className="pointer-events-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 text-white/80 backdrop-blur-md transition-colors duration-[var(--motion-fast)] hover:bg-black/50 hover:text-white"
-          >
-            <DownloadIcon className="h-[18px] w-[18px]" aria-hidden />
-          </a>
+          <PhotoContextMenu
+            className="pointer-events-auto"
+            label="More actions"
+            actions={[
+              {
+                key: 'download',
+                label: 'Download original',
+                href: download,
+                icon: <DownloadIcon className="h-4 w-4" aria-hidden />,
+              },
+            ]}
+          />
         )}
         {hasMeta && (
           <IconButton
