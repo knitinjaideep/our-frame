@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 def _run_schema_migrations():
     """
-    Lightweight column-level migrations for SQLite.
+    Lightweight column-level migrations.
     SQLModel's create_all() only creates missing tables, not missing columns.
     We add columns manually here when they don't exist yet.
     """
@@ -59,11 +59,12 @@ def _run_schema_migrations():
         # unaffected, no backfill needed. `cover_photo_id` already existed
         # as a column before this PR, so it needs no migration.
         album_cols = {c["name"] for c in inspector.get_columns("albums")}
+        datetime_type = "TIMESTAMP" if engine.dialect.name == "postgresql" else "DATETIME"
         album_migrations = {
             "description": "ALTER TABLE albums ADD COLUMN description TEXT",
             "location": "ALTER TABLE albums ADD COLUMN location TEXT",
-            "start_date": "ALTER TABLE albums ADD COLUMN start_date DATETIME",
-            "end_date": "ALTER TABLE albums ADD COLUMN end_date DATETIME",
+            "start_date": f"ALTER TABLE albums ADD COLUMN start_date {datetime_type}",
+            "end_date": f"ALTER TABLE albums ADD COLUMN end_date {datetime_type}",
         }
         for col, ddl in album_migrations.items():
             if col not in album_cols:
