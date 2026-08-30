@@ -1,6 +1,6 @@
 # Our Frame Redesign V2 State
 
-Status: PR 2 reviewed — PASS WITH FIXES (awaiting verification)
+Status: PR 2 verified — PASS
 
 Last updated: 2026-08-30
 
@@ -80,7 +80,7 @@ work does not change them.)
 | PR | Name | Status | Branch | Commit |
 |---|---|---|---|---|
 | 1 | Design Memory / Source of Truth | Verified — PASS | redesign-v2/pr-1-design-memory | 361a7ea |
-| 2 | Shared Photos Architecture | Reviewed — PASS WITH FIXES | redesign-v2/pr-2-photos-architecture | 4ea1614 |
+| 2 | Shared Photos Architecture | Verified — PASS | redesign-v2/pr-2-photos-architecture | 4ea1614 |
 | 3 | Home Page | Pending | redesign-v2/pr-3-home | — |
 | 4 | Photos Overview | Pending | redesign-v2/pr-4-photos-overview | — |
 | 5 | Category Pages | Pending | redesign-v2/pr-5-category-pages | — |
@@ -92,12 +92,9 @@ work does not change them.)
 
 PR 1 is implemented, reviewed (PASS WITH FIXES), and verified (PASS) on
 `redesign-v2/pr-1-design-memory`. PR 2 (Shared Photos Architecture) is
-implemented and now reviewed (**PASS WITH FIXES**) on
-`redesign-v2/pr-2-photos-architecture` — run `our-frame-verifier` next. The
-verifier should pay particular attention to the ratified deletion of the
-four per-category gallery components and to the review's restored
-Filter/Sort controls and Arjun age captions (see the PR 2 review entry
-below). Do not start PR 3 until PR 2 is verified.
+implemented, reviewed (PASS WITH FIXES), and now verified (**PASS**) on
+`redesign-v2/pr-2-photos-architecture` — PR 2 is complete and ready for
+merge decision. Do not start PR 3 until PR 2 merge is confirmed.
 
 ## Completed Checks
 
@@ -429,6 +426,43 @@ below). Do not start PR 3 until PR 2 is verified.
   `components/{photos,design-system}` → 0 errors, 1 pre-existing unrelated
   warning (`photo-card.tsx` `<img>` vs `next/image`, untouched by this PR);
   `npm run build` passes with all 26 routes present.
+
+- 2026-08-30: Verified PR 2 (`our-frame-verifier`) — **PASS**. Independently
+  verified all reviewer claims against the actual code: (a) four category-
+  specific gallery files (`arjun-gallery.tsx` 493 ln, `travel-gallery.tsx`
+  244 ln, `milestones-gallery.tsx` 161 ln, `life-gallery.tsx` 289 ln) genuinely
+  deleted and recoverable via `git show 70cc9f1:frontend/components/albums/
+  <filename>`; (b) Filter (All/Favorites) and Sort (Newest/Oldest) controls
+  present in `AlbumPhotoGrid` (lines 161–187) with honest "No favorites in
+  this album yet" state; (c) lightbox index bug truly fixed: both grid
+  rendering and lightbox slides derived from single `visiblePhotos` ordering
+  via useMemo, so clicking a tile after filtering opens the correct photo
+  (line 110 findIndex matches both grid and lightbox); (d) title-duplication
+  fix verified: section label "ALSO IN HERE / Photos" only renders when
+  subfolders exist (line 149), gallery begins directly after header otherwise,
+  matching design system §10 (no duplication); (e) Arjun age captions wired:
+  `ageCaption` and `earliestDate` from `lib/photo-age.ts` have real callers
+  in `album-detail-template.tsx` (lines 4, 76, 82), wired on for BUCKETS[0]
+  only in `app/albums/[id]/page.tsx` (line 20); (f) redirect pages confirmed
+  server-side: all of `app/{arjun,travel,milestones,life}/page.tsx` use
+  `import { redirect }` from `next/navigation`, no `'use client'` directives;
+  (g) Favorites, Memories, Videos confirmed untouched: no diff against
+  `70cc9f1` in those directories, `SectionWorldPage` intact; (h) media rules
+  held: grid tiles use `gridThumbnail` only (comment at line 97–98 confirms
+  never `preview_url`), lightbox correctly uses `preview_url` for full-size
+  (line 144), videos use `playback_url` with fallback; (i) no backend, .env,
+  .db, or token files touched; (j) static checks: `npx tsc --noEmit` clean,
+  `npm run build` passes with all 26 routes (including /albums/[id],
+  /arjun–/life as static redirects), pre-existing ESLint warning in
+  `photo-card.tsx` untouched. All acceptance criteria met: shared
+  `AlbumDetailTemplate` used for all `/albums/[id]`, chapter or leaf;
+  `AlbumHeader` with optional fields gracefully omitted; `FolderGrid`/
+  `FolderCard` confirmed as re-exports of existing `AlbumGrid`/`AlbumCard`
+  (zero logic duplication); `AlbumPhotoGrid` consolidates gallery logic once;
+  `PhotoContextMenu` genuinely wired in lightbox (replaces standalone download
+  button); `ThumbnailPicker` intentionally unwired as presentational scaffold
+  (Album has no cover field until PR 7). No defects found; PR 2 ready for
+  merge decision.
 
 ## Open Questions
 
