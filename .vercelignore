@@ -1,0 +1,15 @@
+# Repo-level guard for Vercel projects whose root directory is not `backend/`.
+# The backend has its own .vercelignore, but these large local artifacts can
+# otherwise be uploaded and swept into Python function bundles.
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/.venv/
+backend/.venv/
+backend/data/
+backend/__pycache__/
+.venv/
+.next/
+data/
+**/__pycache__/
+.DS_Store

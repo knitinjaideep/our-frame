@@ -31,5 +31,5 @@ dependencies = [
 # lives — replaces the auto-conversion entirely and sidesteps the bug.
 # requirements.txt is kept in sync for `pip install -r requirements.txt`
 # local-dev workflows referenced in README.md/docs/SETUP.md.
-[[tool.uv.sources.google-api-python-client]]
-path = "./vendor/wheels/google_api_python_client-2.108.0-py3-none-any.whl"
+[tool.uv.sources]
+google-api-python-client = { path = "./vendor/wheels/google_api_python_client-2.108.0-py3-none-any.whl" }
