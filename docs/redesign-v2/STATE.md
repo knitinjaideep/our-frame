@@ -1,6 +1,6 @@
 # Our Frame Redesign V2 State
 
-Status: PR 1 implemented (awaiting review)
+Status: PR 1 reviewed — PASS WITH FIXES (awaiting verification)
 
 Last updated: 2026-08-30
 
@@ -79,7 +79,7 @@ work does not change them.)
 
 | PR | Name | Status | Branch | Commit |
 |---|---|---|---|---|
-| 1 | Design Memory / Source of Truth | Implemented (awaiting review) | redesign-v2/pr-1-design-memory | — |
+| 1 | Design Memory / Source of Truth | Reviewed — PASS WITH FIXES (awaiting verify) | redesign-v2/pr-1-design-memory | cf66a1c + review fixes |
 | 2 | Shared Photos Architecture | Pending | redesign-v2/pr-2-photos-architecture | — |
 | 3 | Home Page | Pending | redesign-v2/pr-3-home | — |
 | 4 | Photos Overview | Pending | redesign-v2/pr-4-photos-overview | — |
@@ -90,9 +90,9 @@ work does not change them.)
 
 ## Next Action
 
-PR 1 is implemented on `redesign-v2/pr-1-design-memory` and awaiting
-`our-frame-reviewer` / `our-frame-verifier`. Do not start PR 2 until PR 1 is
-reviewed/verified and the user decides on merge sequencing.
+PR 1 is implemented and reviewed (PASS WITH FIXES) on
+`redesign-v2/pr-1-design-memory`, awaiting `our-frame-verifier`. Do not
+start PR 2 until PR 1 is verified and the user decides on merge sequencing.
 
 ## Completed Checks
 
@@ -126,6 +126,44 @@ reviewed/verified and the user decides on merge sequencing.
   changed: `docs/OUR-FRAME-DESIGN-SYSTEM.md` (new),
   `docs/mockups/README.md` (new), `.claude/CLAUDE.md` (new section),
   `docs/redesign-v2/STATE.md` (this entry).
+
+- 2026-08-30: Reviewed PR 1 (`our-frame-reviewer`) — **PASS WITH FIXES**.
+  Independently opened all 5 mockups rather than trusting the implementer's
+  summary, and independently re-derived the claims. Confirmed docs-only:
+  `git diff --stat` vs merge-base `70cc9f1` shows only `.claude/CLAUDE.md`,
+  `docs/OUR-FRAME-DESIGN-SYSTEM.md`, `docs/mockups/README.md`, and the
+  V2 planning docs/mockups — zero page/component code touched. Verified
+  independently: (a) the `docs/design-system.md` compatibility claim is
+  correct — every cross-reference in the reconciliation table checks out
+  against the real file (`--background`/`--foreground`/`--muted-foreground`/
+  `--amber`/`--border` token names, Playfair + Geist Sans, `--container-max`
+  88rem, motion 165/260/520ms, `top-nav.tsx` transparent/solid variants,
+  §7 primitives, §10 anti-patterns), so leaving that file untouched was the
+  right call, not laziness; (b) sampled mockup canvas pixels (`#060403`–
+  `#13100d`) to confirm the warm near-black claim; (c) confirmed the 5
+  `docs/redesign-v2/mockups/` mirrors are byte-identical by SHA-256, as
+  claimed; (d) confirmed the CLAUDE.md section is a pointer only, with no
+  duplicated content, per the acceptance criteria. Defects found and fixed
+  in review: factual error in §10 (claimed board 4's alternate example was
+  "Milestones → Engagement"; it is actually the **Milestones** album,
+  2015–2025); §10 omitted that the album header sits on a full-bleed cover
+  photo with a gradient scrim, plus the icon'd location/date row and the
+  Filter/Sort/View-density control row; §9 rationalized the 4-vs-3 folder
+  column conflict as a "board framing" artifact instead of naming it as a
+  real image-vs-brief conflict, and marked the folder count "optional" when
+  all four boards show it; §9/§8 omitted folder/category card anatomy and
+  the per-category eyebrow strings; §8 wrongly asserted mobile cards keep
+  the same aspect ratio as desktop (board 2's do not) and omitted the
+  "View all photos →" link; §5 omitted the search icon and the boards'
+  mutual disagreement on mobile bar arrangement; §13/§14 omitted the
+  overflow-menu ordering, owner-gating enforcement, and lightbox chrome
+  placement; two dangling `docs/redesign-v2/PR N` pseudo-paths corrected to
+  real `MILESTONES.md` references. Strengthened the "Recently Captured"
+  deviation from a buried paragraph into a flagged `###` subsection listing
+  the aliases it must not reappear under, added a forward-pointer in §0,
+  and added a deviation section to `docs/mockups/README.md` so an
+  implementer opening the mockup sees it at the point of use. No product,
+  hosting, or privacy decision was needed; nothing blocked.
 
 ## Open Questions
 

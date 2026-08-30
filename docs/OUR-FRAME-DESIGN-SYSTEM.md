@@ -34,6 +34,12 @@ same conceptual function (e.g. two category pages, two album pages), they
 must look and behave like instances of the same component — not four
 individually clever designs.
 
+**Read this before opening any mockup:** the mockups are references, not
+literal specs. Two places where the shipped product intentionally differs
+from what the boards depict are recorded in this file — the Home page's
+omitted "Recently Captured" section (§7) and the category folder-grid
+column count (§9). Do not rebuild either from the image alone.
+
 ## 1. Primary Design Goal
 
 Our Frame should feel like:
@@ -64,7 +70,9 @@ hardcode hex/oklch values. See the mockups' near-black canvas (all 5 boards
 render on `#0c0a09`-range backgrounds) and restrained gold usage on eyebrow
 labels, active nav underline, and icon accents (never as a large fill) —
 e.g. board 2's "OUR STORY IN FRAMES" eyebrow, board 4's "ALBUM" eyebrow,
-board 5's overflow-menu "Set as album cover" gold highlight row.
+board 5's gold `OWNER` badges on the two owner-only overflow-menu rows.
+(Measured board canvas backgrounds fall in the `#060403`–`#13100d` warm
+near-black range — consistent with `--background`, not pure `#000`.)
 
 ## 3. Typography
 
@@ -101,16 +109,23 @@ One consistent nav component across the entire app (already implemented per
 `docs/design-system.md` §8, `components/layout/top-nav.tsx` — the mockups
 confirm this, not contradict it):
 
-- Desktop: left "Our Frame" wordmark, center links (Home / Photos / Videos /
-  Favorites / Memories), right profile/avatar.
+- Desktop: left "Our Frame" serif wordmark, center links (Home / Photos /
+  Videos / Favorites / Memories), right profile/avatar. Board 1 also shows a
+  quiet search icon immediately left of the avatar; treat search as optional
+  and out of scope for this V2 pass unless a PR asks for it.
 - Slim, understated, subtle active-state underline — never a glowing or
   thick indicator.
-- Photos/Videos may use floating dropdown sub-navigation.
+- Photos/Videos carry a small chevron and use floating dropdown
+  sub-navigation (visible on boards 2–4).
 - Mobile: hamburger → full-screen sheet, same link set, no bottom tab bar.
+  The boards disagree on mobile bar arrangement (board 1: hamburger left,
+  centered wordmark, avatar right; board 2: wordmark left, hamburger right).
+  Neither is authoritative — keep the existing shipped `top-nav` mobile
+  arrangement rather than churning it.
 
-Every mockup board (1–5) shows the exact same nav bar at the top — this is
-the strongest single consistency signal in the reference set. Do not vary
-nav per page.
+Every mockup board (1–5) shows the same nav bar at the top — this is the
+strongest single consistency signal in the reference set. Do not vary nav
+per page.
 
 ## 6. Information Architecture
 
@@ -142,14 +157,27 @@ elsewhere on the page (board 1 as drawn does show a "RECENTLY CAPTURED"
 photo strip between the chapter rail and Family Films — see the explicit
 deviation note below).
 
-**Known, intentional deviation from this mockup:** the user has explicitly
-opted out of a "Recently Captured" / recent-photos section on Home, even
-though board 1 depicts one. `docs/redesign-v2/PR 3` is responsible for
-enforcing this (removing duplicate category cards, fixing hero framing) and
-must **not** reintroduce a "Recently Captured"/"Latest Frames" section when
-it does so. Every later PR touching Home — and PR 8's final audit — must
-verify this section stays absent. This file exists so that future sessions
-reading only the mockup image don't silently rebuild the omitted section.
+### ⚠️ Known, intentional deviation from board 1 — do not build "Recently Captured"
+
+Board 1 depicts a `RECENTLY CAPTURED` photo strip (desktop: a 5-thumbnail
+row with a "View all photos →" link, between the chapter rail and Family
+Films; mobile: a 3-thumbnail row with "View all"). **The user has
+explicitly opted out of it. It must not be built.**
+
+- PR 3 (Home Page) of `docs/redesign-v2/MILESTONES.md` must not add it while
+  doing its other Home work (removing duplicate category cards, fixing hero
+  framing).
+- No later PR touching Home may reintroduce it under any name — "Recently
+  Captured", "Latest Frames", "Recent Memories", "Recently Added".
+- PR 8's final consistency audit must explicitly re-verify it is absent.
+- Home's section order is therefore hero → chapter rail → Family Films →
+  optional closing strip, with **nothing** between the rail and Family
+  Films.
+
+This note exists precisely because the mockup shows the section: a future
+session working from the image alone would otherwise rebuild it in good
+faith. The same deviation is recorded in `docs/redesign-v2/STATE.md`
+("Explicit user deviation") and `docs/mockups/README.md`.
 
 **Slideshow behavior:**
 
@@ -171,10 +199,24 @@ Per board 2 (`02-photos-overview-unified-folder-system.png`): a uniform 2x2
 desktop grid of exactly four category cards — Arjun, Travel, Milestones,
 Life. All four cards share identical width, height, aspect ratio, corner
 radius, overlay treatment, title placement, and metadata hierarchy
-(eyebrow → serif title → one-line description → photo count). This is a
-folder browser: consistency over novelty, no card is visually more
-important than another. Mobile: single column, same card ratio/content, no
-masonry.
+(per-category gold eyebrow → serif title → one-line description → photo
+count with a small image glyph). Each card is a photo tile with a dark
+bottom-up gradient scrim carrying the text. This is a folder browser:
+consistency over novelty, no card is visually more important than another.
+
+Page header above the grid: "OUR STORY IN FRAMES" eyebrow → serif "Photos"
+title → one-line description, with a quiet "View all photos →" text link
+(top-right on desktop, below the description on mobile).
+
+Note the eyebrows are per-category and editorial, not generic: `GROWING UP`
+(Arjun), `STORIES FROM EVERYWHERE` (Travel), `ANCHOR MEMORIES`
+(Milestones), `PEOPLE & MOMENTS` (Life). Keep these consistent with the
+longer category-page eyebrows in §9.
+
+Mobile: single column, identical card content and hierarchy, no masonry.
+Board 2's mobile cards are shorter/wider than its desktop cards, so match
+the desktop *content* and treatment, not its exact aspect ratio — pick one
+mobile ratio and apply it to all four cards identically.
 
 ## 9. Category Page Rules
 
@@ -183,33 +225,63 @@ Milestones, and Life all share one reusable page shell:
 
 1. Global nav
 2. Breadcrumb (Home / Photos / <Category>)
-3. Small editorial eyebrow (e.g. "GROWING UP, FRAME BY FRAME")
+3. Small gold editorial eyebrow — per category, and longer than the Photos
+   overview version: `GROWING UP, FRAME BY FRAME` (Arjun),
+   `STORIES FROM EVERYWHERE` (Travel), `ANCHOR MEMORIES` (Milestones),
+   `PEOPLE & MOMENTS` (Life)
 4. Category title (serif)
-5. Short description
-6. Optional folder/photo count
+5. Short description (one line)
+6. Folder count ("113 folders", "42 folders", "28 folders", "56 folders" —
+   present on all four boards, so treat it as standard, not optional)
 7. Folder grid
 
 Folder cards within a category share one component: identical dimensions,
-radius, overlay, typography, spacing — regardless of category. Grid:
-desktop multi-column (board 3 shows 4 across at 1440px in the composite
-board layout; treat the per-category grid itself, not the board framing, as
-the reference — PR 5's own column spec, 3/2/1 across desktop/tablet/mobile,
-governs the shipped breakpoints), tablet 2 columns, mobile 1 column.
+radius, overlay, typography, spacing — regardless of category. Anatomy:
+photo thumbnail, dark gradient scrim at the bottom, a small bronze folder
+glyph, the folder name in serif, and one muted sans secondary line whose
+*content* varies by category (Arjun: item count; Travel: country;
+Milestones: date; Life: nothing) while the slot and styling stay fixed.
+
+**Known deviation from board 3 — column count.** The boards render each
+category page at 4 folder cards across. The written brief
+(`docs/redesign-v2/PROMPTS.md`, PR 5) specifies **desktop 3 / tablet 2 /
+mobile 1**. The brief wins: build 3/2/1. This is a real conflict between
+image and text, not a rendering artifact — it is called out here so PR 5
+doesn't "fix" the grid back to 4 columns from the picture.
+
 Content (folder names, thumbnails, counts) differs per category; the visual
 system does not.
 
 ## 10. Album Page Rules
 
 Per board 4 (`04-album-page-shared-editorial-template.png`): one shared
-editorial album template used for every album regardless of category
-(Travel → Maine and Milestones → Engagement in the mockup use the identical
-template).
+editorial album template used for every album regardless of category. The
+board proves this with two instances of the identical template: the primary
+example `Home / Photos / Travel / Maine`, and an "ALTERNATE EXAMPLE" panel
+`Home / Photos / Milestones` titled "Milestones" (2015 – 2025).
 
-Header, in order: breadcrumb → eyebrow "ALBUM" → title (serif) → optional
-location/date line → short description → photo count. Do **not** repeat the
-album title a second time anywhere on the page. Then the gallery begins
-directly, with light filter/sort/view controls that stay out of the way of
-the photos.
+The header sits **on top of the album's cover photo**, which runs full-bleed
+to the right/top edge of the content area behind the text, with a dark
+left-to-right gradient scrim so the copy stays legible. This is the album's
+selected cover (see §13), not a decorative asset.
+
+Header, in order:
+
+1. Breadcrumb
+2. Gold eyebrow `ALBUM`
+3. Title (serif, large)
+4. Optional metadata row — location with a pin icon and/or date range with a
+   calendar icon (Maine shows both: "Maine, USA" + "May 10 – May 17, 2024";
+   Milestones shows date range only)
+5. Short description (1–2 lines)
+6. Photo count ("113 photos")
+
+Do **not** repeat the album title a second time anywhere on the page — the
+board explicitly calls this out ("Single, clean header — no duplicate
+titles"). Then the gallery begins directly, preceded by one quiet control
+row: `Filter ⌄` and `Sort ⌄` on the left, and on the right a "View" label
+with a small 3-option grid-density toggle (the active option marked in
+bronze). Controls stay visually subordinate to the photos.
 
 ## 11. Photo Gallery Rules
 
@@ -235,28 +307,45 @@ gallery chrome (filter/sort/view toggle) stays quiet and secondary.
 Per board 5 (`05-lightbox-album-cover-selection.png`): every album supports
 a manually selected cover photo.
 
-- Action lives in the lightbox photo overflow/action menu: "Set as album
-  cover" and "Set as thumbnail" (both marked "OWNER" in the mockup —
-  gate to the workspace owner/appropriate permission level), alongside
-  "Add to favorites," "Download original," and "Delete photo."
+- Action lives in the lightbox photo overflow/action menu, in the board's
+  order: "Add to favorites", "Download original", "Set as album cover"
+  `OWNER`, "Set as thumbnail" `OWNER`, then a destructive "Delete photo" in
+  red, separated from the rest.
+- The two `OWNER`-badged actions are permission-gated to the workspace
+  owner. Non-owners must not see them — do not render-then-disable, and do
+  not rely on the client alone; the backend must enforce it.
 - Store only a photo reference/id as the cover — never duplicate image
-  bytes.
+  bytes. (Also keeps this consistent with `docs/media-cache/`: the cover
+  renders from the existing cached derivative for that photo, so selecting a
+  cover must not trigger new derivative generation.)
 - On selection: persist immediately, update the album/folder card without a
-  page reload, show a brief, subtle confirmation ("Cover updated" /
-  "Album cover updated").
+  page reload, show a brief, subtle confirmation — board 5 shows a bronze
+  check icon with "Cover updated" and a one-line explanation.
 - The choice must persist across reloads.
 - Deterministic fallback when no custom cover is set (e.g. first/most
   recent photo) — never a randomly-changing cover.
+- Board 5 also shows the updated cover propagating to two surfaces: the
+  album header (mobile, with a "Change cover" affordance overlaid on the
+  cover image and an edit pencil in the header) and the folder card in the
+  parent grid. Both must reflect the new cover.
 
 ## 14. Lightbox Rules
 
 Per board 5: near-black background, image sized as large as practical
-without unnecessary cropping. Visible controls: Close, Previous, Next,
-Favorite (via overflow or dedicated icon), Overflow/actions menu, Details
-("View details"). Bottom-left caption area shows date + album/context name
-+ location — kept minimal, not overlaid across the photo itself. Slide
-position indicator ("12 / 113") top-left. Keyboard arrows + Escape, mobile
-swipe gestures.
+without unnecessary cropping — the board's portrait photo is letterboxed
+with generous dark margin rather than cropped or upscaled to fill.
+
+Chrome placement in the board: slide position ("12 / 113") top-left;
+overflow "…" and Close "×" top-right; circular Previous/Next arrows
+vertically centered at the left and right edges; "View details" as a small
+pill bottom-right. Bottom-left caption block shows gold date ("Dec 2025")
+→ serif album/context name ("Engagement") → muted location line ("The
+botanical gardens, Maine"), set in the dark margin beside the photo, not
+overlaid across it.
+
+Favoriting appears only in the overflow menu on this board; a dedicated
+icon is acceptable if it stays equally quiet. Keyboard arrows + Escape and
+mobile swipe gestures are required.
 
 ## 15. Responsive Design Rules
 
@@ -297,9 +386,9 @@ variants:
   §7)
 
 Names can follow existing project conventions; reuse — not the exact name —
-is the requirement. `docs/redesign-v2/PR 2` is where this shared
-architecture actually gets built/refactored; this document is the rule set
-that work must satisfy.
+is the requirement. PR 2 of `docs/redesign-v2/MILESTONES.md` is where this
+shared architecture actually gets built/refactored; this document is the
+rule set that work must satisfy.
 
 ## 18. How to Handle Future UI Tasks
 
