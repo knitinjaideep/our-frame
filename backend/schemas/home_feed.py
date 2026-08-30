@@ -20,4 +20,8 @@ class ThrowbackGroup(BaseModel):
 class HomeFeedResponse(BaseModel):
     hero_photos: list[PhotoResponse]
     throwbacks: list[ThrowbackGroup]
+    # Same calendar month, any prior year, excluding exact-day matches
+    # (those are already covered by `throwbacks`). Real `created_time` data,
+    # not a quality-scored proxy — see docs/redesign/STATE.md PR 9 notes.
+    month_memories: list[ThrowbackGroup] = []
     stats: MemoryStats

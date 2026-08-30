@@ -59,5 +59,16 @@ def get_by_month_day(session: Session, month: int, day: int) -> list[DrivePhoto]
     ]
 
 
+def get_by_month(session: Session, month: int) -> list[DrivePhoto]:
+    """Return photos taken anywhere in the given calendar month, any year."""
+    all_photos = session.exec(
+        select(DrivePhoto).where(DrivePhoto.created_time.is_not(None))
+    ).all()
+    return [
+        p for p in all_photos
+        if p.created_time and p.created_time.month == month
+    ]
+
+
 def count_all(session: Session) -> int:
     return len(session.exec(select(DrivePhoto)).all())

@@ -105,6 +105,29 @@ def get_home_feed(session: Session) -> HomeFeedResponse:
             )
         )
 
+    # ── Month memories: same calendar month, prior years, excluding the exact
+    # day (already covered by `throwbacks` above) — real created_time data,
+    # used by the Memories page's "This month in past years" section. ─────────
+    month_photos_raw = photo_repo.get_by_month(session, now.month)
+    month_year_groups: dict[int, list[DrivePhoto]] = {}
+    for p in month_photos_raw:
+        if p.created_time and p.created_time.year < current_year and p.created_time.day != now.day:
+            year = p.created_time.year
+            month_year_groups.setdefault(year, []).append(p)
+
+    month_memories = []
+    for year in sorted(month_year_groups.keys(), reverse=True)[:4]:
+        years_ago = current_year - year
+        label = f"{years_ago} year{'s' if years_ago != 1 else ''} ago"
+        photos_sorted = sorted(month_year_groups[year], key=lambda p: p.created_time)
+        month_memories.append(
+            ThrowbackGroup(
+                year=year,
+                label=label,
+                photos=[_to_photo_resp(session, p, fav_ids) for p in photos_sorted[:6]],
+            )
+        )
+
     # ── Stats ─────────────────────────────────────────────────────────────────
     all_photos = photo_repo.count_all(session)
     all_albums_count = album_repo.count_all(session)
@@ -130,5 +153,6 @@ def get_home_feed(session: Session) -> HomeFeedResponse:
     return HomeFeedResponse(
         hero_photos=hero_photos,
         throwbacks=throwbacks,
+        month_memories=month_memories,
         stats=stats,
     )

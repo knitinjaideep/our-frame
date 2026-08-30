@@ -60,6 +60,15 @@ export function shortDate(iso: string | null | undefined): string | undefined {
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
+/** Full, literal date display, e.g. "Aug 29, 2021" — used where a precise
+ * (not month-only) date is meaningful, e.g. the Memories "on this day" flow. */
+export function fullDate(iso: string | null | undefined): string | undefined {
+  if (!iso) return undefined
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return undefined
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 /** Latest valid `created_time` in a list of ISO date strings, or null if none. */
 export function latestDate(isoDates: Array<string | null | undefined>): Date | null {
   let latest: Date | null = null

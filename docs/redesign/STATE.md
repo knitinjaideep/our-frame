@@ -1,6 +1,6 @@
 # Our Frame Premium Redesign State
 
-Status: PR 8 complete
+Status: PR 9 complete
 
 Last updated: 2026-08-29
 
@@ -46,13 +46,14 @@ data safety, backend standards all still apply).
 | 6 | Travel, Milestones, Life | Complete | redesign/pr-6-travel-milestones-life (branched from redesign/pr-5-lightbox) | fe8cdbd |
 | 7 | Videos | Complete | redesign/pr-7-videos (branched from redesign/pr-6-travel-milestones-life) | f5b7d5c |
 | 8 | Favorites | Complete | redesign/pr-8-favorites (branched from redesign/pr-7-videos) | df5d739 |
-| 9 | Memories / On This Day | Pending | — | — |
+| 9 | Memories / On This Day | Complete | redesign/pr-9-memories (branched from redesign/pr-8-favorites) | pending commit |
 | 10 | Mobile Experience Polish | Pending | — | — |
 
 ## Next Action
 
-Create `redesign/pr-9-memories` branch off `redesign/pr-8-favorites` and
-dispatch `our-frame-implementer` for PR 9 (Memories / On This Day page).
+Create `redesign/pr-10-mobile-polish` branch off `redesign/pr-9-memories`
+and dispatch `our-frame-implementer` for PR 10 (Mobile Experience Polish —
+the final PR, cross-cutting across every page redesigned so far).
 
 ## Completed Checks
 
@@ -281,6 +282,42 @@ dispatch `our-frame-implementer` for PR 9 (Memories / On This Day page).
   the final file contents, plus confirmed `MasonryGalleryItem`'s new props
   are additive and don't affect any other consumer. Returned
   `VERIFICATION: PASS`.
+- 2026-08-29: PR 9 implementer rewrote `frontend/app/memories/page.tsx`
+  ("Moments That Stay", year-grouped vertical narrative for today's
+  memories, honest empty state with real "This Month in Past Years" and
+  "Recently Favorited" secondary sections — the latter deliberately
+  relabeled from the prompt's "Recently revisited" since no view/open
+  tracking exists in the app), and added a small, additive backend change
+  (`photo_repo.get_by_month()`, a `month_memories` field on
+  `HomeFeedResponse`, assembly logic in `home_feed_service.py`) — the first
+  backend change in this redesign, needed because "this month in past
+  years" isn't derivable from any existing endpoint. Explicitly avoided
+  repeating PR 8's `hero_photos`-mislabeled-as-recent mistake by grounding
+  every section in real `created_time`/`favorited_at` fields. This task
+  needed three implementer dispatches due to repeated local machine-sleep
+  interruptions (infrastructure, not code issues) — final dispatch
+  confirmed the WIP was already correct and ran the full check suite clean.
+- 2026-08-29: PR 9 reviewer returned `REVIEW STATUS: PASS WITH FIXES` after
+  independently verifying the backend date-matching logic against the real
+  database (confirmed correct, with one implementer reasoning claim
+  corrected: sorting does compare datetimes, but safely, since
+  `created_time` is stored naive in SQLite). Found and fixed a **real
+  media-performance/UX bug**: video-dated memory heroes were unconditionally
+  sourced via `preview_url` (a still-image-only derivative pipeline),
+  which would download the full Drive original before failing to render a
+  video — added a `heroSource()` helper branching on media type. Also
+  fixed: hero layout shift (added explicit aspect-ratio), missing
+  video/play-badge distinction on tiles (the same gap PR 4/7 each had to
+  fix once), misleading accessible labels on non-ready tiles, "Processing"
+  shown instead of "Unavailable" for failed items, an empty state with no
+  action link, and an unclear "Our Timeline" scope (added a clarifying
+  line). This review also needed a re-dispatch after a machine-sleep
+  interruption.
+- 2026-08-29: PR 9 verifier ran backend `py_compile`, `npm run build`,
+  `npx tsc --noEmit`, and `eslint` — all clean — and independently
+  confirmed every reviewer fix in the final file contents. Returned
+  `VERIFICATION: PASS`. This check also needed a re-dispatch after a
+  machine-sleep interruption.
 
 ## Pre-existing bugs found during redesign work (not caused by this redesign)
 
@@ -419,6 +456,21 @@ user 2026-08-29, not yet fixed, out of scope for the current 10-PR redesign:
   playback failed" from "fully ready" ahead of the click. A per-derivative
   (not item-level) status field in the API would let the UI be honest about
   this; not introduced by the redesign, not fixed here.
+- `/home/feed`'s "today"/"this month" memory matching is UTC-based with no
+  per-workspace timezone setting (inherited from the pre-existing
+  `throwbacks` feature, unchanged by PR 9) — a user west of UTC can see the
+  wrong day's memories in the evening. Real fix is a timezone setting, a
+  product decision intentionally left open.
+- `get_by_month_day`/`get_by_month` each do a full in-memory table scan of
+  all dated photos per `/home/feed` request, plus a `media_repo` lookup per
+  matched photo. Negligible at current (~1600 row) local SQLite scale and
+  mirrors the pre-existing pattern; worth collapsing to one scan/query
+  whenever this route is next touched.
+- `gridThumbnail()`-equivalent logic is now duplicated a third time (Arjun
+  inline, `lib/media.ts`, and an inline `Favorite`-shape version in
+  Memories/Favorites) — same low-risk, deliberate-scope-discipline tradeoff
+  noted after PR 6; collapse into one shared, type-flexible helper in a
+  future cleanup pass.
 
 ## Open Questions
 

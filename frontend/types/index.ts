@@ -57,6 +57,9 @@ export interface ThrowbackGroup {
 export interface HomeFeed {
   hero_photos: Photo[]
   throwbacks: ThrowbackGroup[]
+  // Same calendar month, prior years, excluding exact-day matches (those
+  // are already in `throwbacks`) — real created_time data.
+  month_memories: ThrowbackGroup[]
   stats: MemoryStats
 }
 
