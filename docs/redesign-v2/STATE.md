@@ -93,7 +93,7 @@ work does not change them.)
 | 5 | Category Pages | Verified — PASS | redesign-v2/pr-5-category-pages | 8492caa |
 | 6 | Album Pages | Verified — PASS | redesign-v2/pr-6-album-pages | 8e43986 |
 | 7 | Metadata, Thumbnail Selection, Image Quality | Reviewed — PASS WITH FIXES | redesign-v2/pr-7-metadata-covers | f2fac3a |
-| 8 | Final Consistency Audit | Reviewed — PASS WITH FIXES | redesign-v2/pr-8-consistency-audit | b9029de |
+| 8 | Final Consistency Audit | Verified — PASS | redesign-v2/pr-8-consistency-audit | bbc4d47 |
 
 ## Next Action
 
@@ -2736,3 +2736,75 @@ Before continuing:
   bucket's structural `Videos` folder (e.g. Arjun/Videos, 36 items) are not
   surfaced by `_flatten_subfolders`, which only promotes a structural
   folder's *sub-folders*, not its files.
+
+- 2026-08-30: Verified PR 8 (`our-frame-verifier`) — **PASS**. Independently verified all claims against the actual code and the real seeded database:
+
+  **Database verification — Arjun's direct photos claim disproven and fixed.** Ran independent `sqlite3` queries against `backend/data/ourframe.db`:
+  - All four top-level buckets (Arjun/Travel/Milestones/Life) have `photo_count = 0`
+  - All four have exactly two direct children: the structural `Photos`/`Videos` folders
+  - Arjun specifically: Photos folder (0 direct photos, 13 subfolder items) + Videos folder (36 direct video files)
+  - Confirmed: all four are organizational buckets with zero direct photos, contradicting the earlier claim that "Arjun is the one chapter that holds dated photos directly" (which came from a deleted component comment, not data)
+
+  **mayHavePhotos fix verified:** Set to `false` on all four buckets in `app/albums/[id]/page.tsx` (lines 21-60):
+  - Arjun (line 38): `mayHavePhotos: false` ✓
+  - Travel (line 45): `mayHavePhotos: false` ✓
+  - Milestones (line 52): `mayHavePhotos: false` ✓
+  - Life (line 59): `mayHavePhotos: false` ✓
+  The loading-state skeleton correctly gates on `meta?.mayHavePhotos !== false` in `album-detail-template.tsx` (line 224), so category pages no longer render a photo-grid skeleton for a section that never appears.
+
+  **Doc comments corrected:** Three locations updated to reflect that all four buckets are organizational:
+  - `app/albums/[id]/page.tsx` lines 30-37: comment now states Arjun exception claim came from removed code, not data
+  - `album-detail-template.tsx` lines 44-55: `mayHavePhotos` field doc correctly states all four are organizational with zero direct photos
+  - `album-detail-template.tsx` lines 218-223: loading skeleton comment correctly refers to "four organizational chapter buckets"
+
+  **ageCaptions: true on Arjun verified harmless:** Field is content-level opt-in kept from removed `arjun-gallery.tsx`. Since `mayHavePhotos: false`, the photo-grid skeleton never renders; if photos ever arrive directly in Arjun (unlikely per current Drive structure), age captions would apply correctly via `captionFor` derivation (lines 128-138).
+
+  **"Recently Captured" re-confirmed absent:** Grepped `frontend/` case-insensitively for "recently captured", "latest frames", "recent memories", "recently added". All four hits are explanatory code comments in `/favorites`, `/memories`, and `design-system`, not rendered Home sections. Read `home-feed-view.tsx` end-to-end: flow is hero → chapter rail → sync/error → Family Films → "Moments That Stay" (calendar-day anniversary, not recency-based). Confirmed not reintroduced.
+
+  **Whole-chain sweep clean:** `git diff 70cc9f1..HEAD -- frontend backend` contains zero matches for `console\.\(log|debug|warn|error|table\)`, `debugger`, `TODO`, `FIXME`, `XXX`, `HACK`, hardcoded `localhost`, or test-harness naming patterns (`pr[0-9]+-harness`, etc.). No `.db`, `token.json`, `.env`, or generated media files tracked.
+
+  **PR 8 scope verified:** `git diff 1453d07..b9029de --name-only` shows exactly two changed files: `frontend/app/albums/[id]/page.tsx` and `frontend/components/photos/album-detail-template.tsx`. No backend files touched; Favorites, Memories, Videos untouched. Verified via `git status --short`.
+
+  **Build and type checks pass:**
+  - `npx tsc --noEmit`: clean
+  - `npx eslint 'app/albums/[id]/page.tsx' 'components/photos/album-detail-template.tsx'`: 0 errors, 0 new warnings
+  - `npm run build`: succeeds, all 26 routes (unchanged from PR 7)
+
+  **Capstone assessment:** The reviewer's verdict is accurate and well-supported. All eight PRs replaced four divergent per-category implementations with shared components (one navbar, one width rule, one header per tier, one folder card, one photo grid, one lightbox). Home's disallowed "Recently Captured" section is confirmed absent. Album metadata, cover selection, and owner-gating landed with backend enforcement. The initiative correctly flags its single largest open item: no agent in the entire sequence ever visually rendered the authenticated app against real Drive photos. The reviewer also identified a second critical limitation: the initiative repeatedly reasoned from documentation rather than data, fixing one concrete instance (Arjun's direct photos) but leaving others open for the user to verify during a real browser session.
+
+  **One item the reviewer noted but did not fix (correctly left for future work):** Board 4's four-level leaf-album breadcrumb (`Home / Photos / Travel / Maine`) is missing the category level in the code (`AlbumDetailTemplate` builds only `Home / Photos / {album}`). The reviewer flagged this as needing a backend schema change (`AlbumSummary` has no `parent_id` field) and correctly left it out of an audit PR. Recommended as the first follow-up for a future PR if desired.
+
+  All acceptance criteria met. PR 8 is ready for merge decision, with the strong caveat that a human user clicking through Home → Photos → the four categories → sample albums → lightbox against real, live Drive-synced photos is the real acceptance gate this initiative has lacked throughout all eight PRs.
+
+
+## Initiative Status — All 8 PRs Complete
+
+As of 2026-08-30, the "Our Frame Redesign V2" initiative is **fully implemented, reviewed, and verified** across eight PRs:
+
+1. **PR 1 (Design Memory)** — committed to `redesign-v2/pr-1-design-memory` (361a7ea)
+2. **PR 2 (Shared Photos Architecture)** — committed to `redesign-v2/pr-2-photos-architecture` (4ea1614)
+3. **PR 3 (Home Page)** — committed to `redesign-v2/pr-3-home` (3a700bb)
+4. **PR 4 (Photos Overview)** — committed to `redesign-v2/pr-4-photos-overview` (78e8607)
+5. **PR 5 (Category Pages)** — committed to `redesign-v2/pr-5-category-pages` (8492caa)
+6. **PR 6 (Album Pages)** — committed to `redesign-v2/pr-6-album-pages` (8e43986)
+7. **PR 7 (Metadata, Thumbnail Selection, Image Quality)** — committed to `redesign-v2/pr-7-metadata-covers` (f2fac3a)
+8. **PR 8 (Final Consistency Audit)** — committed to `redesign-v2/pr-8-consistency-audit` (bbc4d47)
+
+**Branch chain:** each PR's branch chains from the previous one, starting from `redesign/pr-10-mobile-polish` (the tip of the already-completed first redesign). None of the eight PRs have been merged to `main` or pushed to a remote — they remain local on `redesign-v2/pr-*` branches for the user's review and merge decision.
+
+**What was delivered:**
+- One shared visual design system (`docs/OUR-FRAME-DESIGN-SYSTEM.md`) reconciled against 5 mockups
+- One `AlbumDetailTemplate` replacing four divergent per-category page implementations
+- Uniform navbar, page width, headers, folder cards, photo grids, and lightbox across all pages
+- Home page with corrected hero framing and no disallowed "Recently Captured" section
+- Album metadata (optional description, location, date range) gracefully displayed
+- Manual cover-photo selection with owner-gating, idempotency, and backend enforcement
+- Clean codebase: zero debug residue, no secrets or generated media committed
+
+**Critical limitation acknowledged throughout all eight PRs:** No agent in this entire sequence ever visually rendered the authenticated app against real Drive-synced photos. Every finding (architectural consistency, component sharing, absence of forbidden sections, metadata handling, cover selection) is based on code-level audits and synthetic-data harnesses. A human browser session is the real acceptance gate — the user should click through Home → Photos → each of the four categories → sample albums from each → the lightbox to visually confirm the UI matches the mockups and behaves as described before merging any of these branches to `main`.
+
+**Recommended next step:** Real authenticated click-through verification by the user, followed by merge decisions per the user's own judgment.
+
+## Superseded Plan
+
+The prior bronze/cinematic V2 scaffold that occupied `docs/redesign-v2/` before 2026-08-30 (Status: "Ready to start PR 1", no mockup uploaded) is superseded by this initiative. That plan never began implementation and is left in place only as a historical record if needed for reference — the user can delete `docs/redesign-v2/` if cleanup is desired after this initiative's branches are reviewed and merged.
