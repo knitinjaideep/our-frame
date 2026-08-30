@@ -1,18 +1,37 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowRight, Clock, Play } from 'lucide-react'
+import { ArrowRight, Baby, Clock, Landmark, Play, Plane, Users } from 'lucide-react'
 import { useHomeFeed } from '@/hooks/use-home-feed'
 import { useRootBuckets } from '@/hooks/use-root-buckets'
 import { useSlideshow } from '@/hooks/use-slideshow'
 import { HeroSlideshow } from '@/components/home/hero-slideshow'
 import { PhotoGrid } from '@/components/photos/photo-grid'
-import { AlbumGridSkeleton } from '@/components/albums/album-grid-skeleton'
-import { BucketCard } from '@/components/buckets/bucket-card'
+import { ChapterCard } from '@/components/design-system/chapter-card'
 import { SectionReveal } from '@/components/ui/section-reveal'
 import { BUCKETS } from '@/lib/buckets'
 import { useWorkspace } from '@/hooks/use-workspace'
 import { SyncButton } from '@/components/sync/sync-button'
+import { mediaUrl } from '@/lib/api-client'
+
+/**
+ * Floating chapter rail presentation — label/subtitle/icon only.
+ *
+ * Drive folder ids deliberately are NOT repeated here: they live once in
+ * `lib/buckets.ts` (`BUCKETS`) and are zipped in below, so a re-created Drive
+ * folder only has to be updated in one place.
+ */
+const HERO_CHAPTER_META = [
+  { label: 'Arjun',      subtitle: 'Growing up',       icon: <Baby className="h-4 w-4" /> },
+  { label: 'Travel',     subtitle: 'Places we love',   icon: <Plane className="h-4 w-4" /> },
+  { label: 'Milestones', subtitle: 'Big moments',      icon: <Landmark className="h-4 w-4" /> },
+  { label: 'Life',       subtitle: 'People & Moments', icon: <Users className="h-4 w-4" /> },
+] as const
+
+const HERO_CHAPTERS = BUCKETS.map((bucket, i) => ({
+  id: bucket.id,
+  ...HERO_CHAPTER_META[i],
+}))
 
 function Divider() {
   return (
@@ -70,25 +89,49 @@ function SectionHead({
 export function HomeFeedView() {
   const { data, error } = useHomeFeed()
   const { data: slideshowPhotos } = useSlideshow()
-  const { data: bucketsData, isLoading: bucketsLoading } = useRootBuckets()
+  const { data: bucketsData } = useRootBuckets()
   const { workspace } = useWorkspace()
 
   const hasThrowbacks = (data?.throwbacks ?? []).length > 0
 
+  // Used only to back the chapter rail's real thumbnails below — the
+  // "Photos" section that used to repeat these same four categories as
+  // BucketCards was removed (see PR 3 in docs/redesign-v2/STATE.md): the
+  // chapter rail is the single, sole representation of Arjun/Travel/
+  // Milestones/Life on Home now.
   const allBuckets = bucketsData?.albums ?? []
-  const buckets = BUCKETS.map(meta => ({
-    ...meta,
-    album: allBuckets.find(a => a.id === meta.id) ?? null,
-  }))
-  const hasBuckets = !bucketsLoading && buckets.some(b => b.album !== null)
-
-  const heroName = workspace?.name ?? 'Our Frame'
 
   return (
     <div>
-      <HeroSlideshow photos={slideshowPhotos ?? []} familyName={heroName} />
+      <HeroSlideshow photos={slideshowPhotos ?? []} />
 
-      <div className="pt-28 pb-48">
+      {/* ── Floating chapter rail — straddles the hero's bottom edge.
+          Sits as a sibling (not nested) of the hero section so the negative
+          margin can pull it up over the photograph without being clipped
+          by the hero's own overflow-hidden. Reuses real album thumbnails,
+          not stock imagery. ── */}
+      <div className="relative z-30 -mt-12 content-padding sm:-mt-14">
+        <div className="mx-auto grid max-w-[var(--container-max)] grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3.5 lg:grid-cols-4">
+          {HERO_CHAPTERS.map((chapter) => {
+            const album = allBuckets.find((a) => a.id === chapter.id) ?? null
+            const imageUrl = album?.thumbnail_url ? mediaUrl(album.thumbnail_url) : undefined
+            return (
+              <ChapterCard
+                key={chapter.id}
+                variant="rail"
+                href={album ? `/albums/${album.id}` : '/photos'}
+                title={chapter.label}
+                description={chapter.subtitle}
+                imageUrl={imageUrl}
+                imageAlt={chapter.label}
+                icon={chapter.icon}
+              />
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="pt-16 pb-48 sm:pt-14">
         {workspace && (
           <div className="content-padding flex justify-end mb-8">
             <SyncButton workspaceId={workspace.id} variant="quiet" />
@@ -119,30 +162,6 @@ export function HomeFeedView() {
             </div>
           </div>
         )}
-
-        {(hasBuckets || bucketsLoading) && (
-          <SectionReveal>
-            <section className="content-padding">
-              <SectionHead
-                eyebrow="Our Story in Frames"
-                title="Photos"
-                href="/photos"
-                linkLabel="Browse all"
-              />
-              {bucketsLoading ? (
-                <AlbumGridSkeleton count={4} />
-              ) : (
-                <div className="worlds-grid">
-                  {buckets.map((bucket, i) => (
-                    <BucketCard key={bucket.id} {...bucket} index={i} />
-                  ))}
-                </div>
-              )}
-            </section>
-          </SectionReveal>
-        )}
-
-        <Divider />
 
         <SectionReveal delay={0.04}>
           <section className="content-padding">

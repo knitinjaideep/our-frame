@@ -5,15 +5,17 @@ import { motion, useInView, useReducedMotion } from 'framer-motion'
 interface SectionRevealProps {
   children: React.ReactNode
   delay?: number
+  className?: string
 }
 
-export function SectionReveal({ children, delay = 0 }: SectionRevealProps) {
+export function SectionReveal({ children, delay = 0, className }: SectionRevealProps) {
   const ref = useRef<HTMLDivElement>(null)
   const inView = useInView(ref, { once: true, margin: '-80px 0px' })
   const reduce = useReducedMotion()
   return (
     <motion.div
       ref={ref}
+      className={className}
       initial={{ opacity: 0, y: reduce ? 0 : 22 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.8, delay, ease: [0.16, 1, 0.3, 1] }}

@@ -47,6 +47,16 @@ export function SectionHeader({
 }
 
 /**
+ * SectionHeading — PR1 design-system alias for SectionHeader.
+ *
+ * Kept as a thin re-export (rather than a duplicate implementation) so the
+ * canonical primitive name from `docs/redesign/PROMPTS.md` (PR 1) exists,
+ * while reusing the same editorial section-label recipe already used
+ * throughout the app.
+ */
+export const SectionHeading = SectionHeader
+
+/**
  * PageHeader — Top-of-page hero header with optional icon and description.
  *
  * Usage:

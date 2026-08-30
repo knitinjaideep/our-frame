@@ -1,11 +1,43 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { mediaUrl } from '@/lib/api-client'
+import { Folder } from 'lucide-react'
+import { albumCoverUrl } from '@/lib/api-client'
 import { AlbumCoverFallback } from './album-cover-fallback'
 import type { Album } from '@/types'
 
+/**
+ * Count line under a folder's name: a folder's own photo count when it has
+ * one, else its child-album count, else omitted entirely.
+ */
+function folderCountLabel(album: Album): string | undefined {
+  if (album.photo_count != null && album.photo_count > 0) {
+    return `${album.photo_count.toLocaleString()} ${album.photo_count === 1 ? 'item' : 'items'}`
+  }
+  if (album.child_count != null && album.child_count > 0) {
+    return `${album.child_count.toLocaleString()} ${album.child_count === 1 ? 'album' : 'albums'}`
+  }
+  return undefined
+}
+
+/**
+ * Secondary metadata line under a folder's name, per PR 7's brief:
+ * "location OR short description, photo count". `docs/
+ * OUR-FRAME-DESIGN-SYSTEM.md` §9 previously described one metadata slot
+ * (written before PR 7's real fields existed, when only a count was
+ * available); real location/description now takes that slot, with the
+ * count rendered as its own line below (see `AlbumCard`'s overlay JSX).
+ * Location wins over description when both are set — it is the more
+ * concrete, scannable fact for a folder tile. Omitted entirely when
+ * neither is set, never a placeholder.
+ */
+function folderMetaLine(album: Album): string | undefined {
+  return album.location || album.description || undefined
+}
+
 export function AlbumCard({ album }: { album: Album }) {
+  const countLabel = folderCountLabel(album)
+  const metaLine = folderMetaLine(album)
   const [loaded, setLoaded] = useState(false)
   const [hovered, setHovered] = useState(false)
 
@@ -47,7 +79,14 @@ export function AlbumCard({ album }: { album: Album }) {
 
           {album.thumbnail_url ? (
             <img
-              src={mediaUrl(album.thumbnail_url)}
+              // Folder/category thumbnails render fairly large (up to a full
+              // 2x2 Photos-overview tile), so this asks for the cached
+              // `grid` derivative (900px) instead of the 400px card
+              // thumbnail the API returns by default — same upgrade PR 6's
+              // review already applied to the album header, per PR 7's
+              // "same class of bug" note. See `albumCoverUrl` for why this
+              // never falls back to a full-original download.
+              src={albumCoverUrl(album.thumbnail_url)}
               alt={album.name}
               loading="lazy"
               onLoad={() => setLoaded(true)}
@@ -91,18 +130,51 @@ export function AlbumCard({ album }: { album: Album }) {
             }}
           />
 
-          {/* Album name overlaid on image — ivory, editorial */}
-          <div className="album-card__overlay-title">
-            <p
-              className="album-card__name font-serif"
-              style={{
-                transform: hovered ? 'translateY(0)' : 'translateY(3px)',
-                transition: 'transform 0.35s ease, opacity 0.35s ease',
-                opacity: hovered ? 1 : 0.85,
-              }}
-            >
-              {album.name}
+          {/* Folder glyph + name + optional count overlaid on image — ivory, editorial */}
+          <div
+            className="album-card__overlay-title"
+            /* Name and count line move/fade together as one block — animating
+               only the name would slide it relative to the count on hover. */
+            style={{
+              transform: hovered ? 'translateY(0)' : 'translateY(3px)',
+              transition: 'transform 0.35s ease, opacity 0.35s ease',
+              opacity: hovered ? 1 : 0.85,
+            }}
+          >
+            <p className="album-card__name font-serif flex items-baseline gap-1.5">
+              <Folder
+                className="h-3 w-3 shrink-0 translate-y-[0.1em]"
+                style={{ color: 'var(--amber)' }}
+                aria-hidden
+              />
+              <span className="min-w-0">{album.name}</span>
             </p>
+            {/* Location OR short description (PR 7 metadata) — a single
+                quiet line, omitted entirely when neither field is set. */}
+            {metaLine && (
+              <p
+                className="mt-0.5 font-sans text-xs truncate"
+                style={{
+                  color: 'oklch(0.97 0.010 72 / 72%)',
+                  textShadow: '0 1px 8px oklch(0 0 0 / 60%)',
+                }}
+              >
+                {metaLine}
+              </p>
+            )}
+            {countLabel && (
+              <p
+                className="mt-0.5 font-sans text-xs"
+                style={{
+                  color: 'oklch(0.97 0.010 72 / 72%)',
+                  /* Same shadow as `.album-card__name` — the scrim alone is
+                     not enough over a bright thumbnail. */
+                  textShadow: '0 1px 8px oklch(0 0 0 / 60%)',
+                }}
+              >
+                {countLabel}
+              </p>
+            )}
           </div>
         </div>
       </Link>

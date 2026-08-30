@@ -19,3 +19,13 @@ class DriveAlbum(SQLModel, table=True):
     # Enrichment fields
     excluded: bool = Field(default=False, index=True)    # Hidden from all views
     section: Optional[str] = Field(default=None, index=True)  # mapped section key
+
+    # PR 7 (redesign-v2) metadata fields — all optional/additive, backward
+    # compatible with existing rows. `cover_photo_id` above already served
+    # as the manual-cover reference field (present since before this PR but
+    # never written to by any endpoint); these four are new columns added
+    # via the SQLite migration in `main.py`'s `_run_schema_migrations()`.
+    description: Optional[str] = Field(default=None)
+    location: Optional[str] = Field(default=None)
+    start_date: Optional[datetime] = Field(default=None)
+    end_date: Optional[datetime] = Field(default=None)

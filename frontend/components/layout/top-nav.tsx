@@ -6,7 +6,7 @@ import {
   Menu, X, ChevronDown, Settings, LogOut, ShieldCheck,
   HardDrive, Lock, Users, Globe, CheckCircle2, AlertCircle,
 } from 'lucide-react'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useCurrentUser, useLogout } from '@/hooks/use-auth'
 import { useWorkspace } from '@/hooks/use-workspace'
 import { useQuery } from '@tanstack/react-query'
@@ -32,6 +32,10 @@ const FLAT_NAV = [
   { href: '/favorites', label: 'Favorites' },
   { href: '/memories',  label: 'Memories'  },
 ] as const
+
+/* Route that gets the transparent, floating-over-hero nav treatment.
+ * Every other shell page gets the near-black interior treatment. */
+const TRANSPARENT_NAV_ROUTES = ['/home']
 
 /* ── Dropdown panel ── */
 function NavDropdown({
@@ -94,7 +98,7 @@ function DriveStatusDot({ workspaceId }: { workspaceId: number }) {
   )
 }
 
-/* ── Polished user menu ── */
+/* ── Polished user menu (desktop) ── */
 function UserMenu() {
   const { data: user } = useCurrentUser()
   const logout = useLogout()
@@ -127,8 +131,7 @@ function UserMenu() {
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 rounded-full overflow-hidden transition-all duration-200"
         style={{
-          border: `1.5px solid ${open ? 'var(--primary)' : 'oklch(1 0 0 / 12%)'}`,
-          boxShadow: open ? '0 0 0 3px var(--amber-subtle)' : 'none',
+          border: `1.5px solid ${open ? 'var(--primary)' : 'oklch(1 0 0 / 14%)'}`,
         }}
         aria-label="User menu"
         aria-expanded={open}
@@ -157,15 +160,15 @@ function UserMenu() {
         {open && (
           <motion.div
             className="absolute right-0 top-full mt-2 w-64 overflow-hidden z-50"
-            initial={{ opacity: 0, y: -8, scale: 0.96 }}
+            initial={{ opacity: 0, y: -8, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.96 }}
+            exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             style={{
               background: 'var(--popover)',
               border: '1px solid var(--border)',
-              borderRadius: '1rem',
-              boxShadow: '0 12px 48px oklch(0 0 0 / 55%), 0 2px 12px oklch(0 0 0 / 30%), inset 0 1px 0 oklch(1 0 0 / 6%)',
+              borderRadius: 'var(--radius-xl)',
+              boxShadow: '0 12px 32px oklch(0 0 0 / 32%)',
             }}
             onMouseEnter={handleOpen}
             onMouseLeave={handleClose}
@@ -291,15 +294,22 @@ export function TopNav() {
   const pathname = usePathname()
   const reduce = useReducedMotion()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [mobilePhotosOpen, setMobilePhotosOpen] = useState(false)
+  const [mobileVideosOpen, setMobileVideosOpen] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState<NavDropdownKey>(null)
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { workspace } = useWorkspace()
+  const { data: user } = useCurrentUser()
+  const logout = useLogout()
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
 
   const photosActive = isActive('/photos') || isActive('/albums')
   const videosActive = isActive('/videos')
+
+  const isTransparentRoute = TRANSPARENT_NAV_ROUTES.some((r) => pathname === r)
+  const navVariant = isTransparentRoute ? 'transparent' : 'solid'
 
   const openDropdown = (key: NavDropdownKey) => {
     if (leaveTimer.current) clearTimeout(leaveTimer.current)
@@ -308,34 +318,60 @@ export function TopNav() {
   const scheduleClose = () => {
     leaveTimer.current = setTimeout(() => setActiveDropdown(null), 120)
   }
+  const toggleDropdown = (key: Exclude<NavDropdownKey, null>) => {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    setActiveDropdown((current) => (current === key ? null : key))
+  }
+  /** Close a flyout when focus leaves the whole dropdown host (keyboard tab-out). */
+  const handleHostBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+      setActiveDropdown(null)
+    }
+  }
 
   // Family name: prefer workspace subtitle (as tagline) or fall back to workspace name
   // If neither exists, show empty — never hardcode "Kotcherlakota"
   const brandName = workspace?.name ?? 'Our Frame'
   const familyLine = workspace?.subtitle ?? null
+  const userInitial = user ? (user.display_name ?? user.email)[0]?.toUpperCase() ?? '?' : null
 
-  /* Mobile: all items flattened */
-  const allMobileItems = [
-    { href: '/home',                                                 label: 'Home',       group: null     },
-    { href: '/photos',                                               label: 'Photos',     group: 'Photos' },
-    { href: '/albums/1JMutj12MQTZcbkhzBE1W8pH0TCt2GxVf',            label: 'Arjun',      group: 'Photos' },
-    { href: '/albums/1xbcuOKAcRofSo0KwjEykYV3rXnmAmd8J',            label: 'Travel',     group: 'Photos' },
-    { href: '/albums/1fyt_9BebLuyEyx7w8El1Bo4Nfs9h-59A',            label: 'Milestones', group: 'Photos' },
-    { href: '/albums/1PMDy1-M23ZRkPxuaQ8IL3y_BorDEiepb',            label: 'Life',       group: 'Photos' },
-    { href: '/videos',                                               label: 'Videos',         group: 'Videos' },
-    { href: '/videos/arjun',                                         label: 'Arjun',          group: 'Videos' },
-    { href: '/videos/family-travel',                                 label: 'Family Travel',  group: 'Videos' },
-    { href: '/favorites',                                            label: 'Favorites',  group: null     },
-    { href: '/memories',                                             label: 'Memories',   group: null     },
-  ] as const
+  const closeMobile = () => {
+    setMobileOpen(false)
+    setMobilePhotosOpen(false)
+    setMobileVideosOpen(false)
+  }
+
+  /* Escape dismisses whichever overlay is open (desktop flyout / mobile sheet). */
+  useEffect(() => {
+    if (!mobileOpen && !activeDropdown) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setActiveDropdown(null)
+      setMobileOpen(false)
+      setMobilePhotosOpen(false)
+      setMobileVideosOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [mobileOpen, activeDropdown])
+
+  /* Lock body scroll behind the full-screen mobile sheet. */
+  useEffect(() => {
+    if (!mobileOpen) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [mobileOpen])
 
   return (
     <>
       {/* ── Top bar ── */}
-      <header className="top-nav">
+      <header className="top-nav" data-variant={navVariant}>
         {/* Brand wordmark — uses workspace name */}
         <Link href="/home" className="top-nav__logo" aria-label={`${brandName} — Home`}>
-          <span className="top-nav__wordmark font-serif text-gold-shimmer">{brandName}</span>
+          <span className="top-nav__wordmark font-serif">{brandName}</span>
           {familyLine && (
             <span className="top-nav__family font-sans">{familyLine}</span>
           )}
@@ -354,7 +390,7 @@ export function TopNav() {
             Home
             {isActive('/home') && (
               <motion.span className="top-nav__active-bar" layoutId="active-bar"
-                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }} />
+                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} />
             )}
           </Link>
 
@@ -363,11 +399,14 @@ export function TopNav() {
             className="top-nav__dropdown-host"
             onMouseEnter={() => openDropdown('photos')}
             onMouseLeave={scheduleClose}
+            onFocus={() => openDropdown('photos')}
+            onBlur={handleHostBlur}
           >
             <Link
               href="/photos"
               className={`top-nav__link top-nav__link--btn${photosActive ? ' top-nav__link--btn-active' : ''}`}
               aria-expanded={activeDropdown === 'photos'}
+              aria-current={photosActive ? 'page' : undefined}
             >
               Photos
               <ChevronDown
@@ -378,7 +417,7 @@ export function TopNav() {
               />
               {photosActive && (
                 <motion.span className="top-nav__active-bar" layoutId="active-bar"
-                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }} />
+                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} />
               )}
             </Link>
             <AnimatePresence>
@@ -396,10 +435,16 @@ export function TopNav() {
             className="top-nav__dropdown-host"
             onMouseEnter={() => openDropdown('videos')}
             onMouseLeave={scheduleClose}
+            onFocus={() => openDropdown('videos')}
+            onBlur={handleHostBlur}
           >
             <button
+              type="button"
+              onClick={() => toggleDropdown('videos')}
               className={`top-nav__link top-nav__link--btn${videosActive ? ' top-nav__link--btn-active' : ''}`}
+              aria-haspopup="true"
               aria-expanded={activeDropdown === 'videos'}
+              aria-current={videosActive ? 'page' : undefined}
             >
               Videos
               <ChevronDown
@@ -410,7 +455,7 @@ export function TopNav() {
               />
               {videosActive && (
                 <motion.span className="top-nav__active-bar" layoutId="active-bar"
-                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }} />
+                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} />
               )}
             </button>
             <AnimatePresence>
@@ -437,87 +482,198 @@ export function TopNav() {
                 {item.label}
                 {active && (
                   <motion.span className="top-nav__active-bar" layoutId="active-bar"
-                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }} />
+                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} />
                 )}
               </Link>
             )
           })}
         </nav>
 
-        {/* User menu */}
-        <div className="hidden lg:block">
+        {/* User menu — shown from the same breakpoint the hamburger disappears
+            (md), otherwise tablet widths lose access to settings/sign out. */}
+        <div className="hidden md:block">
           <UserMenu />
         </div>
 
         {/* Mobile hamburger */}
         <button
           className="top-nav__toggle"
-          onClick={() => setMobileOpen((v) => !v)}
-          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
           aria-expanded={mobileOpen}
         >
-          {mobileOpen
-            ? <X    className="h-4 w-4" style={{ color: 'oklch(1 0 0 / 60%)' }} />
-            : <Menu className="h-4 w-4" style={{ color: 'oklch(1 0 0 / 60%)' }} />
-          }
+          <Menu className="h-4 w-4" style={{ color: 'oklch(1 0 0 / 70%)' }} />
         </button>
       </header>
 
-      {/* ── Mobile dropdown ── */}
+      {/* ── Mobile full-screen sheet ── */}
       <AnimatePresence>
         {mobileOpen && (
-          <>
-            <div
-              className="fixed inset-0 z-[44] lg:hidden"
-              onClick={() => setMobileOpen(false)}
-              aria-hidden="true"
-            />
-            <motion.div
-              className="mobile-menu"
-              initial={{ opacity: 0, scale: 0.96, y: -8 }}
-              animate={{ opacity: 1, scale: 1,    y: 0  }}
-              exit={{    opacity: 0, scale: 0.96, y: -8 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              style={{ transformOrigin: 'top right' }}
-            >
-              <motion.nav
-                className="mobile-menu__nav"
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  visible: { transition: { staggerChildren: 0.04, delayChildren: 0.04 } },
-                }}
+          <motion.div
+            className="mobile-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation menu"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: reduce ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="mobile-sheet__header">
+              <Link href="/home" className="top-nav__logo" onClick={closeMobile} aria-label={`${brandName} — Home`}>
+                <span className="top-nav__wordmark font-serif">{brandName}</span>
+              </Link>
+              <button
+                className="top-nav__toggle"
+                onClick={closeMobile}
+                aria-label="Close menu"
               >
-                {allMobileItems.map((item) => {
-                  const active = isActive(item.href)
-                  return (
-                    <motion.div
-                      key={item.href}
-                      variants={{
-                        hidden:  { opacity: 0, y: reduce ? 0 : 5 },
-                        visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] as const } },
-                      }}
-                    >
+                <X className="h-4 w-4" style={{ color: 'oklch(1 0 0 / 70%)' }} />
+              </button>
+            </div>
+
+            <nav className="mobile-sheet__nav" aria-label="Mobile navigation">
+              <Link
+                href="/home"
+                className="mobile-sheet__link"
+                onClick={closeMobile}
+                aria-current={isActive('/home') ? 'page' : undefined}
+                data-active={isActive('/home') ? '' : undefined}
+              >
+                Home
+                <span className="mobile-sheet__dot" />
+              </Link>
+
+              {/* Photos — accordion */}
+              <button
+                className="mobile-sheet__link w-full text-left"
+                onClick={() => setMobilePhotosOpen((v) => !v)}
+                aria-expanded={mobilePhotosOpen}
+                data-active={photosActive ? '' : undefined}
+              >
+                Photos
+                <ChevronDown
+                  className="mobile-sheet__chevron"
+                  style={{ transform: mobilePhotosOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                />
+              </button>
+              <AnimatePresence>
+                {mobilePhotosOpen && (
+                  <motion.div
+                    className="mobile-sheet__sub"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: reduce ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <Link href="/photos" className="mobile-sheet__sub-link" onClick={closeMobile}>
+                      All Photos
+                    </Link>
+                    {PHOTOS_ITEMS.map((item) => (
                       <Link
+                        key={item.href}
                         href={item.href}
-                        className="mobile-menu__item"
-                        onClick={() => setMobileOpen(false)}
-                        aria-current={active ? 'page' : undefined}
+                        className="mobile-sheet__sub-link"
+                        onClick={closeMobile}
+                        data-active={isActive(item.href) ? '' : undefined}
                       >
-                        <span
-                          className="mobile-menu__label font-serif"
-                          style={{ color: active ? 'var(--amber)' : 'oklch(1 0 0 / 75%)' }}
-                        >
-                          {item.label}
-                        </span>
-                        {active && <span className="mobile-menu__active-dot" />}
+                        {item.label}
                       </Link>
-                    </motion.div>
-                  )
-                })}
-              </motion.nav>
-            </motion.div>
-          </>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Videos — accordion */}
+              <button
+                className="mobile-sheet__link w-full text-left"
+                onClick={() => setMobileVideosOpen((v) => !v)}
+                aria-expanded={mobileVideosOpen}
+                data-active={videosActive ? '' : undefined}
+              >
+                Videos
+                <ChevronDown
+                  className="mobile-sheet__chevron"
+                  style={{ transform: mobileVideosOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                />
+              </button>
+              <AnimatePresence>
+                {mobileVideosOpen && (
+                  <motion.div
+                    className="mobile-sheet__sub"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: reduce ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    {VIDEOS_ITEMS.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className="mobile-sheet__sub-link"
+                        onClick={closeMobile}
+                        data-active={isActive(item.href) ? '' : undefined}
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {FLAT_NAV.map((item) => {
+                const active = isActive(item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="mobile-sheet__link"
+                    onClick={closeMobile}
+                    aria-current={active ? 'page' : undefined}
+                    data-active={active ? '' : undefined}
+                  >
+                    {item.label}
+                    <span className="mobile-sheet__dot" />
+                  </Link>
+                )
+              })}
+            </nav>
+
+            {/* Quiet profile row */}
+            {user && (
+              <div className="mobile-sheet__footer flex items-center justify-between">
+                <Link
+                  href="/settings"
+                  onClick={closeMobile}
+                  className="flex items-center gap-2.5"
+                >
+                  {user.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={user.avatar_url}
+                      alt={user.display_name ?? ''}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold"
+                      style={{ background: 'var(--amber-muted)', color: 'var(--primary)' }}
+                    >
+                      {userInitial}
+                    </span>
+                  )}
+                  <span className="text-sm text-foreground">{user.display_name ?? 'Settings'}</span>
+                </Link>
+                <button
+                  onClick={() => logout.mutate()}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Sign out
+                </button>
+              </div>
+            )}
+          </motion.div>
         )}
       </AnimatePresence>
     </>

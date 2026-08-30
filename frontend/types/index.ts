@@ -8,6 +8,20 @@ export interface Album {
   // Phase 1 additions — may be absent from older cached responses
   excluded?: boolean
   section?: string | null
+  // redesign-v2 PR 7 — optional album metadata, additive backend fields.
+  // Never rendered as an empty placeholder when absent (see AlbumHeader /
+  // AlbumCard). No admin UI writes these yet — see docs/redesign-v2/STATE.md
+  // for the scope decision.
+  /**
+   * True only when an owner manually chose a cover. `cover_photo_id` may
+   * hold a deterministically auto-resolved id instead, so it can't be used
+   * to decide whether "Reset album cover" is meaningful.
+   */
+  has_custom_cover?: boolean
+  description?: string | null
+  location?: string | null
+  start_date?: string | null
+  end_date?: string | null
 }
 
 export interface Photo {
@@ -57,6 +71,9 @@ export interface ThrowbackGroup {
 export interface HomeFeed {
   hero_photos: Photo[]
   throwbacks: ThrowbackGroup[]
+  // Same calendar month, prior years, excluding exact-day matches (those
+  // are already in `throwbacks`) — real created_time data.
+  month_memories: ThrowbackGroup[]
   stats: MemoryStats
 }
 

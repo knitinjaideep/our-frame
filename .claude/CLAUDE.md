@@ -85,6 +85,16 @@ Sync must be idempotent:
 
 Schema changes must be backward compatible with existing local data whenever practical. Add lightweight SQLite migrations where SQLModel `create_all()` is insufficient.
 
+## UI / Design Source of Truth
+
+Before making any frontend/UI change, read `docs/OUR-FRAME-DESIGN-SYSTEM.md`
+in full. It is the mandatory, repository-level design reference for Our
+Frame, reconciled against the mockups in `docs/mockups/` (see
+`docs/mockups/README.md` for what each mockup governs) and against the
+token-level detail in `docs/design-system.md`. Do not invent a new visual
+direction, create page-specific themes, or drift from these documents —
+treat them as binding, not inspirational.
+
 ## Frontend Standards
 
 Follow the existing warm editorial memory-book design.

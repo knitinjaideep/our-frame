@@ -1,20 +1,9 @@
-'use client'
-import { useSections } from '@/hooks/use-sections'
-import { SectionWorldPage } from '@/components/sections/section-world-page'
+import { redirect } from 'next/navigation'
+import { BUCKETS } from '@/lib/buckets'
 
-export default function LifePage() {
-  const { data, isLoading, error } = useSections()
-
-  return (
-    <SectionWorldPage
-      albums={data?.life ?? []}
-      isLoading={isLoading}
-      error={error}
-      eyebrow="People & Moments"
-      heading="Life"
-      description="Friends, family, ordinary days. Everything that makes us us."
-      emptyMessage="No life albums found. Map a Google Drive folder to this section in Settings."
-      accentColor="muted"
-    />
-  )
+// See app/arjun/page.tsx — same reasoning, Life chapter. `/photography`
+// already redirected here before this PR; it now chains through to the
+// canonical `/albums/{bucketId}` route as well.
+export default function LifeRedirect() {
+  redirect(`/albums/${BUCKETS[3].id}`)
 }

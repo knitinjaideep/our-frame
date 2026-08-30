@@ -1,154 +1,68 @@
 'use client'
 import { use } from 'react'
-import Link from 'next/link'
-import { motion } from 'framer-motion'
-import { ChevronRight } from 'lucide-react'
 import { useAlbumDetail } from '@/hooks/use-albums'
-import { AlbumCard } from '@/components/albums/album-card'
-import { PhotoGrid } from '@/components/photos/photo-grid'
-import { PhotoGridSkeleton } from '@/components/photos/photo-grid-skeleton'
-import { AlbumGridSkeleton } from '@/components/albums/album-grid-skeleton'
-import { SectionReveal } from '@/components/ui/section-reveal'
+import { AlbumDetailTemplate, type AlbumDetailTemplateMeta } from '@/components/photos/album-detail-template'
+import { BUCKETS } from '@/lib/buckets'
+
+// The nav's Photos dropdown links each chapter straight to its Drive folder
+// id (see components/layout/top-nav.tsx PHOTOS_ITEMS). Every id — chapter
+// bucket or real leaf album/sub-album nested under one — renders through
+// the same `AlbumDetailTemplate` (docs/redesign-v2 PR 2); only the eyebrow/
+// description/empty-state copy differs per chapter, sourced from
+// `lib/buckets.ts` rather than four separate page components.
+// The four top-level chapter buckets are category *landing* pages (Home →
+// Photos → Arjun/Travel/Milestones/Life), not individual albums — flagged
+// `isCategory: true` so `AlbumDetailTemplate` renders the compact
+// `CategoryHeader` and the 3/2/1-column category folder grid (docs/
+// redesign-v2/PROMPTS.md PR 5) instead of the leaf-album `AlbumHeader` and
+// 4/3/2 grid. Any other id (a real album/sub-album id) falls through to
+// `BUCKET_META[id] === undefined`, i.e. the existing leaf-album treatment.
+const BUCKET_META: Record<string, AlbumDetailTemplateMeta> = {
+  [BUCKETS[0].id]: {
+    eyebrow: BUCKETS[0].eyebrow,
+    description: BUCKETS[0].description,
+    emptyMessage: 'No Arjun photos or albums found yet. Map a Google Drive folder to this section in Settings.',
+    // Age captions are a content-level opt-in kept from the removed
+    // `arjun-gallery.tsx`. They only apply if Arjun ever holds dated photos
+    // directly; harmless (and inert) while it does not — see below.
+    ageCaptions: true,
+    isCategory: true,
+    // All four chapter buckets are organizational in the real Drive tree:
+    // each one's only direct children are the structural `Photos`/`Videos`
+    // folders that `album_service._flatten_subfolders` unwraps, and none of
+    // them holds photos directly (verified against the real seeded DB during
+    // PR 8's review — `photo_count = 0` and `parent_folder_id` photo count =
+    // 0 for all four). Earlier entries in `docs/redesign-v2/STATE.md`
+    // asserted Arjun was the exception; that claim came from a removed
+    // component's code comment, not from data, and is not true here.
+    mayHavePhotos: false,
+  },
+  [BUCKETS[1].id]: {
+    eyebrow: BUCKETS[1].eyebrow,
+    description: BUCKETS[1].description,
+    emptyMessage: 'No travel albums found yet. Map a Google Drive folder to this section in Settings.',
+    isCategory: true,
+    mayHavePhotos: false,
+  },
+  [BUCKETS[2].id]: {
+    eyebrow: BUCKETS[2].eyebrow,
+    description: BUCKETS[2].description,
+    emptyMessage: 'No milestone albums found yet. Map a Google Drive folder to this section in Settings.',
+    isCategory: true,
+    mayHavePhotos: false,
+  },
+  [BUCKETS[3].id]: {
+    eyebrow: BUCKETS[3].eyebrow,
+    description: BUCKETS[3].description,
+    emptyMessage: 'No life albums found yet. Map a Google Drive folder to this section in Settings.',
+    isCategory: true,
+    mayHavePhotos: false,
+  },
+}
 
 export default function AlbumDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const { data, isLoading, error } = useAlbumDetail(id)
 
-  const hasSubfolders = (data?.subfolders?.length ?? 0) > 0
-  const hasPhotos = (data?.photos?.length ?? 0) > 0
-
-  return (
-    <div>
-      {/* ── Page header — same structure as /photos ── */}
-      <motion.div
-        className="content-padding pt-12 pb-16"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      >
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 text-xs mb-5" aria-label="Breadcrumb">
-          <Link
-            href="/home"
-            className="transition-colors"
-            style={{ color: 'var(--muted-foreground)' }}
-          >
-            Home
-          </Link>
-          <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--muted-foreground)', opacity: 0.4 }} />
-          <Link
-            href="/photos"
-            className="transition-colors"
-            style={{ color: 'var(--muted-foreground)' }}
-          >
-            Photos
-          </Link>
-          {data?.album && (
-            <>
-              <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--muted-foreground)', opacity: 0.4 }} />
-              <span style={{ color: 'var(--foreground)' }}>{data.album.name}</span>
-            </>
-          )}
-        </nav>
-
-        <p className="text-eyebrow-gold mb-3">Album</p>
-
-        {isLoading ? (
-          <div className="h-10 w-64 rounded skeleton-shimmer" />
-        ) : (
-          <h1 className="text-display-sm font-serif text-foreground">
-            {data?.album.name ?? 'Album'}
-          </h1>
-        )}
-
-        {!isLoading && hasPhotos && (
-          <p className="mt-3 text-sm text-muted-foreground max-w-md leading-relaxed">
-            {data!.photos.length} {data!.photos.length === 1 ? 'photo' : 'photos'}
-            {hasSubfolders && ` · ${data!.subfolders.length} ${data!.subfolders.length === 1 ? 'sub-album' : 'sub-albums'}`}
-          </p>
-        )}
-      </motion.div>
-
-      {error && (
-        <div className="content-padding mb-8">
-          <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-5 py-4 text-sm text-destructive">
-            Failed to load this album.
-          </div>
-        </div>
-      )}
-
-      {/* ── Content sections — same rhythm as /photos ── */}
-      <div className="pb-24">
-
-        {/* Sub-albums section */}
-        {isLoading ? (
-          <SectionReveal>
-            <section className="content-padding mb-20">
-              <div className="mb-10 space-y-1.5">
-                <div className="h-3 w-24 rounded skeleton-shimmer" />
-                <div className="h-8 w-48 rounded skeleton-shimmer" />
-              </div>
-              <AlbumGridSkeleton count={4} />
-            </section>
-          </SectionReveal>
-        ) : hasSubfolders && (
-          <SectionReveal>
-            <section className="content-padding mb-20">
-              <div className="flex items-end justify-between mb-10">
-                <div className="space-y-1.5">
-                  <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--amber)' }}>
-                    Inside this Album
-                  </p>
-                  <h2
-                    className="font-serif leading-[0.95]"
-                    style={{ fontSize: 'clamp(1.7rem, 3.2vw, 2.5rem)', fontStyle: 'italic', fontWeight: 500, color: 'var(--foreground)' }}
-                  >
-                    Sub-albums
-                  </h2>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
-                {data!.subfolders.map((album) => (
-                  <AlbumCard key={album.id} album={album} />
-                ))}
-              </div>
-            </section>
-          </SectionReveal>
-        )}
-
-        {/* Photos section */}
-        {isLoading ? (
-          <SectionReveal delay={0.04}>
-            <section className="content-padding mb-20">
-              <div className="mb-10 space-y-1.5">
-                <div className="h-3 w-24 rounded skeleton-shimmer" />
-                <div className="h-8 w-40 rounded skeleton-shimmer" />
-              </div>
-              <PhotoGridSkeleton count={12} />
-            </section>
-          </SectionReveal>
-        ) : hasPhotos && (
-          <SectionReveal delay={hasSubfolders ? 0.04 : 0}>
-            <section className="content-padding mb-20">
-              <div className="flex items-end justify-between mb-10">
-                <div className="space-y-1.5">
-                  <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--amber)' }}>
-                    Photos
-                  </p>
-                  <h2
-                    className="font-serif leading-[0.95]"
-                    style={{ fontSize: 'clamp(1.7rem, 3.2vw, 2.5rem)', fontStyle: 'italic', fontWeight: 500, color: 'var(--foreground)' }}
-                  >
-                    {data?.album.name}
-                  </h2>
-                </div>
-              </div>
-              <PhotoGrid photos={data!.photos} folderId={id} />
-            </section>
-          </SectionReveal>
-        )}
-
-      </div>
-    </div>
-  )
+  return <AlbumDetailTemplate id={id} data={data} isLoading={isLoading} error={error} meta={BUCKET_META[id]} />
 }

@@ -147,6 +147,44 @@
   --topbar-height: 3.25rem;  /* top nav height — all breakpoints */
 }
 
+/* ═══════════════════════════════════════════════════════
+   PR1 DESIGN SYSTEM TOKENS — spacing, motion, radius scale
+   Documented in docs/design-system.md ("Premium Cinematic
+   System"). These are theme-agnostic (same across presets).
+   ═══════════════════════════════════════════════════════ */
+:root {
+  /* ── Spacing scale ── */
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-24: 6rem;
+
+  /* Interior page container — photography pages may exceed this */
+  --container-max: 88rem; /* 1408px */
+
+  /* ── Motion tokens ── */
+  --motion-fast:     165ms; /* micro-interactions: hover, focus */
+  --motion-standard: 260ms; /* default transitions */
+  --motion-slow:     520ms; /* editorial reveals, image transitions */
+  --ease-standard:   cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out:     cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Respect reduced-motion preference across the app */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ── THEME: cool_dark — slate blue-charcoal ── */
 [data-theme="cool_dark"] {
   --background:               oklch(0.115 0.015 240);
@@ -260,6 +298,12 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Defensive safety net (PR 10, mobile polish): nothing in the app
+       should intentionally overflow the viewport width, but this catches
+       any future accidental fixed-width/100vw regression (the hero
+       slideshow's own `width: 100vw` was one such case) without affecting
+       any in-flow desktop layout. */
+    overflow-x: hidden;
   }
 
   body {
@@ -283,6 +327,13 @@
   ::selection {
     background: var(--amber-muted);
     color: var(--foreground);
+  }
+
+  /* Visible keyboard focus state — required across all interactive elements */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
   }
 }
 
@@ -335,6 +386,52 @@
     text-transform: uppercase;
     color: var(--amber);
   }
+
+  /* ── H1 — serif, editorial page titles ── */
+  .text-h1 {
+    font-size: clamp(2.75rem, 5.2vw, 3.75rem); /* 48–60px */
+    line-height: 1.06;
+    letter-spacing: -0.012em;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    color: var(--foreground);
+  }
+
+  /* ── H2 — serif, section titles ── */
+  .text-h2 {
+    font-size: clamp(2rem, 3.6vw, 2.5rem); /* 32–40px */
+    line-height: 1.12;
+    letter-spacing: -0.008em;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    color: var(--foreground);
+  }
+
+  /* ── H3 — sans, sub-section titles ── */
+  .text-h3 {
+    font-size: clamp(1.5rem, 2.4vw, 1.875rem); /* 24–30px */
+    line-height: 1.2;
+    letter-spacing: -0.004em;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    color: var(--foreground);
+  }
+
+  /* ── Body — sans, base reading text ── */
+  .text-body {
+    font-size: 0.9375rem; /* 15px */
+    line-height: 1.65;
+    font-family: var(--font-sans);
+    color: var(--foreground);
+  }
+
+  /* ── Small — sans, metadata / captions ── */
+  .text-small {
+    font-size: 0.8125rem; /* 13px */
+    line-height: 1.5;
+    font-family: var(--font-sans);
+    color: var(--muted-foreground);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -371,18 +468,23 @@
 
 /* ═══════════════════════════════════════════════════════
    HERO SLIDESHOW
-   Top nav overlays the hero — hero fills full viewport,
-   text sits above the nav via z-index layering.
+   Full-bleed — <main> applies no top padding on the Home route
+   (see conditional-shell.tsx), so the hero fills the viewport from y=0
+   and the fixed, transparent top nav floats directly over the
+   photograph. Text/controls sit above the nav via z-index layering.
+   Intentionally shorter than 100dvh (per docs/OUR-FRAME-DESIGN-SYSTEM.md
+   §7 / docs/redesign-v2/PROMPTS.md PR 3): ~78–84vh on desktop so the
+   floating chapter rail below reads as an intentional part of the
+   composition instead of being pushed off-screen.
    ═══════════════════════════════════════════════════════ */
 .hero-slideshow {
-  /* Subtract topbar so hero fills from below the nav */
-  height: calc(100dvh - var(--topbar-height));
+  height: 82dvh;
+  min-height: 30rem;
 }
-@media (min-width: 1024px) {
+@media (max-width: 640px) {
   .hero-slideshow {
-    /* On large screens the nav overlays the hero with glass effect */
-    height: 100dvh;
-    margin-top: calc(-1 * var(--topbar-height));
+    height: 78dvh;
+    min-height: 26rem;
   }
 }
 
@@ -391,7 +493,7 @@
    ═══════════════════════════════════════════════════════ */
 @keyframes kenBurns {
   0%   { transform: scale(1.0); }
-  100% { transform: scale(1.10); }
+  100% { transform: scale(1.03); }
 }
 
 @keyframes shimmer {
@@ -467,7 +569,10 @@
 }
 
 /* ═══════════════════════════════════════════════════════
-   TOP NAV — single premium navigation bar, all breakpoints
+   TOP NAV — quiet, restrained, near-invisible navigation
+   Two variants via data-variant attribute:
+     "transparent" — floats over the Home hero photograph
+     "solid"       — near-black surface on interior pages
    ═══════════════════════════════════════════════════════ */
 .top-nav {
   position: fixed;
@@ -480,30 +585,23 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 1.25rem;
-  background: oklch(0.10 0.006 48 / 82%);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  border-bottom: 1px solid oklch(1 0 0 / 6%);
-  /* Gold shimmer along bottom edge + warm downward glow */
-  box-shadow:
-    0 1px 0 oklch(0.70 0.145 58 / 18%),
-    0 4px 32px oklch(0 0 0 / 22%),
-    0 8px 48px oklch(0.70 0.145 58 / 4%);
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition:
+    background-color var(--motion-standard) var(--ease-standard),
+    border-color var(--motion-standard) var(--ease-standard);
 }
 
-/* Faint warm gradient wash across the bar */
-.top-nav::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to right,
-    oklch(0.70 0.145 58 / 3%) 0%,
-    transparent 30%,
-    transparent 70%,
-    oklch(0.70 0.145 58 / 2%) 100%
-  );
-  pointer-events: none;
+.top-nav[data-variant="solid"] {
+  background: oklch(0.09 0.006 46 / 96%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+
+.top-nav[data-variant="transparent"] {
+  background: linear-gradient(to bottom, oklch(0.05 0.006 46 / 55%), transparent);
+  border-bottom: 1px solid transparent;
 }
 
 /* ── Logo ── */
@@ -519,12 +617,12 @@
 }
 
 .top-nav__wordmark {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-style: italic;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   line-height: 1;
-  /* Inherits text-gold-shimmer class applied inline */
+  color: var(--foreground);
 }
 
 /* Surname beneath wordmark — very small, tracked, restrained */
@@ -533,7 +631,10 @@
   font-weight: 500;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: oklch(0.70 0.145 58 / 55%);
+  /* Brighter bronze at this 8px size — the dimmer --amber at low opacity
+     falls well under AA contrast on the near-black bar. */
+  color: var(--amber-bright);
+  opacity: 0.85;
   line-height: 1;
 }
 
@@ -565,46 +666,31 @@
   font-size: 0.72rem;
   font-weight: 500;
   letter-spacing: 0.06em;
-  color: oklch(1 0 0 / 38%);
+  color: oklch(1 0 0 / 48%);
   text-decoration: none;
-  transition: color 0.22s ease, background 0.22s ease;
+  transition: color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
   white-space: nowrap;
-  border-radius: 0.45rem;
+  border-radius: var(--radius-sm);
   margin: 0 0.05rem;
 }
 .top-nav__link:hover {
-  color: oklch(0.10 0.010 46);
-  background: linear-gradient(
-    135deg,
-    oklch(0.80 0.130 64 / 92%) 0%,
-    oklch(0.70 0.145 58 / 95%) 50%,
-    oklch(0.62 0.115 52 / 90%) 100%
-  );
-  box-shadow:
-    0 0 14px oklch(0.70 0.145 58 / 30%),
-    inset 0 1px 0 oklch(0.84 0.135 70 / 40%);
+  color: oklch(1 0 0 / 82%);
+  background: oklch(1 0 0 / 5%);
 }
 .top-nav__link[data-active] {
-  color: oklch(1 0 0 / 88%);
+  color: var(--foreground);
 }
 
-/* Gold underline — animated via framer-motion layoutId */
+/* Restrained bronze underline — no glow, animated via framer-motion layoutId */
 .top-nav__active-bar {
   position: absolute;
-  bottom: 0;
-  left: 0.45rem;
-  right: 0.45rem;
-  height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(
-    to right,
-    oklch(0.70 0.145 58 / 40%),
-    oklch(0.84 0.135 70)  30%,
-    oklch(0.90 0.120 72)  50%,
-    oklch(0.84 0.135 70)  70%,
-    oklch(0.70 0.145 58 / 40%)
-  );
-  box-shadow: 0 0 10px oklch(0.70 0.145 58 / 55%), 0 0 20px oklch(0.70 0.145 58 / 20%);
+  bottom: 0.4rem;
+  left: 0.95rem;
+  right: 0.95rem;
+  height: 1.5px;
+  border-radius: 1px;
+  background: var(--amber);
+  opacity: 0.8;
 }
 
 /* ── Dropdown host — positions the flyout ── */
@@ -622,7 +708,7 @@
   /* inherits .top-nav__link */
 }
 .top-nav__link--btn-active {
-  color: oklch(1 0 0 / 88%);
+  color: var(--foreground);
 }
 
 /* Chevron icon inside dropdown trigger */
@@ -630,15 +716,14 @@
   width: 0.7rem;
   height: 0.7rem;
   opacity: 0.45;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition: transform var(--motion-fast) var(--ease-standard), opacity var(--motion-fast) var(--ease-standard);
   flex-shrink: 0;
 }
 .top-nav__link--btn:hover .top-nav__chevron {
-  opacity: 0.55;
-  color: oklch(0.10 0.010 46);
+  opacity: 0.7;
 }
 
-/* ── Flyout dropdown panel ── */
+/* ── Flyout dropdown panel — elegant, restrained ── */
 .nav-dropdown {
   position: absolute;
   top: calc(var(--topbar-height) - 0.15rem);
@@ -646,35 +731,14 @@
   transform: translateX(-50%);
   z-index: 60;
   min-width: 14rem;
-  border-radius: 1rem;
-  background: oklch(0.12 0.008 48 / 97%);
-  backdrop-filter: blur(32px) saturate(1.3);
-  -webkit-backdrop-filter: blur(32px) saturate(1.3);
-  border: 1px solid oklch(1 0 0 / 9%);
-  box-shadow:
-    0 12px 48px oklch(0 0 0 / 55%),
-    0 2px 12px oklch(0 0 0 / 30%),
-    inset 0 1px 0 oklch(1 0 0 / 6%),
-    0 0 0 1px oklch(0.70 0.145 58 / 6%);
+  border-radius: var(--radius-xl);
+  background: oklch(0.10 0.007 48 / 98%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 32px oklch(0 0 0 / 32%);
   padding: 0.5rem 0;
   overflow: hidden;
-}
-
-/* Faint gold line at top of dropdown */
-.nav-dropdown::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 1.25rem;
-  right: 1.25rem;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    oklch(0.72 0.105 62 / 40%) 30%,
-    oklch(0.72 0.105 62 / 40%) 70%,
-    transparent
-  );
 }
 
 .nav-dropdown__item {
@@ -683,7 +747,7 @@
   gap: 0.1rem;
   padding: 0.65rem 1.1rem;
   text-decoration: none;
-  transition: background 0.15s ease;
+  transition: background var(--motion-fast) var(--ease-standard);
 }
 .nav-dropdown__item:hover {
   background: oklch(1 0 0 / 4%);
@@ -697,8 +761,8 @@
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--amber);
-  opacity: 0.7;
+  color: var(--amber-bright);
+  opacity: 0.85;
 }
 
 .nav-dropdown__label {
@@ -707,7 +771,7 @@
   font-size: 0.9rem;
   font-weight: 500;
   color: oklch(1 0 0 / 72%);
-  transition: color 0.15s ease;
+  transition: color var(--motion-fast) var(--ease-standard);
   letter-spacing: 0.01em;
 }
 
@@ -716,13 +780,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.1rem;
-  height: 2.1rem;
-  border-radius: 0.6rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-sm);
   background: oklch(1 0 0 / 5%);
-  border: 1px solid oklch(1 0 0 / 8%);
+  border: 1px solid var(--border);
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: background var(--motion-fast) var(--ease-standard);
   flex-shrink: 0;
   z-index: 1;
 }
@@ -736,77 +800,108 @@
 }
 
 /* ═══════════════════════════════════════════════════════
-   MOBILE COMPACT MENU — drops from top-right corner
+   MOBILE NAVIGATION — full-screen sheet
+   Large serif links, optional Photos accordion, quiet
+   profile row. No bottom nav (per redesign mobile spec).
    ═══════════════════════════════════════════════════════ */
-.mobile-menu {
+.mobile-sheet {
   position: fixed;
-  top: calc(var(--topbar-height) + 0.5rem);
-  right: 0.75rem;
-  z-index: 45;
-  width: 12rem;
-  border-radius: 1.1rem;
-  background: oklch(0.13 0.007 48 / 98%);
-  backdrop-filter: blur(32px) saturate(1.2);
-  -webkit-backdrop-filter: blur(32px) saturate(1.2);
-  border: 1px solid oklch(1 0 0 / 8%);
-  box-shadow:
-    0 8px 40px oklch(0 0 0 / 50%),
-    0 2px 12px oklch(0 0 0 / 30%),
-    inset 0 1px 0 oklch(1 0 0 / 6%);
-  padding: 0.4rem 0;
-  overflow: hidden;
-}
-
-/* Amber accent line at top */
-.mobile-menu::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 1.25rem;
-  right: 1.25rem;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    oklch(0.72 0.105 62 / 45%) 30%,
-    oklch(0.72 0.105 62 / 45%) 70%,
-    transparent
-  );
-}
-
-.mobile-menu__nav {
+  inset: 0;
+  z-index: 70;
+  background: oklch(0.07 0.006 46 / 98%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   display: flex;
   flex-direction: column;
-  padding: 0.2rem 0;
 }
 
-.mobile-menu__item {
+.mobile-sheet__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.65rem 1rem;
-  text-decoration: none;
-  transition: background 0.15s ease;
-}
-.mobile-menu__item:hover {
-  background: oklch(1 0 0 / 4%);
+  height: var(--topbar-height);
+  padding: 0 1.25rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
-.mobile-menu__label {
-  font-size: 0.875rem;
+.mobile-sheet__nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 1.5rem 1.75rem;
+  overflow-y: auto;
+}
+
+.mobile-sheet__link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 0;
+  font-family: var(--font-serif);
   font-style: italic;
+  font-size: clamp(1.6rem, 7vw, 2.1rem);
   font-weight: 500;
-  letter-spacing: 0.01em;
-  line-height: 1.15;
+  color: oklch(1 0 0 / 80%);
+  text-decoration: none;
+  border-bottom: 1px solid oklch(1 0 0 / 6%);
+  transition: color var(--motion-fast) var(--ease-standard);
+}
+.mobile-sheet__link[data-active] {
+  color: var(--foreground);
 }
 
-.mobile-menu__active-dot {
-  width: 4px;
-  height: 4px;
+.mobile-sheet__dot {
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--amber);
-  box-shadow: 0 0 6px oklch(0.72 0.105 62 / 60%);
+  opacity: 0;
   flex-shrink: 0;
+}
+.mobile-sheet__link[data-active] .mobile-sheet__dot {
+  opacity: 0.9;
+}
+
+.mobile-sheet__chevron {
+  width: 1rem;
+  height: 1rem;
+  opacity: 0.4;
+  flex-shrink: 0;
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+.mobile-sheet__sub {
+  display: flex;
+  flex-direction: column;
+  padding: 0.15rem 0 0.6rem 0.25rem;
+  gap: 0.05rem;
+}
+
+.mobile-sheet__sub-link {
+  font-family: var(--font-sans);
+  font-style: normal;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: oklch(1 0 0 / 52%);
+  padding: 0.55rem 0;
+  text-decoration: none;
+  transition: color var(--motion-fast) var(--ease-standard);
+}
+.mobile-sheet__sub-link[data-active],
+.mobile-sheet__sub-link:hover {
+  color: oklch(1 0 0 / 85%);
+}
+
+.mobile-sheet__footer {
+  flex-shrink: 0;
+  padding: 1rem 1.75rem 1.5rem;
+  border-top: 1px solid var(--border);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -863,7 +958,12 @@
 /* Title overlaid on image bottom */
 .album-card__overlay-title {
   position: absolute;
-  inset-x: 0;
+  /* `inset-x` is a Tailwind utility name, not a CSS property — it was being
+     dropped, leaving this block shrink-to-fit. The metadata line added in
+     PR 7 uses `truncate`, which needs a real width constraint to ellipsize
+     rather than clip at the card edge. */
+  left: 0;
+  right: 0;
   bottom: 0;
   padding: 1rem 1.1rem 0.9rem;
   z-index: 2;
@@ -1119,16 +1219,12 @@
    ═══════════════════════════════════════════════════════ */
 .card-lift {
   transition:
-    transform 0.42s cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+    transform var(--motion-standard) var(--ease-standard),
+    box-shadow var(--motion-standard) var(--ease-standard);
 }
 .card-lift:hover {
-  transform: translateY(-6px) scale(1.008);
-  box-shadow:
-    0 16px 48px oklch(0 0 0 / 50%),
-    0 4px 16px oklch(0 0 0 / 30%),
-    0 0 0 1px oklch(0.70 0.145 58 / 12%),
-    0 0 40px oklch(0.70 0.145 58 / 8%);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px oklch(0 0 0 / 30%);
 }
 
 /* Album card glow — intensifies the existing .album-card-glow on hover */
