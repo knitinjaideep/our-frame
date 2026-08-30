@@ -83,7 +83,7 @@ work does not change them.)
 | 2 | Shared Photos Architecture | Verified — PASS | redesign-v2/pr-2-photos-architecture | 4ea1614 |
 | 3 | Home Page | Verified — PASS | redesign-v2/pr-3-home | 3a700bb |
 | 4 | Photos Overview | Verified — PASS | redesign-v2/pr-4-photos-overview | 78e8607 |
-| 5 | Category Pages | Reviewed — PASS WITH FIXES | redesign-v2/pr-5-category-pages | — |
+| 5 | Category Pages | Verified — PASS | redesign-v2/pr-5-category-pages | 8492caa |
 | 6 | Album Pages | Pending | redesign-v2/pr-6-album-pages | — |
 | 7 | Metadata, Thumbnail Selection, Image Quality | Pending | redesign-v2/pr-7-metadata-covers | — |
 | 8 | Final Consistency Audit | Pending | redesign-v2/pr-8-consistency-audit | — |
@@ -1327,3 +1327,37 @@ Before continuing:
   shows only its photo count; honest but incomplete, and superseded once PR
   7 adds real location/date metadata to the secondary slot. (iv) Live
   authenticated view with real Drive thumbnails is still unseen.
+
+- 2026-08-30: Verified PR 5 (`our-frame-verifier`) — **PASS**. Independently verified all reviewer fixes and implementation claims against the actual code:
+
+  (a) **Breadcrumb extraction to shared component:** `frontend/components/photos/breadcrumbs.tsx` exists with `BreadcrumbItem` interface and `Breadcrumbs` component. Both `CategoryHeader` (line 2) and `AlbumHeader` (line 2) import `Breadcrumbs` and `BreadcrumbItem` from this file. `AlbumHeader` re-exports `BreadcrumbItem` (line 4) for backward compatibility with existing importers. No byte-identical breadcrumb JSX duplicated between the two headers — both consume the single `Breadcrumbs` component.
+
+  (b) **AlbumHeader docstring corrected:** `AlbumHeader`'s docstring (lines 22–36) no longer falsely claims it is "the single shared header used by every category landing page." Instead, it states "Category *landing* pages use `CategoryHeader` ... instead" and explains the architectural reason for separation (§17 names both as distinct, and §10 requires the album header to eventually sit on a full-bleed cover photo, which a category page must not inherit). The dead `PhotoSectionHeader` alias has been removed (no re-export present in the file).
+
+  (c) **`AlbumGrid` variant implementation correct:**
+    - Line 15 defines `variant?: 'default' | 'category'` prop
+    - Line 24-26: `'category'` = `'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3'` (1/2/3 across mobile/tablet/desktop, matching brief requirement)
+    - Line 26: `'default'` = `'grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4'` (unchanged 2/3/4 pre-existing layout)
+    - Line 18: default is `'default'`, preserving existing caller behavior
+
+  (d) **Only category buckets pass `variant='category'`:** Grepped `AlbumGrid` usage across frontend (`frontend/components/albums/album-grid.tsx`, `frontend/components/photos/album-detail-template.tsx` line 170, `frontend/components/photos/folder-grid.tsx` line 15 re-export, `frontend/components/sections/section-world-page.tsx`). AlbumDetailTemplate (line 170) passes `variant={isCategory ? 'category' : 'default'}`. SectionWorldPage (legacy Videos) passes no variant, defaults to 'default'. No other consumers touch AlbumGrid. Only the four category buckets set `isCategory: true` (confirmed below).
+
+  (e) **Exactly four category buckets have `isCategory: true`:** Read `frontend/app/albums/[id]/page.tsx`. Lines 20–48 define `BUCKET_META` with exactly four entries: `BUCKETS[0]` (Arjun, line 28), `BUCKETS[1]` (Travel, line 34), `BUCKETS[2]` (Milestones, line 40), `BUCKETS[3]` (Life, line 46) — each with `isCategory: true`. Any other album id falls through to `BUCKET_META[id] === undefined`, so no other page renders with category treatment.
+
+  (f) **AlbumCard glyph and count line:** `frontend/components/albums/album-card.tsx`:
+    - Line 4: imports `Folder` glyph from lucide-react
+    - Lines 126–132: Renders `<Folder>` glyph with `items-baseline gap-1.5` (baseline alignment with the folder name), `translate-y-[0.1em]` fine-tuning, and the name in a `min-w-0` span (so it wraps correctly when long, verified against board 3 edge cases)
+    - Lines 134–146: Renders count line with `textShadow: '0 1px 8px oklch(0 0 0 / 60%)'` matching the name's treatment for legibility over bright thumbnails
+
+  (g) **Hover effects are consistent:** Lines 120–124 show the entire `album-card__overlay-title` wrapper (which contains both name and count lines, lines 126–146) receives `transform: hovered ? 'translateY(0)' : 'translateY(3px)'` and opacity changes. Both name and count animate together as one block, no 3px position mismatch.
+
+  (h) **Test harness cleaned up:** `ls -la frontend/app/login/` shows only `page.tsx` (278 bytes, unchanged canonical login gate). No `pr5-harness` route exists anywhere in the tree. `npm run build` output (routes list) shows exactly 26 routes: all existing routes present, no `/login/pr5-harness/*` additions.
+
+  (i) **`folderCountLabel()` logic validated against backend schema:** `backend/schemas/album.py` confirms `AlbumSummary` has `photo_count: Optional[int]` (count of direct photos) and `child_count: Optional[int]` (count of sub-folders). The helper (lines 18–26) correctly returns: (1) `"N items"` if `photo_count > 0`; (2) `"N albums"` if `child_count > 0` and no photo_count; (3) `undefined` if both absent. Honest semantics, no fabricated data.
+
+  (j) **Scope held — no backend changes, no PR 6/7 work:** `git diff --stat redesign-v2/pr-4-photos-overview..HEAD` shows 9 files: 7 frontend component files, 1 page file, 1 state doc. No backend files, no .env/.db/token files, no changes in PR 6 (album pages) or PR 7 (metadata/covers) territory.
+
+  (k) **Checks run:** `npx tsc --noEmit` → clean (no output). `npx eslint app/albums components/photos components/albums` → 0 errors, 3 pre-existing warnings (all unrelated: two `<img>`-vs-`next/image` in album-card.tsx and photo-card.tsx, one unused var in album-cover-fallback.tsx — none introduced by this PR). `npm run build` → passes with all 26 routes present and no stray test routes.
+
+  All acceptance criteria met: one shared category page shell used by all four category buckets, compact `CategoryHeader` component separate from `AlbumHeader` with shared breadcrumb logic extracted, Milestones timeline and Life separate theme removed (was done in PR 2), folder grid uniform across categories (1/2/3 columns via `variant='category'`), fold card anatomy applied globally (glyph + count line), existing URLs and data preserved, build passes. No defects found; PR 5 ready for merge decision.
+
