@@ -1,6 +1,6 @@
 # Our Frame Redesign V2 State
 
-Status: PR 1 reviewed — PASS WITH FIXES (awaiting verification)
+Status: PR 1 verified — PASS
 
 Last updated: 2026-08-30
 
@@ -79,7 +79,7 @@ work does not change them.)
 
 | PR | Name | Status | Branch | Commit |
 |---|---|---|---|---|
-| 1 | Design Memory / Source of Truth | Reviewed — PASS WITH FIXES (awaiting verify) | redesign-v2/pr-1-design-memory | cf66a1c + review fixes |
+| 1 | Design Memory / Source of Truth | Verified — PASS | redesign-v2/pr-1-design-memory | 361a7ea |
 | 2 | Shared Photos Architecture | Pending | redesign-v2/pr-2-photos-architecture | — |
 | 3 | Home Page | Pending | redesign-v2/pr-3-home | — |
 | 4 | Photos Overview | Pending | redesign-v2/pr-4-photos-overview | — |
@@ -90,9 +90,9 @@ work does not change them.)
 
 ## Next Action
 
-PR 1 is implemented and reviewed (PASS WITH FIXES) on
-`redesign-v2/pr-1-design-memory`, awaiting `our-frame-verifier`. Do not
-start PR 2 until PR 1 is verified and the user decides on merge sequencing.
+PR 1 is implemented, reviewed (PASS WITH FIXES), and verified (PASS) on
+`redesign-v2/pr-1-design-memory`. Ready for user decision on merge
+sequencing. Do not start PR 2 until the user approves.
 
 ## Completed Checks
 
@@ -164,6 +164,27 @@ start PR 2 until PR 1 is verified and the user decides on merge sequencing.
   and added a deviation section to `docs/mockups/README.md` so an
   implementer opening the mockup sees it at the point of use. No product,
   hosting, or privacy decision was needed; nothing blocked.
+
+- 2026-08-30: Verified PR 1 (`our-frame-verifier`) — **PASS**. Independently
+  verified all reviewer fixes were correctly applied: (a) §10 now correctly
+  names the alternate example as "Milestones" (2015–2025), not "Milestones
+  → Engagement"; (b) §10 now includes full-bleed cover photo with gradient
+  scrim, icon'd location/date row, and Filter/Sort/View-density controls;
+  (c) §9 now explicitly marks the 4-vs-3 column count as a "real conflict
+  between image and text, not a rendering artifact"; (d) §8 now correctly
+  states board 2's mobile cards are shorter/wider than desktop, and includes
+  the "View all photos →" link; (e) §7 now has a clearly flagged `###`
+  subsection for "Recently Captured" deviation listing disallowed aliases
+  ("Recently Captured", "Latest Frames", "Recent Memories", "Recently
+  Added"); (f) mockups/README.md now carries the deviation note prominently.
+  All 5 acceptance criteria met: OUR-FRAME-DESIGN-SYSTEM.md created with
+  clean structure, .claude/CLAUDE.md points without duplicating, mockups/
+  README.md documents all 5 files with governance, docs/design-system.md
+  confirmed compatible and left untouched (git diff shows no modification),
+  all 5 mockups visibly inspected. `npm run build` passes cleanly. `git diff
+  --stat` shows zero code changes, only documentation and mockup images.
+  Commit 361a7ea contains all fixes. No defects found; PR 1 is ready for
+  merge decision.
 
 ## Open Questions
 
