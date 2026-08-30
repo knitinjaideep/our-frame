@@ -1,6 +1,6 @@
 # Our Frame Redesign V2 State
 
-Status: PR 3 reviewed (PASS WITH FIXES) — pending verification
+Status: PR 3 verified — PASS
 
 Last updated: 2026-08-30
 
@@ -81,7 +81,7 @@ work does not change them.)
 |---|---|---|---|---|
 | 1 | Design Memory / Source of Truth | Verified — PASS | redesign-v2/pr-1-design-memory | 361a7ea |
 | 2 | Shared Photos Architecture | Verified — PASS | redesign-v2/pr-2-photos-architecture | 4ea1614 |
-| 3 | Home Page | Reviewed — PASS WITH FIXES (pending verify) | redesign-v2/pr-3-home | 9959358 |
+| 3 | Home Page | Verified — PASS | redesign-v2/pr-3-home | 3a700bb |
 | 4 | Photos Overview | Pending | redesign-v2/pr-4-photos-overview | — |
 | 5 | Category Pages | Pending | redesign-v2/pr-5-category-pages | — |
 | 6 | Album Pages | Pending | redesign-v2/pr-6-album-pages | — |
@@ -90,17 +90,11 @@ work does not change them.)
 
 ## Next Action
 
-PR 1 is implemented, reviewed (PASS WITH FIXES), and verified (PASS) on
-`redesign-v2/pr-1-design-memory`. PR 2 (Shared Photos Architecture) is
-implemented, reviewed (PASS WITH FIXES), and verified (**PASS**) on
-`redesign-v2/pr-2-photos-architecture`. PR 3 (Home Page) is now
-**implemented** on `redesign-v2/pr-3-home` (branched from
-`redesign-v2/pr-2-photos-architecture`, per plan) — duplicate category
-navigation removed, slideshow framing/hero-height/Ken-Burns fixed, no
-"Recently Captured" section added. It has now been **reviewed — PASS WITH
-FIXES** (`our-frame-reviewer`, 2026-08-30; five defects fixed in review, see
-the log entry below). Next step is `our-frame-verifier` on PR 3, before
-starting PR 4.
+PR 1, PR 2, and PR 3 are all implemented, reviewed (PASS WITH FIXES), and verified (PASS).
+PR 1 (Design Memory / Source of Truth) is on `redesign-v2/pr-1-design-memory` (commit 361a7ea).
+PR 2 (Shared Photos Architecture) is on `redesign-v2/pr-2-photos-architecture` (commit 4ea1614).
+PR 3 (Home Page) is on `redesign-v2/pr-3-home` (commit 3a700bb) — ready for merge decision.
+All three are complete and ready; next step is starting PR 4 (Photos Overview) once these have merge/deployment decisions.
 
 ## Completed Checks
 
@@ -701,6 +695,35 @@ starting PR 4.
   codebase-wide `<img>`-vs-`next/image` warnings, and one pre-existing
   `setState`-in-effect error in `home-setup-view.tsx`, untouched by this PR);
   `npm run build` passes with all 26 routes.
+
+
+- 2026-08-30: Verified PR 3 (`our-frame-verifier`) — **PASS**. Independently verified all reviewer fixes and implementation claims against the actual code:
+
+  (a) **Cross-fade is genuinely a single keyed array:** `slideStack` (line 109) renders both incoming and outgoing slides in one array rather than two separate JSX slots, preserving the outgoing node so the 1400ms opacity transition (line 295) actually runs. Verified by reading the slide-rendering loop and the stacking logic (lines 114–125).
+
+  (b) **Ken Burns animation gated only on `reduce`, not on `active`:** Line 343 shows `animation: reduce ? 'none' : 'kenBurns 10s ease-out forwards'`, exactly as required. The comment at lines 338–342 explicitly explains why it's not gated on `active` (slide node only exists while active, so gating on `active` would snap it back during fade-out).
+
+  (c) **No dead `minHeight: 540` inline style:** Both the empty-state section (lines 62–94) and the live hero (lines 112–268) in hero-slideshow.tsx carry no inline `style={{ minHeight: ... }}` that would override the stylesheet. The comment at lines 57–60 explicitly explains that inline `minHeight` is deliberately omitted to let `.hero-slideshow` from globals.css be the single source of truth.
+
+  (d) **Blurred backdrop uses blur(40px)/scale(1.45):** Line 319 confirms `filter: 'blur(40px) brightness(0.55) saturate(1.05)', transform: 'scale(1.45)'`. The comment at lines 308–313 documents the math: blur radius ~3× (so ~120px reach), margin ~105px at real hero height, overscale 1.45 covers it cleanly, verified in headless Chrome at 1440×738.
+
+  (e) **Autoplay respects prefers-reduced-motion:** Lines 42–44 confirm `if (reduce) return` before setting autoplay interval, with an explicit comment (lines 38–41) explaining the rationale: unattended full-bleed slideshow is exactly the moving content prefers-reduced-motion asks us to stop. Prev/next and dots still work, so content stays reachable.
+
+  (f) **Hero height 78–84vh:** globals.css lines 481–489 show `height: 82dvh` desktop / `min-height: 30rem`, and `height: 78dvh` / `min-height: 26rem` on mobile (≤640px), both within the target range with reasonable floors.
+
+  (g) **Ken Burns keyframes scale(1.0) → scale(1.03):** globals.css lines 494–497 show `@keyframes kenBurns` with `0% { transform: scale(1.0); }` and `100% { transform: scale(1.03); }`, within the docs/OUR-FRAME-DESIGN-SYSTEM.md §7 range of scale(1.02)–(1.04) and the 10s duration (8–12s range).
+
+  (h) **Duplicate category navigation removed:** `grep -rn "BucketCard"` over `app/` and `components/` returns only the definition in `components/buckets/bucket-card.tsx` and a comment in home-feed-view.tsx (line 99) explaining its removal. The four categories (Arjun/Travel/Milestones/Life) appear exactly once, in the `ChapterCard` rail (home-feed-view.tsx lines 108–132).
+
+  (i) **No "Recently Captured"-style section:** `git diff` shows only Home files changed. Grepped entire frontend for "recently captured", "latest frames", "recent memories", "recently added" (case-insensitive) — zero matches on Home page itself (matches in /favorites and /memories are pre-existing explanatory comments, not sections). home-feed-view.tsx flow (lines 106–297) is hero → chapter rail → sync/error chrome → Family Films → "Moments That Stay" (calendar-day anniversary, not recency-based — confirmed by tracing backend query to `photo_repo.get_by_month_day()` filtering on `created_time.year < current_year`, so it cannot surface current-year uploads).
+
+  (j) **`git diff --stat` touches only Home files:** Four files changed: `frontend/app/globals.css`, `frontend/components/home/hero-slideshow.tsx`, `frontend/components/home/home-feed-view.tsx`, and `docs/redesign-v2/STATE.md`. Photos, Albums, Favorites, Memories, Videos all untouched; no backend, auth, media-cache, or drive-sync code changed. No `.env`, tokens, databases, or generated media files committed.
+
+  (k) **Checks run:** `npm run build` passes cleanly with all 26 routes (including `/home`). `npx tsc --noEmit` during build: clean. `npx eslint` on touched files: 2 pre-existing `<img>`-vs-`next/image` warnings (architectural decision for slideshow performance, same pattern throughout codebase, not new to PR 3; reviewer noted these were expected).
+
+  (l) **Dev server startup:** Frontend builds and starts on localhost:3000 without errors (backend unavailable, so cannot fully render authenticated Home page with real media, but build integrity confirmed).
+
+  All acceptance criteria met: duplicate navigation removed, slideshow framing fixed (full-frame + blurred backdrop), hero height reduced (78–84vh), Ken Burns corrected (scale 1–1.03 over 10s, no aggressive panning), cross-fade real (single keyed array), prev/next/dots/autoplay preserved, autoplay respects prefers-reduced-motion, no "Recently Captured" section, "Moments That Stay" correctly identified as non-recency feature. No defects found; PR 3 is ready for merge decision.
 
 ## Open Questions
 
