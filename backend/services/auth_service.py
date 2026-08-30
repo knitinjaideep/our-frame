@@ -63,7 +63,7 @@ def build_login_flow(state: Optional[str] = None) -> Flow:
 
 def get_google_user_info(credentials) -> dict:
     """Fetch user profile from Google using the login credentials."""
-    service = build("oauth2", "v2", credentials=credentials)
+    service = build("oauth2", "v2", credentials=credentials, static_discovery=False)
     return service.userinfo().get().execute()
 
 

@@ -132,7 +132,7 @@ def exchange_code_for_credentials(code: str, redirect_uri: Optional[str] = None)
 def get_drive(creds: Optional[Credentials] = None):
     if creds is None:
         creds = get_credentials()
-    return build("drive", "v3", credentials=creds)
+    return build("drive", "v3", credentials=creds, static_discovery=False)
 
 
 def list_photos(folder_id: Optional[str] = None, page_token: Optional[str] = None) -> Dict[str, Any]:

@@ -131,7 +131,7 @@ def drive_connect_callback(
     google_account_email = None
     try:
         from googleapiclient.discovery import build as _build
-        svc = _build("oauth2", "v2", credentials=creds)
+        svc = _build("oauth2", "v2", credentials=creds, static_discovery=False)
         info = svc.userinfo().get().execute()
         google_account_email = info.get("email")
     except Exception:

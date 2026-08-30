@@ -187,7 +187,7 @@ def get_drive_service_for_workspace(db: Session, workspace_id: int):
             db.commit()
             raise ValueError(f"Drive token refresh failed: {exc}") from exc
 
-    return build("drive", "v3", credentials=creds)
+    return build("drive", "v3", credentials=creds, static_discovery=False)
 
 
 def update_root_folder(db: Session, workspace_id: int, root_folder_id: str) -> DriveConnection:

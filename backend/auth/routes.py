@@ -160,7 +160,7 @@ def auth_callback(
     if not google_info or not google_info.get("email"):
         try:
             from googleapiclient.discovery import build as _build
-            svc = _build("oauth2", "v2", credentials=creds)
+            svc = _build("oauth2", "v2", credentials=creds, static_discovery=False)
             info = svc.userinfo().get().execute()
             google_info = {
                 "sub": info.get("id"),
