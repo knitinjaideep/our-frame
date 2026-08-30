@@ -1,9 +1,13 @@
 # Our Frame Redesign V2 State
 
-Status: PR 7 reviewed — PASS WITH FIXES (pending verifier). (PR 6's "Completed Checks" entry
-at the bottom of this file records a verifier PASS at commit `bb95b1b`, even
-though this line hadn't been updated to say so — leaving that pre-existing
-inconsistency noted here rather than silently rewriting history above.)
+Status: PR 8 reviewed — **PASS WITH FIXES**. This is the final PR of the
+8-PR redesign-v2 initiative; see the reviewer entry at the bottom of this
+file for the capstone summary and the list of what remains open. PR 7 is
+fully verified
+— PASS (see the verifier entry at commit `f2fac3a` near the bottom of the PR
+7 section) — the note previously here about this summary line lagging PR 6's
+verifier result is now stale and left in place below only as a record of a
+prior transient inconsistency, not a live one.
 
 Last updated: 2026-08-30
 
@@ -89,7 +93,7 @@ work does not change them.)
 | 5 | Category Pages | Verified — PASS | redesign-v2/pr-5-category-pages | 8492caa |
 | 6 | Album Pages | Verified — PASS | redesign-v2/pr-6-album-pages | 8e43986 |
 | 7 | Metadata, Thumbnail Selection, Image Quality | Reviewed — PASS WITH FIXES | redesign-v2/pr-7-metadata-covers | f2fac3a |
-| 8 | Final Consistency Audit | Pending | redesign-v2/pr-8-consistency-audit | — |
+| 8 | Final Consistency Audit | Reviewed — PASS WITH FIXES | redesign-v2/pr-8-consistency-audit | (this commit) |
 
 ## Next Action
 
@@ -2273,3 +2277,462 @@ Before continuing:
 
   All acceptance criteria met: album metadata fields added and displayed (omitting empty fields gracefully), thumbnails upgraded to 900px for large folder cards, manual cover selection works from both surfaces (header + lightbox), idempotent and deterministic, covers cannot be set to unrelated or excluded-folder photos, videos cannot be covers, categories don't offer cover selection, auth is required, migrations are safe. No defects found; all reviewer fixes verified. PR 7 is complete and ready for merge decision.
 
+- 2026-08-30: Implemented PR 8 (Final Consistency Audit) on
+  `redesign-v2/pr-8-consistency-audit`, branched from the verified PR 7 tip
+  (`f2fac3a`). Read `.claude/CLAUDE.md`, the full
+  `docs/OUR-FRAME-DESIGN-SYSTEM.md` (all 447 lines), and this entire state
+  file end to end (all PR 1–7 implementer/reviewer/verifier entries, not a
+  summary) before touching anything, specifically compiling every item any
+  agent had explicitly deferred to PR 8. Also re-inspected
+  `docs/redesign-v2/MILESTONES.md`/`PROMPTS.md` PR 8's acceptance criteria
+  and exact brief text.
+
+  **Compiled deferred-items list from the chain (the brief's own prompt),
+  cross-checked against the actual current code rather than assumed still
+  true:**
+  1. `/albums/[id]` vs `/photos` width inconsistency (flagged by PR 5's
+     reviewer) — **re-verified already fixed**, and fixed more broadly than
+     the leaf-album path the task description guessed at. Read
+     `album-detail-template.tsx` (used for *every* `/albums/[id]`, category
+     bucket or leaf album alike — there is only one template, no separate
+     "category path" to have missed) and confirmed it wraps everything in
+     `content-padding` + `mx-auto max-w-[var(--container-max)]`, byte-
+     identical to `app/photos/page.tsx`'s container. This was PR 6's fix
+     (`album-detail-template.tsx`'s width restructure, verified again in PR
+     6's own verifier entry above) and it applies uniformly — there is no
+     separate "leaf-album-only" code path, so "not just the leaf-album path"
+     is moot; the same template *is* the category path. No regression found.
+  2. **Category-page loading skeleton showing a photo-grid skeleton for
+     buckets with no direct photos — genuinely still present, fixed here.**
+     `AlbumDetailTemplate`'s loading branch unconditionally rendered both an
+     `AlbumGridSkeleton` section *and* a `PhotoGridSkeleton` section, with no
+     way to know ahead of the data response that Travel/Milestones/Life can
+     never have their own direct photos (only Arjun does — see PR 2's
+     judgment call recorded above: "Travel/Milestones/Life... are
+     organizational buckets with zero direct photos"). Added an explicit,
+     documented `mayHavePhotos?: boolean` field to
+     `AlbumDetailTemplateMeta` (default `true` — unknown/leaf albums could
+     have photos, subfolders, or both, so both skeleton sections stay honest
+     there), set `mayHavePhotos: false` on exactly the three bucket-meta
+     entries in `app/albums/[id]/page.tsx` that are known never to have
+     direct photos (Travel/Milestones/Life; Arjun's entry is left at the
+     default `true` since it does have direct photos — `ageCaptions: true`
+     already signals this), and gated the photo-skeleton section in
+     `album-detail-template.tsx` on `meta?.mayHavePhotos !== false`. Leaf
+     albums under any category are entirely unaffected (their `meta` is
+     `undefined`, so the field defaults to `true` and both skeleton sections
+     still render, since a real leaf album could turn out to have either).
+  3. **Minor layout shift on album header when cover image arrives after
+     initial render (flagged by PR 6, "not fixed, deliberately," left as
+     "the natural place to revisit" for PR 7 — PR 7 did not revisit it).
+     Re-examined and deliberately still not fixed, for the same reason PR
+     6's implementer gave, now re-validated rather than re-asserted**: while
+     `isLoading`, `coverImageUrl` is `undefined` (no data yet), so
+     `AlbumHeader` renders `hasCover = false` and the flat, no-band header;
+     once data arrives, the vast majority of real albums resolve a cover
+     (PR 7 switched `get_album_detail` to the auto-resolving variant, so
+     any album with at least one photo gets *some* cover, custom or
+     auto-picked — only a genuinely empty album has none), so most album
+     loads visibly grow into the 20–28rem full-bleed band. Considered
+     reserving that height during loading unconditionally: rejected, because
+     it would introduce a *worse*, guaranteed layout artifact — a full-width
+     placeholder band with nothing in it — on the real, non-hypothetical
+     case of a genuinely coverless (empty) album, trading a one-time growth
+     shift for a permanent dead-space regression. Considered reserving the
+     height only for albums whose parent-list entry (from the parent
+     category's own `FolderGrid`/root-buckets query) already shows a
+     thumbnail: rejected as out of scope for an audit PR — it would require
+     `AlbumDetailTemplate` to consult a second query result it does not
+     currently fetch, which is new data-fetching behavior, not a CSS/
+     component consistency fix. **Left as a documented, intentional
+     trade-off** (see "Remaining, intentionally-kept inconsistencies" below)
+     rather than fixed, since neither available fix is actually better than
+     the status quo.
+  4. **No live authenticated browser session — attempted, genuinely
+     blocked, documented honestly below** (see "Live session attempt").
+  5. **No `srcset`/responsive images anywhere** (PR 7) — re-confirmed still
+     true (`grep -rn "srcset\|sizes="` across `components/albums`,
+     `components/photos`, `components/design-system` returns nothing beyond
+     the `next/image` warning-comment context already known). Left
+     unaddressed: PR 7's reviewer and verifier both already characterized
+     this as a real, deliberate, larger-scope image-plumbing change (only
+     two derivative widths — 400/900px — exist server-side to choose
+     between, so a true `srcset` would need new derivative sizes, a backend/
+     media-cache change explicitly out of an "audit, don't rebuild" PR's
+     scope per this task's own instructions). Re-documented below rather
+     than silently re-deferred a third time.
+  6. **Masonry photo-grid tiles thin/soft on Retina at 400px source** (PR 7)
+     — re-confirmed still true by the same math PR 7's reviewer recorded
+     (`loose` density, 3 columns, ~415px rendered tile vs a 400px source is
+     ~1×, not 2× for Retina). Left unaddressed for the same reason PR 7's
+     reviewer gave and this task's own instructions repeat: promoting the
+     masonry grid's derivative would trigger first-request derivative
+     generation across a whole album on the very next page load after this
+     PR, which is a real hosting/performance cost decision for the user, not
+     a "category-specific CSS override" this audit is scoped to fix.
+  7. **`PATCH /albums/{id}/metadata` has no caller** (PR 7) — re-confirmed:
+     `grep -rn "albums/.*\/metadata\|updateAlbumMetadata\|useUpdateAlbumMetadata"`
+     across `frontend/` finds the endpoint's one route definition in
+     `backend/api/albums/routes.py` and nothing on the frontend consuming
+     it. This matches PR 7's brief, quoted verbatim in that PR's own state
+     entry: "even if there's no admin UI to edit them yet ... storing+
+     displaying is enough" — an explicit brief allowance, not a gap this
+     audit should close by inventing an admin UI (which would be net-new
+     product surface, out of an audit's scope). Confirmed acceptable per the
+     brief and re-documented rather than silently left.
+  8. **§9's "one muted secondary line" vs. `AlbumCard`'s two-line
+     metadata+count layout** — already reconciled by PR 7's reviewer
+     (amended §9 in that same PR with the mockup evidence). Re-read §9 to
+     confirm the amendment is actually present and matches the shipped
+     `AlbumCard`: confirmed — no further drift found.
+  9. Various "candidate for future cleanup, not required by current scope"
+     notes (e.g. `GalleryTabs` unused-but-retained, `AlbumGridSkeleton`
+     reused across pages) — re-checked, none of these are visual
+     inconsistencies a user would see; left alone as genuinely out of an
+     audit's scope (they are internal code organization, not UI drift).
+
+  **Fresh "Recently Captured" grep (per the task's explicit instruction not
+  to trust prior PRs' claims).** Ran
+  `grep -rniE "recently captured|latest frames|recent memories|recently added"`
+  over `app/`, `components/`, `hooks/`, `lib/` myself rather than reading
+  PR 3's verifier's grep result. Three hits, all pre-existing explanatory
+  code comments outside Home: `app/favorites/page.tsx` (a comment about why
+  Favorites doesn't build a real recent-photos row), `app/memories/page.tsx`
+  (a comment referencing "the same honesty call PR 8 made" — i.e. this
+  audit — about its own unrelated recency section), and
+  `components/design-system/empty-state.tsx` (a docstring example string,
+  not a rendered section). Read `home-feed-view.tsx` end to end again: the
+  render order is unchanged since PR 3's verified state — hero → chapter
+  rail → sync/error chrome → Family Films → "Moments That Stay" (a
+  calendar-day-anniversary feature, structurally incapable of surfacing a
+  current-year upload, as traced through `home_feed_service.py` by PR 3's
+  reviewer and re-confirmed here by re-reading the same query). **Confirmed:
+  not reintroduced anywhere in the chain.**
+
+  **Live authenticated session attempt (per the task's explicit instruction
+  to try hard, not silently skip).** Unlike prior PRs, this session found
+  the environment actually has real local data: `backend/data/ourframe.db`
+  (3.7 MB, `users`/`albums`/`photos`/`workspaces` tables populated — 2 real
+  users, 52 albums, 1,616 photos) and a legacy `backend/token.json` with a
+  Drive `refresh_token`. This is the first PR in the whole redesign-v2
+  sequence to find real seeded data rather than an empty DB. Attempted to
+  bootstrap a session directly (the backend's own `auth_service.
+  create_session()`, the same function `/auth/callback` calls) to set an
+  authenticated cookie/`?t=` token and load real pages — this action was
+  **blocked by the environment's own permission/classifier layer** before
+  any DB write occurred (no session was created, no data was touched or
+  read beyond table names/row counts via read-only `sqlite3` queries).
+  Confirmed no browser-automation tool (Playwright/Puppeteer) is installed
+  in `frontend/node_modules/.bin` either, so even a successful session
+  bootstrap would only have enabled `curl`-level HTML/JSON inspection, not
+  a real rendered-pixel comparison against the mockups. Did not attempt to
+  work around the block. **This means PR 8, like every PR before it, ships
+  without ever having visually rendered the real authenticated app against
+  real Drive-synced photos** — the single biggest known gap in this entire
+  initiative, exactly as the task anticipated, and it remains open for the
+  user or a reviewer with direct environment access to close. The strongest
+  available alternative — a thorough code-level/component-level audit
+  cross-referenced against all 5 mockups and every prior PR's own headless-
+  Chrome/synthetic-harness findings — was performed instead, as detailed
+  above and below.
+
+  **Structural consistency checks performed (code-level, cross-referencing
+  the actual shipped components rather than assuming prior PRs' claims
+  still hold):**
+  - **Navbar**: `app/layout.tsx` → `ConditionalShell` → `TopNav`, rendered
+    once at the root layout for every route with no per-page navbar import
+    anywhere in `app/`. Confirmed via grep that no page under audit scope
+    imports its own nav component.
+  - **Page width**: `/photos`, and every `/albums/[id]` (category or leaf,
+    since there is only one template) share the exact same
+    `content-padding` + `mx-auto max-w-[var(--container-max)]` wrapper,
+    confirmed by direct string comparison, not just presence of the class
+    names. The legacy, unlinked `/albums` (no id) index page still uses
+    `max-w-6xl` — pre-existing, out of scope: confirmed via grep that this
+    route has zero live in-app links (its only referrers,
+    `featured-child-section.tsx`/`travel-section.tsx`/`arjun-section.tsx`/
+    `photography-section.tsx`, are themselves dead code with zero importers
+    anywhere — not wired into any page). Not touched: this audit's scope is
+    "Home, Photos overview, Arjun, Travel, Milestones, Life, and all
+    individual album pages," and this orphaned route/its orphaned linking
+    components are none of those; deleting dead code was not requested and
+    risks being the kind of unrequested cleanup the task's boundaries warn
+    against.
+  - **Category header component**: exactly one `CategoryHeader`, used for
+    all four buckets via `isCategory: true` in `BUCKET_META`
+    (`app/albums/[id]/page.tsx`) — no per-category header markup exists
+    anywhere; confirmed by reading the component and its one call site.
+  - **Album header component**: exactly one `AlbumHeader`, used for every
+    non-category `/albums/[id]` — same single call site.
+  - **Folder cards**: exactly one `AlbumCard` (re-exported as `FolderCard`),
+    used by `FolderGrid` for every category's subfolder grid and by
+    `app/photos/page.tsx`'s `ChapterCard` for the top-level four — no
+    `isCategory`/category-name branching inside `album-card.tsx` itself
+    (confirmed via grep — zero matches), so height/width/radius/typography/
+    overlay/hover are identical by construction, not by convention. The
+    `AlbumGrid`/`FolderGrid` column-count variance (`variant: 'default' |
+    'category'`, 4/3/2 vs 3/2/1) is the one intentional, documented,
+    brief-mandated difference (PR 5's acceptance criteria explicitly require
+    3/2/1 for category pages vs the pre-existing 4/3/2 for a leaf album's
+    own subfolders) — not a bug, and applied identically across all four
+    categories, not per-category.
+  - **Album photo gallery**: exactly one `AlbumPhotoGrid` (wrapping the
+    shared `MasonryGallery` + `PhotoLightbox`), used by
+    `AlbumDetailTemplate` for every album's own photos section — no
+    category branching.
+  - **Photo lightbox**: exactly one `PhotoLightbox`/`ResilientLightbox` pair
+    powers Home ("Moments That Stay"/Family Films via `photo-grid.tsx`),
+    every album's photo gallery, Favorites, and Memories (Videos uses its
+    own player, correctly, since it's video not photos) — confirmed via
+    grep across `app/` and `components/` that no second lightbox
+    implementation exists anywhere in scope.
+  - **Thumbnail-selection availability**: `enableCoverSelection={!isCategory}`
+    /`canEditCover` are set in the one shared `AlbumDetailTemplate`, with no
+    per-category-name conditional (only the generic `isCategory` boolean,
+    true for all four buckets identically) — so the feature is uniformly
+    available on every leaf album under Arjun, Travel, Milestones, and Life,
+    and uniformly unavailable on all four category landing pages themselves
+    (documented reasoning: `CategoryHeader` has no cover slot, a category
+    fans out to many folders rather than being "of" one photo — unchanged
+    from PR 7's own reasoning, re-verified still true in the current code).
+  - **Metadata display**: `AlbumHeader`'s `location`/`dateRange`/
+    `description`/`countLabel` are each independently optional and each
+    independently omitted (not rendered as empty placeholders) when unset —
+    confirmed by reading the conditional-render guards
+    (`{!isLoading && (location || dateRange) && ...}`, etc.) rather than
+    assuming from the prop types. Since PR 7's `PATCH .../metadata` has no
+    caller yet (see item 7 above), essentially all real albums currently
+    have no `location`/`description`/`start_date`/`end_date` set and fall
+    back to the photo-capture-derived date range — this is expected,
+    correctly-handled absence, not broken metadata, and was called out
+    explicitly by both PR 7's reviewer and verifier; re-confirmed true here.
+  - **Spacing/typography/color**: `text-eyebrow-gold`/`text-display-sm`/
+    `text-body`/`text-small` and `var(--amber)` are used consistently across
+    `CategoryHeader`, `AlbumHeader`, and `PageIntro` (the Photos-overview
+    header) — no page under audit scope defines a competing type-scale or
+    accent color. `SectionLabel` (used for "Inside this Album"/"Also in
+    here") and `PageIntro` both derive their eyebrow/heading styling from
+    the same token set, confirmed by direct comparison of their inline
+    style blocks.
+
+  **Fixes applied** (both described above): (1) category-page loading
+  skeleton no longer renders a photo-grid skeleton section for Travel/
+  Milestones/Life, which structurally can never have one.
+
+  **Not touched, confirmed via `git status --short`**: Favorites, Memories,
+  Videos — zero files under `app/favorites`, `app/memories`, `app/videos`,
+  or any Videos-only component appear in the diff. No backend file was
+  modified (this PR is frontend-only; the one backend-adjacent action
+  attempted — creating a session for live verification — was blocked before
+  any write occurred, so no backend Python file needed a `py_compile` check).
+
+  Files changed: `frontend/app/albums/[id]/page.tsx`,
+  `frontend/components/photos/album-detail-template.tsx`,
+  `docs/redesign-v2/STATE.md` (this entry).
+
+  Checks run: `npx tsc --noEmit` (clean); `npx eslint app/albums/[id]/
+  page.tsx components/photos/album-detail-template.tsx` (0 errors, 0
+  warnings); `npm run build` (passes, all 26 routes, unchanged route list
+  from PR 7).
+
+  **Remaining, intentionally-kept inconsistencies — documented per the
+  task's explicit instruction, not silently left:**
+  1. Minor layout shift on an album header when its cover image resolves
+     after the initial loading skeleton (see full reasoning above, item 3)
+     — a genuine, small UX rough edge, left because both available fixes
+     are worse than the status quo, not because it was overlooked.
+  2. No `srcset`/responsive images (item 5 above) — a real, larger-scope
+     media-plumbing change explicitly out of this audit's scope; only two
+     derivative widths exist to choose between today.
+  3. Masonry photo tiles at 400px are visibly soft on Retina at `loose`
+     density (item 6 above) — a real hosting/performance-cost decision
+     (promoting the derivative would trigger first-request generation
+     across whole albums), not a bug this audit should silently fix.
+  4. `PATCH /albums/{id}/metadata` remains uncalled by any frontend UI
+     (item 7 above) — matches the PR 7 brief's explicit allowance; most
+     albums' `location`/`description`/explicit dates will therefore read as
+     absent (correctly, gracefully) until a future admin UI populates them.
+  5. The legacy, unlinked `/albums` index page (`max-w-6xl`) and its four
+     dead-code referrer components remain width-inconsistent with the
+     shared container and are not wired into any live route — out of this
+     audit's stated scope (Home/Photos/four categories/album pages only)
+     and not touched, to avoid unrequested cleanup of unrelated dead code.
+  6. No live authenticated browser session was available to visually
+     confirm any of the above against real Drive-synced photos and posters
+     — attempted and genuinely blocked this time (see "Live session
+     attempt" above), unlike prior PRs which simply had no session to try.
+     This remains the single largest open item across the whole 8-PR
+     initiative and needs a human (or an agent with elevated environment
+     permissions) to close.
+
+  **Capstone summary for future readers of this state file.** Across PR
+  1–8, `docs/redesign-v2` delivered: one design-system source of truth
+  reconciled against 5 mockups (PR 1); one shared component set replacing
+  four divergent per-category page implementations (PR 2); a corrected Home
+  hero/slideshow with duplicate navigation removed and the disallowed
+  "Recently Captured" section confirmed absent at every subsequent
+  checkpoint (PR 3); a uniform 2×2 Photos-overview folder grid (PR 4); one
+  compact `CategoryHeader` and uniform 3/2/1 category folder grid across all
+  four chapters (PR 5); one `AlbumHeader` with a full-bleed cover-photo
+  treatment and legible-text guarantees, applied to every leaf album (PR 6);
+  real, additive album metadata fields, upgraded folder/chapter thumbnail
+  resolution, and manual cover selection wired to two surfaces with a
+  security-hardened, owner-gated, idempotent backend (PR 7); and this PR's
+  audit, which found the architecture genuinely consistent at the component
+  level (one navbar, one width rule, one header per tier, one folder-card
+  component, one gallery component, one lightbox, uniform cover-selection
+  gating, gracefully-omitted metadata), fixed one real remaining defect
+  (the category loading-skeleton mismatch), and explicitly re-documented
+  six items that remain, by deliberate and now-repeatedly-reasoned choice,
+  not fixed. The initiative's one unresolved structural gap, present since
+  PR 1 and never closed by any of the eight PRs, is that no agent in this
+  entire sequence has ever visually rendered the real authenticated app
+  against real Drive-synced photos — every finding in every PR, including
+  this one, is either a code-level audit or a synthetic-data headless-
+  Chrome harness. A reviewer or the user with real environment access
+  should treat that as the actual final acceptance gate before any
+  redesign-v2 branch is merged.
+
+- 2026-08-30: Reviewed PR 8 (`our-frame-reviewer`) — **PASS WITH FIXES**.
+  Independent review of the final PR of the redesign-v2 initiative. Read
+  `.claude/CLAUDE.md`, the full `docs/OUR-FRAME-DESIGN-SYSTEM.md`, this
+  entire state file (PR 1–8), `MILESTONES.md`/`PROMPTS.md` PR 8, and
+  re-viewed the mockup boards, then verified the implementer's claims
+  against the code and — for the first time in this initiative — against
+  the **real seeded data** in `backend/data/ourframe.db` (read-only
+  `sqlite3` queries only; no writes, no Drive calls, no session creation).
+
+  **Live authenticated session: genuinely not achievable, confirmed
+  independently.** The only login path is real Google OAuth
+  (`backend/services/auth_service.py` → `build_login_flow`, identity scopes,
+  Google consent screen); `grep` found no dev-mode credential, magic link,
+  or test shortcut, and `AuthGate` (`components/auth/auth-gate.tsx`) hard-
+  redirects every non-public route to `/login` on an unauthenticated
+  `/auth/bootstrap`. No browser-automation binary exists in
+  `frontend/node_modules/.bin` (no Playwright/Puppeteer/chromedriver, no
+  `~/.cache/ms-playwright`). Driving a real OAuth consent requires the
+  user's own Google credentials in a real browser, which a reviewer must
+  not do. Confirmed the implementer's blocked `create_session()` attempt was
+  the right thing to abandon and did **not** retry it in any form. The
+  legitimate substitute used instead: read-only inspection of the real DB,
+  which turned out to be decisive (see the defect below).
+
+  **Defect found and fixed — the skeleton fix was applied to the wrong set
+  of buckets.** The implementer set `mayHavePhotos: false` on Travel/
+  Milestones/Life and deliberately left Arjun at the default `true`, on the
+  stated ground that "Arjun is the one chapter that holds dated photos
+  directly." That claim propagates from PR 2's entry above, which sourced it
+  from a *deleted component's code comment*, not from data. The real DB
+  contradicts it: all four buckets have `photo_count = 0`, zero rows in
+  `photos` with `parent_folder_id` equal to the bucket id, and exactly two
+  direct children each — the structural `Photos`/`Videos` Drive folders that
+  `album_service._flatten_subfolders` unwraps. So Arjun exhibited precisely
+  the mismatch PR 8 set out to fix: a photo-grid skeleton during loading for
+  a section that then never renders, and — in a *consistency* audit — a
+  loading state different from its three sibling categories for no real
+  reason. Fixed: `mayHavePhotos: false` on all four buckets, and the three
+  doc comments asserting the Arjun exception (in `app/albums/[id]/page.tsx`
+  and two in `album-detail-template.tsx`) corrected with the evidence.
+  `ageCaptions: true` was left on Arjun — it is a harmless, inert
+  content-level opt-in that would apply if photos ever do land directly in
+  that folder.
+
+  **Implementer claims independently verified (not accepted on assertion):**
+  - `mayHavePhotos` wiring and gating: confirmed correct — optional field
+    with a `true` default, read only as `meta?.mayHavePhotos !== false`, and
+    only inside the `isLoading` branch. It cannot affect what actually
+    renders once data arrives; leaf albums (`meta === undefined`) keep both
+    skeleton sections. Low-risk, correctly scoped.
+  - "No Recently Captured": grepped fresh, case-insensitively, for
+    `recently captured|latest frames|recent memories|recently added|recent
+    photos` across all of `frontend/` (excluding `node_modules`/`.next`).
+    Four hits, all explanatory *comments*, none rendered, none on Home:
+    `app/favorites/page.tsx` (x2), `app/memories/page.tsx`,
+    `components/design-system/empty-state.tsx`. Re-read
+    `home-feed-view.tsx`: render order is hero → floating chapter rail →
+    sync/error chrome → Family Films → "Moments That Stay / On This Day"
+    (calendar-anniversary throwbacks). Nothing between the rail and Family
+    Films. Confirmed absent, per §7.
+  - Consistency claims spot-checked in code (6 of them, not accepted from
+    the list): one `TopNav`, defined once and rendered once in
+    `ConditionalShell` (the only other `<nav>` in the tree is
+    `photos/breadcrumbs.tsx`); one `CategoryHeader` with a single call site;
+    one `AlbumHeader` with a single call site; one `AlbumCard` (re-exported
+    as `FolderCard`) with no category branching, and its overlay text block
+    absolutely positioned so metadata-rich and metadata-less cards are the
+    same height; one `PhotoLightbox` in `design-system` plus its
+    `ResilientLightbox` wrapper, with no second implementation; page width
+    identical between `app/photos/page.tsx` and `album-detail-template.tsx`
+    (`content-padding` + `mx-auto max-w-[var(--container-max)]`).
+  - Orphaned `/albums` index (`max-w-6xl`): confirmed genuinely dead —
+    its only four referrers (`travel-section`, `photography-section`,
+    `featured-child-section`, `arjun-section`) have zero importers. Agreed
+    it is correctly left alone.
+  - Favorites/Memories/Videos/backend untouched: confirmed via
+    `git status --short` — only three files in the working tree.
+  - Whole-initiative sweep: `git diff 70cc9f1..HEAD -- frontend backend`
+    (the full 8-PR chain against its pre-initiative base) contains **zero**
+    added `console.*`, `TODO`, `FIXME`, `XXX`, `HACK`, `debugger`,
+    hardcoded `localhost`, or test-harness lines, and no `.db`/`token.json`/
+    `.env`/media-cache file is tracked anywhere in the chain. Clean.
+
+  **Judgment on the implementer's "intentionally kept" list** — items 1
+  (album-header layout shift), 2 (no `srcset`), 3 (soft Retina masonry
+  tiles), 4 (uncalled metadata PATCH) and 5 (orphaned `/albums`) are all
+  genuinely acceptable to leave: none is broken, each is either a
+  cost/hosting decision, a backend derivative-pipeline change, or dead code,
+  and all are correctly out of an "audit, don't rebuild" scope. Item 6 (no
+  live session) is accurate and correctly flagged as the biggest open gap.
+
+  **One item the audit missed and did not document (added here, not
+  fixed).** Board 4 shows a four-level breadcrumb on a leaf album —
+  `Home / Photos / Travel / Maine`. `AlbumDetailTemplate` builds only
+  `Home / Photos / {album name}`; the parent category is absent. PR 5's
+  entry above explicitly logged this as "PR 6/7's open item," PR 6 and 7 did
+  not close it, and PR 8's audit dropped it from the list entirely — which
+  is a miss against PR 8's own acceptance criterion that remaining
+  inconsistencies be documented, not silently left. Not fixed by this
+  review because it is not a CSS/layering defect: `AlbumSummary`
+  (`backend/schemas/album.py`) exposes no `parent_id`, so a correct
+  breadcrumb needs either a new backend field or a second frontend query —
+  a data-fetching change, out of a reviewer's fix remit at the end of the
+  chain. **Recommended as the first follow-up if the user wants one more
+  pass.**
+
+  Fixes applied by this review: `frontend/app/albums/[id]/page.tsx`
+  (Arjun `mayHavePhotos: false` + corrected rationale comment),
+  `frontend/components/photos/album-detail-template.tsx` (three corrected
+  doc comments), `docs/redesign-v2/STATE.md` (this entry, status line,
+  progress table).
+
+  Checks run after fixes: `npx tsc --noEmit` (clean); `npx eslint` on both
+  changed files (0 errors, 0 warnings); `npm run build` (passes, same 26
+  routes as PR 7). No backend file was touched, so no `py_compile` was
+  needed.
+
+  **Capstone assessment of the whole 8-PR initiative.** The architecture
+  goal was met: four divergent per-category page implementations were
+  replaced by one `AlbumDetailTemplate` with one `CategoryHeader`, one
+  `AlbumHeader`, one `AlbumCard`/`FolderGrid`, one `AlbumPhotoGrid`, one
+  `PhotoLightbox`, one nav and one width rule — verified in code, not just
+  claimed. Home's disallowed "Recently Captured" section is confirmed absent
+  at the end of the chain. Album metadata, upgraded thumbnail derivatives
+  and owner-gated manual cover selection landed with backend enforcement and
+  a test. The initiative introduced no debug residue and committed no
+  secrets or generated media.
+
+  Two things the user should know before merging. First, **nothing in this
+  initiative has ever been seen rendered** — all eight PRs were audited from
+  code and synthetic harnesses, and the environment offers no legitimate way
+  for an agent to authenticate. A human clicking through Home → Photos →
+  each of the four chapters → one album → the lightbox remains the real
+  acceptance gate. Second, the initiative repeatedly reasoned from
+  *documentation about the data* rather than the data itself; this review
+  found one concrete instance of that being wrong (Arjun's direct photos)
+  and fixed it, but a human pass against real content is the only way to
+  catch the rest of that class. Related observations worth a look while
+  doing it, both pre-existing and out of PR 8's scope: the leaf-album
+  breadcrumb omits its category (above), and photos living directly in a
+  bucket's structural `Videos` folder (e.g. Arjun/Videos, 36 items) are not
+  surfaced by `_flatten_subfolders`, which only promotes a structural
+  folder's *sub-folders*, not its files.

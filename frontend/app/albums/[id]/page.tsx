@@ -22,28 +22,41 @@ const BUCKET_META: Record<string, AlbumDetailTemplateMeta> = {
     eyebrow: BUCKETS[0].eyebrow,
     description: BUCKETS[0].description,
     emptyMessage: 'No Arjun photos or albums found yet. Map a Google Drive folder to this section in Settings.',
-    // Arjun is the one chapter that holds dated photos directly; keep the
-    // age captions the removed `arjun-gallery.tsx` used to render.
+    // Age captions are a content-level opt-in kept from the removed
+    // `arjun-gallery.tsx`. They only apply if Arjun ever holds dated photos
+    // directly; harmless (and inert) while it does not — see below.
     ageCaptions: true,
     isCategory: true,
+    // All four chapter buckets are organizational in the real Drive tree:
+    // each one's only direct children are the structural `Photos`/`Videos`
+    // folders that `album_service._flatten_subfolders` unwraps, and none of
+    // them holds photos directly (verified against the real seeded DB during
+    // PR 8's review — `photo_count = 0` and `parent_folder_id` photo count =
+    // 0 for all four). Earlier entries in `docs/redesign-v2/STATE.md`
+    // asserted Arjun was the exception; that claim came from a removed
+    // component's code comment, not from data, and is not true here.
+    mayHavePhotos: false,
   },
   [BUCKETS[1].id]: {
     eyebrow: BUCKETS[1].eyebrow,
     description: BUCKETS[1].description,
     emptyMessage: 'No travel albums found yet. Map a Google Drive folder to this section in Settings.',
     isCategory: true,
+    mayHavePhotos: false,
   },
   [BUCKETS[2].id]: {
     eyebrow: BUCKETS[2].eyebrow,
     description: BUCKETS[2].description,
     emptyMessage: 'No milestone albums found yet. Map a Google Drive folder to this section in Settings.',
     isCategory: true,
+    mayHavePhotos: false,
   },
   [BUCKETS[3].id]: {
     eyebrow: BUCKETS[3].eyebrow,
     description: BUCKETS[3].description,
     emptyMessage: 'No life albums found yet. Map a Google Drive folder to this section in Settings.',
     isCategory: true,
+    mayHavePhotos: false,
   },
 }
 

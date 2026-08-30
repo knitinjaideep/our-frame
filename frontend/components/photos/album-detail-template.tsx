@@ -41,6 +41,18 @@ export interface AlbumDetailTemplateMeta {
    * existing `AlbumHeader` + default grid unchanged — that's PR 6's scope.
    */
   isCategory?: boolean
+  /**
+   * Whether this id can have its own directly-attached photos (not just
+   * subfolders). All four chapter buckets (Arjun/Travel/Milestones/Life)
+   * are organizational: their only direct children are the structural
+   * `Photos`/`Videos` Drive folders the backend unwraps, so none of them
+   * holds photos directly. Defaults to `true` (unknown/leaf albums may
+   * have photos, subfolders, or both, so both skeleton sections stay
+   * honest there). PR 8 consistency audit: set to `false` on all four
+   * buckets so their loading state does not render a photo-grid skeleton
+   * for a section that will not appear.
+   */
+  mayHavePhotos?: boolean
 }
 
 interface AlbumDetailTemplateProps {
@@ -60,9 +72,8 @@ interface AlbumDetailTemplateProps {
  *
  * Content, not code, decides what renders: a `FolderGrid` section when the
  * id has subfolders, an `AlbumPhotoGrid` section when it has its own
- * photos, both when it has both (e.g. Arjun, which — unlike Travel/
- * Milestones/Life — holds real photos directly as well as sub-albums), and
- * an honest empty state when it has neither. This replaces four bespoke,
+ * photos, both when it has both (a leaf album may legitimately have both),
+ * and an honest empty state when it has neither. This replaces four bespoke,
  * mutually-divergent per-category components (`arjun-gallery.tsx`,
  * `travel-gallery.tsx`, `milestones-gallery.tsx`, `life-gallery.tsx`) that
  * each built its own folder-card system, header, and gallery layout — see
@@ -204,12 +215,20 @@ export function AlbumDetailTemplate({ id, data, isLoading, error, meta }: AlbumD
                 <AlbumGridSkeleton count={isCategory ? 6 : 4} variant={isCategory ? 'category' : 'default'} />
               </section>
             </SectionReveal>
-            <SectionReveal delay={0.04}>
-              <section className="mb-20">
-                <SkeletonHeading />
-                <PhotoGridSkeleton count={12} />
-              </section>
-            </SectionReveal>
+            {/* The four organizational chapter buckets (`mayHavePhotos:
+                false`) skip this section entirely, rather than showing a
+                photo-grid skeleton for a section that will not render.
+                Leaf albums default to `true`, since one could have photos,
+                subfolders, or both, and we don't know which until data
+                arrives. */}
+            {meta?.mayHavePhotos !== false && (
+              <SectionReveal delay={0.04}>
+                <section className="mb-20">
+                  <SkeletonHeading />
+                  <PhotoGridSkeleton count={12} />
+                </section>
+              </SectionReveal>
+            )}
           </>
         ) : !hasSubfolders && !hasPhotos && !error ? (
           <EmptyState
