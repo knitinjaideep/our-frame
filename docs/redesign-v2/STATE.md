@@ -84,7 +84,7 @@ work does not change them.)
 | 3 | Home Page | Verified — PASS | redesign-v2/pr-3-home | 3a700bb |
 | 4 | Photos Overview | Verified — PASS | redesign-v2/pr-4-photos-overview | 78e8607 |
 | 5 | Category Pages | Verified — PASS | redesign-v2/pr-5-category-pages | 8492caa |
-| 6 | Album Pages | Reviewed — PASS WITH FIXES | redesign-v2/pr-6-album-pages | 8e43986 |
+| 6 | Album Pages | Verified — PASS | redesign-v2/pr-6-album-pages | 8e43986 |
 | 7 | Metadata, Thumbnail Selection, Image Quality | Pending | redesign-v2/pr-7-metadata-covers | — |
 | 8 | Final Consistency Audit | Pending | redesign-v2/pr-8-consistency-audit | — |
 
@@ -1661,3 +1661,89 @@ Before continuing:
   `photo-card.tsx`, untouched by this PR); `npm run build` (passes, 26
   routes, no stray harness route). No product, hosting, or privacy decision
   was needed; nothing blocked.
+
+- 2026-08-30: Verified PR 6 (`our-frame-verifier`) — **PASS**. Independently
+  verified all reviewer fixes and implementation claims against the actual code
+  at commit `bb95b1b` (state doc recording PR 6 SHA `8e43986`):
+
+  (a) **`albumCoverUrl()` exists and upgrades to 900px `grid` derivative:**
+  `frontend/lib/api-client.ts` lines 102–105 show the function checking if path
+  starts with `/media/file/`, and if so, replacing `/thumbnail` with `/grid`,
+  else passing through unchanged. The docstring (lines 76–101) confirms: `grid`
+  is 900px (upgraded from `thumbnail` 400px), `preview` (1800px) is deliberately
+  rejected to avoid full-original downloads, and legacy `/drive/file/...` paths
+  are passed through for backward compatibility. `AlbumDetailTemplate` calls
+  `albumCoverUrl(data.album.thumbnail_url)` at line 118, passing result as
+  `coverImageUrl={coverImageUrl}` to `AlbumHeader`. No hardcoded derivative size
+  elsewhere; the upgrade is centralized in the helper.
+
+  (b) **`AlbumHeader` applies `max-w-2xl`, text-shadow, and correct scrim
+  gradients:** `album-header.tsx` line 89 shows `hasCover ? 'max-w-2xl
+  text-white' : 'text-foreground'` on the h1; line 177 shows text-shadow
+  `'0 1px 2px oklch(0 0 0 / 45%), 0 2px 18px oklch(0 0 0 / 55%)'`; left-to-right
+  gradient (line 156) is `'linear-gradient(to right, ... / 92%) 0%, ... / 72%)
+  32%, ... / 18%) 62%, ... / 4%) 100%)'` (exactly "~72% at 32% of width, ~18% at
+  62%" per reviewer); bottom scrim (line 166) is `'linear-gradient(to top, ...
+  / 68%) 0%, ... / 22%) 42%, transparent 68%)'` (carries load on narrow screens).
+  Comment at lines 83–88 explains the rationale. No fabricated opacity values.
+
+  (c) **No placeholder image, graceful fallback:** Line 69 shows `const
+  hasCover = Boolean(coverImageUrl)`, line 142 shows `if (!hasCover) return
+  <div>{textBlock}</div>`. No hardcoded gradient-only band or black card; when
+  no cover exists, the component returns the flat header textBlock.
+
+  (d) **CategoryHeader genuinely untouched:** `git diff 8e43986~1 bb95b1b --
+  frontend/components/photos/category-header.tsx` produces zero output. The
+  component is completely unchanged; only the new `light` prop was added to
+  `Breadcrumbs` (used only by `AlbumHeader`, not `CategoryHeader`).
+
+  (e) **Location never fabricated or rendered:** `frontend/types/index.ts`
+  contains no `location` field in `Album`; `backend/schemas/album.py` contains
+  no `location` field. `album-detail-template.tsx` line 118 never passes a
+  location prop to `AlbumHeader`; `AlbumHeader` lines 96–116 only render location
+  if it exists: `{!isLoading && (location || dateRange) && ...}`. No caller
+  passes a location value; the prop gracefully omits when absent.
+
+  (f) **Width fix is real:** `album-detail-template.tsx` structure changed from
+  multiple separate `content-padding` divs around each section to one outer
+  `content-padding pb-24` wrapper with one inner `mx-auto max-w-[var(--container-
+  max)]` (lines 117–118), byte-for-byte matching `frontend/app/photos/page.tsx`
+  lines 54–55. The error banner, footer grid, and photo grid no longer have
+  separate `content-padding` classes; they sit inside the shared container.
+
+  (g) **View-density toggle wired end-to-end:** `album-photo-grid.tsx` lines
+  160–161 show `const [viewDensity, setViewDensity] = useState(density ??
+  'default')`; line 187 shows `<ViewDensityControl value={viewDensity}
+  onChange={setViewDensity} />`; line 197 shows `<MasonryGallery
+  density={viewDensity} items={...} />`. `MasonryGallery` uses `DENSITY_CLASSES`
+  to apply the column-count classes (lines 54–61). The control is not inert; it
+  drives the actual column density.
+
+  (h) **No test-harness residue:** `git diff --name-only 8e43986~1 bb95b1b`
+  shows only 7 files (state doc, components, lib helper). No `login/pr6-
+  harness`, `login/pr6-frame`, or `public/pr6-harness/` paths. `npm run build`
+  lists exactly 26 routes (no `pr6-harness` stray route). `git status --short`
+  is clean.
+
+  (i) **Scope held, no unrelated changes:** Files changed are:
+  `docs/redesign-v2/STATE.md`, `frontend/components/design-system/masonry-
+  gallery.tsx` (DENSITY_CLASSES), `frontend/components/photos/album-detail-
+  template.tsx` (width restructure + coverImageUrl logic), `frontend/
+  components/photos/album-header.tsx` (full cover photo implementation),
+  `frontend/components/photos/album-photo-grid.tsx` (ViewDensityControl),
+  `frontend/components/photos/breadcrumbs.tsx` (light prop), `frontend/lib/
+  api-client.ts` (albumCoverUrl helper). No backend, auth, media-cache,
+  Favorites, Memories, Videos, or Drive sync code. No `.env`, tokens, `.db`,
+  or generated media files. `git diff --stat` matches the expected scope.
+
+  (j) **Checks verified:** `npx tsc --noEmit` at commit `bb95b1b` produces zero
+  output (clean TypeScript); `npm run build` passes with all 26 routes listed
+  (no errors, no stray harness routes, no warnings introduced by this PR beyond
+  the pre-existing `<img>`-vs-`next/image` architectural pattern in `photo-
+  card.tsx`, untouched by PR 6). Build time 1945ms (Turbopack), static page
+  generation 154ms.
+
+  All 10 verification points confirmed true against the actual code. The two
+  reviewer defects (image quality and text legibility) were genuinely fixed; the
+  implementation is complete and correct. PR 6 is ready for merge decision.
+
