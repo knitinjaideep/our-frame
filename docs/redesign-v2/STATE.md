@@ -84,7 +84,7 @@ work does not change them.)
 | 3 | Home Page | Verified — PASS | redesign-v2/pr-3-home | 3a700bb |
 | 4 | Photos Overview | Verified — PASS | redesign-v2/pr-4-photos-overview | 78e8607 |
 | 5 | Category Pages | Verified — PASS | redesign-v2/pr-5-category-pages | 8492caa |
-| 6 | Album Pages | Reviewed — PASS WITH FIXES | redesign-v2/pr-6-album-pages | — |
+| 6 | Album Pages | Reviewed — PASS WITH FIXES | redesign-v2/pr-6-album-pages | 8e43986 |
 | 7 | Metadata, Thumbnail Selection, Image Quality | Pending | redesign-v2/pr-7-metadata-covers | — |
 | 8 | Final Consistency Audit | Pending | redesign-v2/pr-8-consistency-audit | — |
 
