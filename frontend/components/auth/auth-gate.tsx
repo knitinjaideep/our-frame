@@ -20,7 +20,7 @@ import { fetchBootstrap } from '@/lib/platform-api'
 // Exact-match paths — '/' must be exact to avoid matching everything via startsWith
 const PUBLIC_EXACT = ['/']
 // Prefix-match paths
-const PUBLIC_PREFIX = ['/login', '/auth/callback']
+const PUBLIC_PREFIX = ['/login', '/onboarding', '/auth/callback']
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter()

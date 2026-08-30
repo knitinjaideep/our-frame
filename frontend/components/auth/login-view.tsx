@@ -59,11 +59,18 @@ export function LoginView() {
       <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#050403] to-transparent" />
 
       <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10 lg:px-16">
-        <Link href="/" className="group inline-flex items-center gap-3">
-          <span className="grid h-8 w-8 place-items-center rounded-[7px] border border-[#f6b44d]/80 text-[#f8c160] shadow-[0_0_28px_rgba(246,180,77,0.18)]">
-            <ImageIcon className="h-4 w-4" aria-hidden />
-          </span>
-          <span className="font-serif text-2xl text-[#f8c160] transition-colors group-hover:text-[#ffd37f]">
+        <Link href="/" className="group inline-flex items-center">
+          <span
+            className="font-serif text-3xl font-semibold italic leading-none"
+            style={{
+              background:
+                'linear-gradient(105deg, var(--gold-shadow) 0%, var(--gold-mid) 40%, var(--gold-highlight) 55%, var(--gold-mid) 70%, var(--gold-shadow) 100%)',
+              backgroundSize: '250% auto',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
             Our Frame
           </span>
         </Link>
@@ -75,30 +82,30 @@ export function LoginView() {
         </nav>
       </header>
 
-      <main className="relative z-10 flex min-h-[calc(100vh-4.5rem)] items-center px-6 pb-12 pt-8 sm:px-10 lg:px-16 lg:py-10">
+      <main className="relative z-10 flex min-h-[calc(100vh-4.5rem)] items-center justify-start px-6 pb-12 pt-8 sm:px-10 lg:px-16 lg:py-10">
         <motion.section
           id="about"
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-[43rem] space-y-10 max-md:mt-[22rem] max-sm:mt-[18rem]"
+          className="mx-auto w-full max-w-[43rem] space-y-10 text-center max-md:mt-[22rem] max-sm:mt-[18rem] lg:mx-0 lg:ml-[clamp(2rem,6vw,7rem)] lg:text-left"
         >
           <div className="space-y-6">
             <p className="font-sans text-[0.72rem] font-medium uppercase tracking-[0.42em] text-[#f6b44d]">
               Your personal photo vault
             </p>
-            <h1 className="max-w-[41rem] font-serif text-[clamp(4rem,6vw,6rem)] leading-[0.9] text-[#fbfaf7]">
+            <h1 className="mx-auto max-w-[41rem] font-serif text-[clamp(4rem,6vw,6rem)] leading-[0.9] text-[#fbfaf7] lg:mx-0">
               Your memories,
               <br />
               <em className="bg-gradient-to-r from-[#ffc75f] via-[#ffe2a0] to-[#f29b32] bg-clip-text font-normal italic text-transparent">
                 beautifully kept.
               </em>
             </h1>
-            <div className="max-w-[38rem] space-y-4 text-balance">
+            <div className="mx-auto max-w-[38rem] space-y-4 text-balance lg:mx-0">
               <p className="text-xl leading-relaxed text-white/88 sm:text-2xl">
                 A private home for your photos and videos - browse, revisit, and organize the people, places, and moments that matter most.
               </p>
-              <p className="max-w-[32rem] text-base leading-7 text-white/58 sm:text-lg">
+              <p className="mx-auto max-w-[32rem] text-base leading-7 text-white/58 sm:text-lg lg:mx-0">
                 Your original media stays in Google Drive. Our Frame helps you view and organize it beautifully.
               </p>
             </div>
@@ -115,7 +122,7 @@ export function LoginView() {
             </a>
             <div>
               <a
-                href={loginUrl}
+                href="/onboarding"
                 className="group inline-flex items-center gap-3 border-b border-[#f8c160]/70 pb-1 text-lg text-[#f8c160] transition-colors hover:text-[#ffdc91]"
               >
                 <Sparkles className="h-5 w-5" aria-hidden />
@@ -123,16 +130,16 @@ export function LoginView() {
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" aria-hidden />
               </a>
             </div>
-            <p className="max-w-[34rem] text-sm leading-6 text-white/48">
+            <p className="mx-auto max-w-[34rem] text-sm leading-6 text-white/48 lg:mx-0">
               Sign in if you already use Our Frame, or connect Google Drive to create your private vault.
             </p>
           </div>
 
-          <ul id="privacy" className="grid max-w-[48rem] grid-cols-1 gap-6 pt-6 sm:grid-cols-3 sm:gap-0">
+          <ul id="privacy" className="mx-auto grid max-w-[43rem] grid-cols-1 gap-6 pt-6 sm:grid-cols-3 sm:gap-0 lg:mx-0">
             {FEATURES.map(({ icon: Icon, title, description }) => (
               <li
                 key={title}
-                className="flex gap-4 sm:block sm:px-8 sm:first:pl-0 sm:[&:not(:last-child)]:border-r sm:[&:not(:last-child)]:border-white/14"
+                className="flex justify-center gap-4 text-left sm:block sm:px-8 sm:text-left sm:first:pl-0 sm:[&:not(:last-child)]:border-r sm:[&:not(:last-child)]:border-white/14"
               >
                 <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-[#f8c160]/42 bg-[#f8c160]/8 text-[#f8c160] shadow-[0_0_24px_rgba(248,193,96,0.08)] sm:mb-4">
                   <Icon className="h-5 w-5" aria-hidden />
@@ -146,14 +153,6 @@ export function LoginView() {
           </ul>
         </motion.section>
 
-        <motion.aside
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute right-[7vw] top-[17vh] hidden rounded-full border border-[#f8c160]/26 bg-black/24 px-5 py-3 text-sm text-[#ffe1a0] shadow-[0_18px_56px_rgba(0,0,0,0.32)] backdrop-blur-md xl:block"
-        >
-          Private. Secure. Yours.
-        </motion.aside>
       </main>
     </div>
   )

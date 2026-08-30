@@ -9,7 +9,7 @@ import { useWorkspace } from '@/hooks/use-workspace'
 // Exact-match paths that render without the nav shell
 const NO_SHELL_EXACT = ['/']
 // Prefix-match paths that render without the nav shell
-const NO_SHELL_PREFIX = ['/login']
+const NO_SHELL_PREFIX = ['/login', '/onboarding']
 
 /** Updates document.title to the workspace name once it loads. */
 function WorkspaceTitle() {
