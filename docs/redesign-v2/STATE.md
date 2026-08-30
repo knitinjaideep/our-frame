@@ -88,7 +88,7 @@ work does not change them.)
 | 4 | Photos Overview | Verified — PASS | redesign-v2/pr-4-photos-overview | 78e8607 |
 | 5 | Category Pages | Verified — PASS | redesign-v2/pr-5-category-pages | 8492caa |
 | 6 | Album Pages | Verified — PASS | redesign-v2/pr-6-album-pages | 8e43986 |
-| 7 | Metadata, Thumbnail Selection, Image Quality | Reviewed — PASS WITH FIXES | redesign-v2/pr-7-metadata-covers | (this commit) |
+| 7 | Metadata, Thumbnail Selection, Image Quality | Reviewed — PASS WITH FIXES | redesign-v2/pr-7-metadata-covers | f2fac3a |
 | 8 | Final Consistency Audit | Pending | redesign-v2/pr-8-consistency-audit | — |
 
 ## Next Action
