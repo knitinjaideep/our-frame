@@ -15,7 +15,7 @@
  * Navigation to a new slide always remounts this component (key={photoId}).
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, type MutableRefObject } from 'react'
 import Lightbox, { useController, useLightboxState } from 'yet-another-react-lightbox'
 import Video from 'yet-another-react-lightbox/plugins/video'
 import 'yet-another-react-lightbox/styles.css'
@@ -70,15 +70,24 @@ interface ImageSlideRendererProps {
   slide: SlideImage
   offset: number
   photoId?: string
+  /** Fired on a genuine tap/click on the slide (never on a swipe or drag). */
+  onTap?: () => void
 }
 
-function ImageSlideRenderer({ slide, offset, photoId }: ImageSlideRendererProps) {
+/** A pointer down/up pair only counts as a "tap" if the pointer barely moved
+ * and was not held — otherwise a horizontal swipe (which the library turns
+ * into slide navigation) would also toggle the controls. */
+const TAP_MAX_MOVE_PX = 10
+const TAP_MAX_DURATION_MS = 500
+
+function ImageSlideRenderer({ slide, offset, photoId, onTap }: ImageSlideRendererProps) {
   const originalSrc = slide.src ?? ''
   const chain = buildFallbackChain(originalSrc, photoId)
 
   const [attemptIndex, setAttemptIndex] = useState(0)
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
+  const tapStartRef = useRef<{ x: number; y: number; t: number } | null>(null)
 
   const currentSrc = chain[Math.min(attemptIndex, chain.length - 1)]
   const isRetrying = attemptIndex > 0 && !loaded && !failed
@@ -127,6 +136,25 @@ function ImageSlideRenderer({ slide, offset, photoId }: ImageSlideRendererProps)
 
   return (
     <div
+      onPointerDown={(e) => {
+        tapStartRef.current = { x: e.clientX, y: e.clientY, t: Date.now() }
+      }}
+      onPointerUp={(e) => {
+        const start = tapStartRef.current
+        tapStartRef.current = null
+        if (!start || offset !== 0) return
+        if (
+          Math.abs(e.clientX - start.x) > TAP_MAX_MOVE_PX ||
+          Math.abs(e.clientY - start.y) > TAP_MAX_MOVE_PX ||
+          Date.now() - start.t > TAP_MAX_DURATION_MS
+        ) {
+          return
+        }
+        onTap?.()
+      }}
+      onPointerCancel={() => {
+        tapStartRef.current = null
+      }}
       style={{
         position: 'absolute',
         inset: 0,
@@ -308,42 +336,80 @@ export type LightboxSlide = ResilientImageSlide | VideoSlide
 // on the photo underneath is never blocked.
 // ─────────────────────────────────────────────
 
-/** Controls stay fully visible briefly, then fade to a low, still-reachable
- * opacity after a period of no mouse/touch/keyboard activity. */
+/**
+ * Controls stay fully visible briefly, then fade to a low, still-reachable
+ * opacity after a period of no mouse/keyboard activity — this is the
+ * desktop-oriented "auto-hide" behavior.
+ *
+ * On touch devices there is no ambient "mouse moved" signal, so visibility
+ * there is driven by an explicit tap on the slide (detected in
+ * `ImageSlideRenderer`, which ignores pointer sequences that moved far enough
+ * or lasted long enough to be a swipe/drag, so this never fights swipe
+ * navigation): tap once reveals controls (and restarts the auto-hide timer so
+ * a photo left open doesn't stay lit forever), tap again hides them
+ * immediately.
+ */
 function useAutoHideControls(active: boolean) {
   const [visible, setVisible] = useState(true)
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // Mirrors `visible` so the stable `toggle` callback can read the latest
+  // value without being re-created. Written in an effect, never during
+  // render (a discarded concurrent render must not mutate this).
+  const visibleRef = useRef(visible)
+  useEffect(() => {
+    visibleRef.current = visible
+  }, [visible])
+
+  const restartTimer = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => setVisible(false), 3000)
+  }, [])
+
+  const reveal = useCallback(() => {
+    setVisible(true)
+    restartTimer()
+  }, [restartTimer])
+
+  // Explicit tap toggle — used for touch, where there's no hover signal.
+  const toggle = useCallback(() => {
+    if (visibleRef.current) {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      setVisible(false)
+    } else {
+      reveal()
+    }
+  }, [reveal])
 
   useEffect(() => {
     if (!active) return
-    const reveal = () => {
-      setVisible(true)
-      if (timerRef.current) clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(() => setVisible(false), 3000)
-    }
     reveal()
     window.addEventListener('mousemove', reveal)
-    window.addEventListener('touchstart', reveal)
     window.addEventListener('keydown', reveal)
     window.addEventListener('focusin', reveal)
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
       window.removeEventListener('mousemove', reveal)
-      window.removeEventListener('touchstart', reveal)
       window.removeEventListener('keydown', reveal)
       window.removeEventListener('focusin', reveal)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
 
-  return visible
+  return { visible, toggle }
 }
 
 const DETAILS_PANEL_ID = 'lightbox-details-panel'
 
-function LightboxControls() {
+function LightboxControls({ onToggleRef }: { onToggleRef: MutableRefObject<(() => void) | null> }) {
   const { close, prev, next } = useController()
   const { currentSlide } = useLightboxState()
-  const visible = useAutoHideControls(true)
+  const { visible, toggle } = useAutoHideControls(true)
+  useEffect(() => {
+    onToggleRef.current = toggle
+    return () => {
+      onToggleRef.current = null
+    }
+  }, [onToggleRef, toggle])
   const [justFavorited, setJustFavorited] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
 
@@ -379,7 +445,7 @@ function LightboxControls() {
   return (
     <div
       className="pointer-events-none absolute inset-0 z-[1] flex flex-col justify-between transition-opacity duration-[var(--motion-standard)] ease-[var(--ease-standard)]"
-      style={{ opacity: visible ? 1 : 0.32 }}
+      style={{ opacity: visible ? 1 : 0.4 }}
     >
       {/* Top-right cluster: favorite / download / details / close.
           The band itself stays `pointer-events-none` so it never swallows
@@ -517,6 +583,18 @@ export function ResilientLightbox({ open, index, slides, onClose }: ResilientLig
     setViewIndex(index)
   }
 
+  // Bridges a tap on the slide to the controls-visibility toggle living
+  // inside `LightboxControls` — see `useAutoHideControls` above for why touch
+  // needs an explicit toggle instead of the desktop hover-based auto-reveal.
+  //
+  // NOTE: the library's own `on.click` prop is NOT usable here. It is wired
+  // only inside the library's built-in `ImageSlide` component (see
+  // `CarouselSlide` in yet-another-react-lightbox), and `CarouselSlide`
+  // short-circuits that component entirely whenever `render.slide` returns a
+  // node — which this lightbox always does for image slides. So the tap
+  // detection lives in `ImageSlideRenderer` instead.
+  const controlsToggleRef = useRef<(() => void) | null>(null)
+
   const renderSlide = useCallback(
     ({ slide, offset }: RenderSlideProps) => {
       // Let the Video plugin handle video slides — return undefined to defer
@@ -538,6 +616,7 @@ export function ResilientLightbox({ open, index, slides, onClose }: ResilientLig
           slide={imageSlide}
           offset={offset}
           photoId={matchingSlide?.photoId}
+          onTap={() => controlsToggleRef.current?.()}
         />
       )
     },
@@ -569,7 +648,7 @@ export function ResilientLightbox({ open, index, slides, onClose }: ResilientLig
         toolbar={{ buttons: [] }}
         render={{
           slide: renderSlide,
-          controls: () => <LightboxControls />,
+          controls: () => <LightboxControls onToggleRef={controlsToggleRef} />,
           buttonPrev: () => null,
           buttonNext: () => null,
           buttonClose: () => null,

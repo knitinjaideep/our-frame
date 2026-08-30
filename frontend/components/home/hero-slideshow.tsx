@@ -64,8 +64,8 @@ export function HeroSlideshow({ photos }: HeroSlideshowProps) {
   if (photos.length === 0) {
     return (
       <section
-        className="hero-slideshow relative flex items-end overflow-hidden"
-        style={{ width: '100vw', minHeight: 540, background: 'oklch(0.10 0.006 50)' }}
+        className="hero-slideshow relative flex w-full items-end overflow-hidden"
+        style={{ minHeight: 540, background: 'oklch(0.10 0.006 50)' }}
       >
         <div
           className="absolute inset-0 opacity-40"
@@ -101,8 +101,8 @@ export function HeroSlideshow({ photos }: HeroSlideshowProps) {
 
   return (
     <section
-      className="hero-slideshow relative overflow-hidden bg-black"
-      style={{ width: '100vw', minHeight: 540 }}
+      className="hero-slideshow relative w-full overflow-hidden bg-black"
+      style={{ minHeight: 540 }}
     >
 
       {/* ── Previous slide (fading out) ── */}
@@ -204,19 +204,31 @@ export function HeroSlideshow({ photos }: HeroSlideshowProps) {
       {/* ── Slide counter ── */}
       {photos.length > 1 && (
         <div className="absolute bottom-20 right-8 z-30 flex items-center gap-3 md:right-12 lg:right-16 xl:right-20">
-          <div className="flex items-center gap-1.5">
+          {/* Dot row is hidden below `sm`: giving each dot an accessible
+              24x24 tap target widens the row from ~138px to ~310px, which
+              (plus the counter and the right offset) no longer fits a 375px
+              phone — it would overflow horizontally and collide with the
+              centered scroll indicator. On phones the counter plus the
+              always-present nav arrows carry the same affordance. */}
+          <div className="hidden items-center gap-0.5 sm:flex">
             {photos.slice(0, 12).map((_, i) => (
               <button
                 key={i}
                 onClick={() => { setPrev(index); setIndex(i) }}
                 aria-label={`Go to slide ${i + 1}`}
-                className="rounded-full transition-all duration-500"
-                style={{
-                  width:           i === index ? '1.75rem' : '0.25rem',
-                  height:          '0.25rem',
-                  backgroundColor: i === index ? 'var(--amber)' : 'oklch(1 0 0 / 28%)',
-                }}
-              />
+                aria-current={i === index}
+                className="flex shrink-0 items-center justify-center rounded-full"
+                style={{ width: '1.5rem', height: '1.5rem' }}
+              >
+                <span
+                  className="rounded-full transition-all duration-500"
+                  style={{
+                    width:           i === index ? '1.75rem' : '0.25rem',
+                    height:          '0.25rem',
+                    backgroundColor: i === index ? 'var(--amber)' : 'oklch(1 0 0 / 28%)',
+                  }}
+                />
+              </button>
             ))}
           </div>
 

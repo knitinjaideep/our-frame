@@ -298,6 +298,12 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Defensive safety net (PR 10, mobile polish): nothing in the app
+       should intentionally overflow the viewport width, but this catches
+       any future accidental fixed-width/100vw regression (the hero
+       slideshow's own `width: 100vw` was one such case) without affecting
+       any in-flow desktop layout. */
+    overflow-x: hidden;
   }
 
   body {

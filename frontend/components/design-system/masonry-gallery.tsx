@@ -184,9 +184,13 @@ export function MasonryGallery({
                 className={cn(
                   'absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full backdrop-blur-sm transition-opacity duration-[var(--motion-fast)]',
                   'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--amber)]',
+                  // On touch devices there's no hover to reveal this, so it
+                  // stays visible below the `md` breakpoint (where the
+                  // hamburger nav also takes over) — hover-reveal is kept
+                  // for mouse/desktop to preserve the quiet-chrome intent.
                   item.isFavorite
                     ? 'opacity-100'
-                    : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
+                    : 'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100',
                 )}
                 style={{ background: 'oklch(0.04 0.004 48 / 55%)' }}
               >

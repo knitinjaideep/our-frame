@@ -1,6 +1,6 @@
 # Our Frame Premium Redesign State
 
-Status: PR 9 complete
+Status: All 10 PRs complete — awaiting user decision on merge/push (see Next Action)
 
 Last updated: 2026-08-29
 
@@ -47,13 +47,28 @@ data safety, backend standards all still apply).
 | 7 | Videos | Complete | redesign/pr-7-videos (branched from redesign/pr-6-travel-milestones-life) | f5b7d5c |
 | 8 | Favorites | Complete | redesign/pr-8-favorites (branched from redesign/pr-7-videos) | df5d739 |
 | 9 | Memories / On This Day | Complete | redesign/pr-9-memories (branched from redesign/pr-8-favorites) | fbf4c4a |
-| 10 | Mobile Experience Polish | Pending | — | — |
+| 10 | Mobile Experience Polish | Complete | redesign/pr-10-mobile-polish (branched from redesign/pr-9-memories) | pending commit |
 
 ## Next Action
 
-Create `redesign/pr-10-mobile-polish` branch off `redesign/pr-9-memories`
-and dispatch `our-frame-implementer` for PR 10 (Mobile Experience Polish —
-the final PR, cross-cutting across every page redesigned so far).
+All 10 PRs are implemented, reviewed, verified, and committed locally as a
+chain of branches (`redesign/pr-1-design-system` → ... →
+`redesign/pr-10-mobile-polish`, each branched from the previous). None have
+been merged into `main` or pushed to any remote — that decision belongs to
+the user. Options once they decide:
+
+- Merge the chain into `main` sequentially (pr-1 → pr-2 → ... → pr-10), or
+  squash-merge each as its own PR against `main` via a forge (GitHub etc.)
+  if this repo has one, preserving the "series of small PRs" review
+  structure the user originally asked for.
+- Before merging: consider whether to address the two pre-existing bugs
+  found during this work (see below) as fast-follow fixes first, since PR 4
+  (Arjun) currently ships with an empty main gallery until the
+  `useAlbumDetails` pattern from PR 6 is applied to it too.
+- `docs/redesign-v2/` appeared as an untracked directory during PR 10 (not
+  created by this work) — a separate initiative with its own
+  PROMPTS/MILESTONES/STATE docs and a mockup-image requirement. Left
+  untouched; not part of this PR chain.
 
 ## Completed Checks
 
@@ -318,6 +333,88 @@ the final PR, cross-cutting across every page redesigned so far).
   confirmed every reviewer fix in the final file contents. Returned
   `VERIFICATION: PASS`. This check also needed a re-dispatch after a
   machine-sleep interruption.
+- 2026-08-29: PR 10 implementer resumed WIP left by a prior dispatch that
+  was interrupted by an infrastructure rate limit mid-fix. Reviewed every
+  changed file critically: the flagged ref-assignment-during-render bug in
+  `resilient-lightbox.tsx` was already correctly fixed in the WIP (the
+  `onToggleRef.current = toggle` bridge from `on.click` to
+  `useAutoHideControls`'s tap-toggle now happens inside a `useEffect`, not
+  in the render body); the touch auto-hide-controls rework (tap once
+  reveals + restarts the 3s timer, tap again hides — replacing the old
+  `touchstart`-as-"activity" listener that fought tap-to-toggle), the
+  opacity bump (0.32 → 0.4), the hero slide-dot 24×24px hit-target wrapper,
+  the `.hero-slideshow` `width: 100vw` → `w-full` fix, the Arjun filter/sort
+  control and Favorites select-mode button `-my-2 py-2` tap-target
+  expansions, `EmptyState`'s reduced mobile vertical padding, and
+  `MasonryGallery`'s always-visible (not hover-only) favorite heart below
+  `md` were all complete and correct — no bugs found in any of them.
+  Audited every other redesigned page (Home, Photos, Arjun, Travel,
+  Milestones, Life, Videos, Favorites, Memories, `top-nav.tsx`) at mobile
+  widths: all already degrade to single/double-column stacks via existing
+  responsive classes (`grid-cols-1`, `columns-2`, `flex-col`/`lg:flex-row`)
+  with no further sub-24px targets or overflow risk found; confirmed the
+  mobile nav is a single full-screen-sheet pattern with no bottom nav
+  anywhere in the codebase. Added one new defensive fix:
+  `overflow-x: hidden` on `html` in `globals.css` as a safety net against
+  any future accidental full-bleed/fixed-width regression (the `100vw`
+  hero was exactly this class of bug) — verified no element currently
+  relies on horizontal overflow, so this has no visible effect on today's
+  layout at any breakpoint.
+- 2026-08-29: PR 10 implementer `npm run build` passed (26 routes); `npx
+  tsc --noEmit` and `eslint` clean on all touched files.
+- 2026-08-29: PR 10 reviewer returned `REVIEW STATUS: PASS WITH FIXES` after
+  reading the installed `yet-another-react-lightbox` source rather than
+  trusting the implementer's description of it. Found and fixed the PR's
+  **headline feature being entirely dead code**: the tap-to-toggle bridge was
+  wired to the library's `on.click` prop, but `CarouselSlide` only attaches
+  that handler inside its built-in `ImageSlide` component, and it
+  short-circuits `ImageSlide` whenever `render.slide` returns a node — which
+  this lightbox always does for image slides. So `on.click` could never fire,
+  and because the same change also removed the old `touchstart` "activity"
+  listener, touch users were left with *no* way at all to restore full
+  control visibility. Replaced with real tap detection on the slide container
+  in `ImageSlideRenderer` (pointerdown/pointerup with a 10px movement and
+  500ms duration threshold, so a swipe or long-press never toggles), and
+  removed the dead `on.click` wiring plus its incorrect comments. Also fixed
+  a **mobile regression introduced by the mobile fix itself**: giving each
+  hero slide-dot a 24x24 tap target widened the dot row from ~138px to
+  ~310px, which together with the counter and the `right-8` offset no longer
+  fits a 375px phone — it overflowed horizontally (silently clipped by the
+  same PR's new `overflow-x: hidden`) and collided with the centered scroll
+  indicator; the dot row is now `hidden ... sm:flex`, leaving the counter and
+  the always-present nav arrows on phones. Third fix: `visibleRef.current =
+  visible` was still being written during render in `useAutoHideControls`
+  (the same class of bug the PR set out to fix elsewhere) — moved into an
+  effect. Independently verified the remaining claims: `sm:`/`md:` desktop
+  values are genuinely unchanged in `empty-state.tsx`,
+  `masonry-gallery.tsx`, and the Favorites empty state; the `-my-2 py-2`
+  targets compute to ~35px tall (13px `text-small` at 1.5 line-height + 16px
+  padding); `overflow-x: hidden` on `html` is safe here (grep confirmed every
+  horizontally-scrolling strip is an inner `overflow-x-auto` div, and there
+  is no `position: sticky` anywhere in the app — `.top-nav` is `fixed`);
+  `.hero-slideshow` is `height: 100dvh`, so the hero genuinely fills the
+  initial mobile screen; no bottom-nav implementation exists; and Photos,
+  Videos, and Memories all collapse to 1-2 columns on phones. Agreed with
+  deferring the `MasonryGallery` column-fill-order issue — the obvious
+  mobile-only mitigation (single column) would directly contradict the PR 10
+  prompt's explicit "2-column gallery for smaller images".
+- 2026-08-29: PR 10 reviewer re-ran `npx tsc --noEmit`, `eslint` on all
+  touched files, and `npm run build` after the fixes — clean, 26 routes,
+  identical route list to PR 9's baseline (only two pre-existing
+  `hero-slideshow.tsx` warnings, unchanged).
+- 2026-08-29: PR 10 verifier ran `npm run build`, `npx tsc --noEmit`, and
+  `eslint` — all clean, 26 routes matching baseline — and independently
+  confirmed every reviewer fix in the final file contents. Returned
+  `VERIFICATION: PASS`.
+- 2026-08-29: **All 10 PRs of the premium redesign brief are now
+  implemented, reviewed, verified, and committed** on a chain of local
+  branches (`redesign/pr-1-design-system` through
+  `redesign/pr-10-mobile-polish`, each branched from the previous, none
+  merged into `main` or pushed anywhere). Two pre-existing bugs unrelated
+  to this redesign were discovered along the way and reported to the user
+  separately (see below) rather than fixed inline. An untracked
+  `docs/redesign-v2/` directory appeared during PR 10, not created by this
+  work — left untouched, flagged to the user.
 
 ## Pre-existing bugs found during redesign work (not caused by this redesign)
 
@@ -381,6 +478,17 @@ user 2026-08-29, not yet fixed, out of scope for the current 10-PR redesign:
   are stale, un-redesigned legacy surfaces the new Photos overview page
   does not link to — leave them alone; they are outside this redesign's
   scope unless a later PR is explicitly asked to retire them.
+- Lightbox tap-to-toggle-controls works on image slides only. Video slides
+  are rendered by the Video plugin (a native `<video controls>`), so there is
+  no safe place to attach a tap catcher without covering the native scrubber
+  — the exact thing PR 5's review had to fix once. On a video slide the
+  controls still fade to opacity 0.4 after 3s but remain fully visible and
+  clickable, so nothing becomes unreachable. A per-slide-type reveal signal
+  would be the real fix; not worth the risk inside a polish PR.
+- Hero slide-dot jump targets are now hidden below `sm` (see PR 10 review) —
+  phones get the slide counter and the nav arrows instead. If per-slide jump
+  ever matters on phones, the fix is a different affordance (e.g. fewer,
+  larger dots), not re-showing 12 of them.
 - `MasonryGallery` uses CSS `columns-*`, which fills column-by-column, so
   on-screen visual order is not strictly chronological even though the
   lightbox's prev/next follows the real chronological photo order. This is

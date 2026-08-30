@@ -215,14 +215,14 @@ export default function FavoritesPage() {
                       type="button"
                       onClick={removeSelected}
                       disabled={selected.size === 0 || removing}
-                      className="text-foreground transition-colors hover:text-muted-foreground disabled:opacity-40"
+                      className="-my-2 inline-block py-2 text-foreground transition-colors hover:text-muted-foreground disabled:opacity-40"
                     >
                       {removing ? 'Removing…' : 'Remove from favorites'}
                     </button>
                     <button
                       type="button"
                       onClick={exitSelectMode}
-                      className="text-muted-foreground transition-colors hover:text-foreground"
+                      className="-my-2 inline-block py-2 text-muted-foreground transition-colors hover:text-foreground"
                     >
                       Cancel
                     </button>
@@ -231,7 +231,7 @@ export default function FavoritesPage() {
                   <button
                     type="button"
                     onClick={() => setSelectMode(true)}
-                    className="text-muted-foreground transition-colors hover:text-foreground"
+                    className="-my-2 inline-block py-2 text-muted-foreground transition-colors hover:text-foreground"
                   >
                     Select
                   </button>
@@ -319,7 +319,7 @@ function FavoritesEmptyState() {
 
       {recent.length > 0 && (
         <SectionReveal delay={0.06}>
-          <section className="mt-16">
+          <section className="mt-10 sm:mt-16">
             <p className="mb-1.5 text-eyebrow-gold">From The Collection</p>
             <p className="mb-6 text-small text-muted-foreground opacity-70">
               Keep saving the little moments. They become everything.

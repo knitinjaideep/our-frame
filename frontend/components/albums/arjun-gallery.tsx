@@ -475,10 +475,13 @@ function FilterControl({
             type="button"
             onClick={() => onChange(opt.value)}
             aria-pressed={value === opt.value}
+            // -my-2 offsets the added py-2 so the visual row height/spacing
+            // is unchanged while the actual tap target grows to ~24px+.
             className={
-              value === opt.value
+              'inline-block -my-2 py-2 ' +
+              (value === opt.value
                 ? 'font-medium text-foreground'
-                : 'text-muted-foreground transition-colors hover:text-foreground'
+                : 'text-muted-foreground transition-colors hover:text-foreground')
             }
           >
             {opt.label}
