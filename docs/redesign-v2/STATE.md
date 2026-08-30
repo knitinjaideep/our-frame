@@ -82,7 +82,7 @@ work does not change them.)
 | 1 | Design Memory / Source of Truth | Verified — PASS | redesign-v2/pr-1-design-memory | 361a7ea |
 | 2 | Shared Photos Architecture | Verified — PASS | redesign-v2/pr-2-photos-architecture | 4ea1614 |
 | 3 | Home Page | Verified — PASS | redesign-v2/pr-3-home | 3a700bb |
-| 4 | Photos Overview | Reviewed — PASS WITH FIXES | redesign-v2/pr-4-photos-overview | — |
+| 4 | Photos Overview | Reviewed — PASS WITH FIXES | redesign-v2/pr-4-photos-overview | 78e8607 |
 | 5 | Category Pages | Pending | redesign-v2/pr-5-category-pages | — |
 | 6 | Album Pages | Pending | redesign-v2/pr-6-album-pages | — |
 | 7 | Metadata, Thumbnail Selection, Image Quality | Pending | redesign-v2/pr-7-metadata-covers | — |
