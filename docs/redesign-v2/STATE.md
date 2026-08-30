@@ -1,6 +1,6 @@
 # Our Frame Redesign V2 State
 
-Status: Ready to start PR 1
+Status: PR 1 implemented (awaiting review)
 
 Last updated: 2026-08-30
 
@@ -79,7 +79,7 @@ work does not change them.)
 
 | PR | Name | Status | Branch | Commit |
 |---|---|---|---|---|
-| 1 | Design Memory / Source of Truth | Pending | redesign-v2/pr-1-design-memory | — |
+| 1 | Design Memory / Source of Truth | Implemented (awaiting review) | redesign-v2/pr-1-design-memory | — |
 | 2 | Shared Photos Architecture | Pending | redesign-v2/pr-2-photos-architecture | — |
 | 3 | Home Page | Pending | redesign-v2/pr-3-home | — |
 | 4 | Photos Overview | Pending | redesign-v2/pr-4-photos-overview | — |
@@ -90,8 +90,9 @@ work does not change them.)
 
 ## Next Action
 
-Create `redesign-v2/pr-1-design-memory` off `redesign/pr-10-mobile-polish`
-and dispatch `our-frame-implementer` for PR 1.
+PR 1 is implemented on `redesign-v2/pr-1-design-memory` and awaiting
+`our-frame-reviewer` / `our-frame-verifier`. Do not start PR 2 until PR 1 is
+reviewed/verified and the user decides on merge sequencing.
 
 ## Completed Checks
 
@@ -102,6 +103,29 @@ and dispatch `our-frame-implementer` for PR 1.
   Home-page "Recently Captured" section explicitly excluded per user
   instruction, and confirmed the 5 required mockups already exist in
   `docs/mockups/` with the exact expected filenames.
+- 2026-08-30: Implemented PR 1 (Design Memory / Source of Truth). Visually
+  inspected all 5 mockups in `docs/mockups/` (not just the text brief) and
+  reconciled them against `docs/design-system.md` Part 1 ("Premium
+  Cinematic System," from the completed `docs/redesign/` work): found it
+  fully compatible with the mockups' dark-editorial-bronze direction, so
+  `docs/design-system.md` was left untouched (no conflicts found) and
+  cross-linked rather than duplicated. Created
+  `docs/OUR-FRAME-DESIGN-SYSTEM.md` (color/typography/spacing/nav/IA/
+  home/photos-overview/category/album/gallery/image-quality/cover-
+  selection/lightbox/responsive/motion/component-architecture rules,
+  each tied to specific mockup evidence), including an explicit "Known,
+  intentional deviation" note in the Home-page rules section documenting
+  that board 1 depicts a "Recently Captured" section but the user opted
+  out of it — instructing PR 3 (and PR 8's audit) not to reintroduce it.
+  Created `docs/mockups/README.md` documenting the 5 exact existing
+  filenames with a one-line explanation of what UI each governs. Added a
+  short "UI / Design Source of Truth" section to `.claude/CLAUDE.md`
+  pointing to `docs/OUR-FRAME-DESIGN-SYSTEM.md` (no content duplicated).
+  This was a documentation-only PR — no page/component code touched. Ran
+  `npm run build` in `frontend/` to confirm nothing broke; passed. Files
+  changed: `docs/OUR-FRAME-DESIGN-SYSTEM.md` (new),
+  `docs/mockups/README.md` (new), `.claude/CLAUDE.md` (new section),
+  `docs/redesign-v2/STATE.md` (this entry).
 
 ## Open Questions
 
