@@ -80,7 +80,7 @@ work does not change them.)
 | PR | Name | Status | Branch | Commit |
 |---|---|---|---|---|
 | 1 | Design Memory / Source of Truth | Verified — PASS | redesign-v2/pr-1-design-memory | 361a7ea |
-| 2 | Shared Photos Architecture | Reviewed — PASS WITH FIXES | redesign-v2/pr-2-photos-architecture | — |
+| 2 | Shared Photos Architecture | Reviewed — PASS WITH FIXES | redesign-v2/pr-2-photos-architecture | 4ea1614 |
 | 3 | Home Page | Pending | redesign-v2/pr-3-home | — |
 | 4 | Photos Overview | Pending | redesign-v2/pr-4-photos-overview | — |
 | 5 | Category Pages | Pending | redesign-v2/pr-5-category-pages | — |
