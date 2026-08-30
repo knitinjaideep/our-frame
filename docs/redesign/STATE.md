@@ -47,7 +47,7 @@ data safety, backend standards all still apply).
 | 7 | Videos | Complete | redesign/pr-7-videos (branched from redesign/pr-6-travel-milestones-life) | f5b7d5c |
 | 8 | Favorites | Complete | redesign/pr-8-favorites (branched from redesign/pr-7-videos) | df5d739 |
 | 9 | Memories / On This Day | Complete | redesign/pr-9-memories (branched from redesign/pr-8-favorites) | fbf4c4a |
-| 10 | Mobile Experience Polish | Complete | redesign/pr-10-mobile-polish (branched from redesign/pr-9-memories) | pending commit |
+| 10 | Mobile Experience Polish | Complete | redesign/pr-10-mobile-polish (branched from redesign/pr-9-memories) | c9187db |
 
 ## Next Action
 
