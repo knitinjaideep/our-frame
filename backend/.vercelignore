@@ -1,0 +1,10 @@
+# Local runtime data/cache — never part of the deployed function.
+# ourframe.db and media-cache/ are regenerated at runtime and are already
+# gitignored; they were still being swept into the Vercel function bundle
+# (no .vercelignore previously existed), pushing it over the 225MB limit.
+data/
+
+# Local dev artifacts — rebuilt fresh by Vercel's own Python build step.
+.venv/
+__pycache__/
+.DS_Store
