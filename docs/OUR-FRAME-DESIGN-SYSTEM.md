@@ -242,6 +242,20 @@ glyph, the folder name in serif, and one muted sans secondary line whose
 *content* varies by category (Arjun: item count; Travel: country;
 Milestones: date; Life: nothing) while the slot and styling stay fixed.
 
+**Amended by PR 7 (metadata fields).** Folder cards now carry up to *two*
+muted sans lines: a metadata line (real `location`, else `description`) and
+the count line, in that order. This is not silent drift — PR 7's brief
+(`docs/redesign-v2/PROMPTS.md`) asks for "title, location OR short
+description, photo count" on category folder cards, and board 5's own
+"FOLDER CARD PREVIEW (UPDATED COVER)" panel renders exactly that shape
+("Maine" → "113 photos · Dec 2025" → a description line). Both lines are
+omitted individually when their field is absent, never rendered as empty
+placeholders. Card dimensions are unaffected: the text block is absolutely
+positioned against the bottom of a fixed 4:3 cover box
+(`.album-card__overlay-title` in `globals.css`), so a folder with rich
+metadata and one with none are the same height — the uniform-sizing rule
+above still holds literally.
+
 **Known deviation from board 3 — column count.** The boards render each
 category page at 4 folder cards across. The written brief
 (`docs/redesign-v2/PROMPTS.md`, PR 5) specifies **desktop 3 / tablet 2 /

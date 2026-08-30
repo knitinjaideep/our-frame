@@ -1,6 +1,7 @@
 'use client'
-import { Calendar, MapPin } from 'lucide-react'
+import { Calendar, MapPin, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { IconButton } from '@/components/design-system/icon-button'
 import { Breadcrumbs, type BreadcrumbItem } from './breadcrumbs'
 
 export type { BreadcrumbItem }
@@ -12,9 +13,9 @@ export interface AlbumHeaderProps {
   title: string
   /** One-line description/statement. Optional — omitted, never an empty placeholder. */
   description?: string
-  /** Optional location line, e.g. "Bar Harbor, Maine" (PR 7 metadata). */
+  /** Optional location line, e.g. "Bar Harbor, Maine" (PR 7's real `Album.location` field). */
   location?: string
-  /** Optional date/date-range line, e.g. "May 10 – May 17, 2024" (derived today from photo capture dates via `lib/photo-age.ts`'s `dateRangeLabel`; PR 7 may add a real album-level field). */
+  /** Optional date/date-range line, e.g. "May 10 – May 17, 2024" — the real `Album.start_date`/`end_date` fields (PR 7) when set, else derived from photo capture dates via `lib/photo-age.ts`'s `dateRangeLabel`. */
   dateRange?: string
   /** Pre-formatted count line, e.g. "113 photos" or "12 folders · 842 photos". */
   countLabel?: string
@@ -28,6 +29,15 @@ export interface AlbumHeaderProps {
    * placeholder card.
    */
   coverImageUrl?: string | null
+  /**
+   * Owner-only "Change cover" affordance (PR 7,
+   * `docs/mockups/05-lightbox-album-cover-selection.png`'s mobile panel: an
+   * edit-pencil in the header). Undefined/omitted entirely for non-owners
+   * or category landing pages — the caller decides eligibility, this
+   * component only renders what it's given, same pattern as
+   * `onToggleFavorite` elsewhere in the app.
+   */
+  onChangeCover?: () => void
 }
 
 /**
@@ -65,12 +75,24 @@ export function AlbumHeader({
   countLabel,
   isLoading,
   coverImageUrl,
+  onChangeCover,
 }: AlbumHeaderProps) {
   const hasCover = Boolean(coverImageUrl)
 
   const textBlock = (
     <>
-      <Breadcrumbs items={breadcrumbs} light={hasCover} />
+      <div className="flex items-start justify-between gap-3">
+        <Breadcrumbs items={breadcrumbs} light={hasCover} />
+        {onChangeCover && (
+          <IconButton
+            variant={hasCover ? 'translucent' : 'ghost'}
+            label="Change album cover"
+            onClick={onChangeCover}
+            icon={<Pencil className="h-[15px] w-[15px]" aria-hidden />}
+            className="h-8 w-8 shrink-0"
+          />
+        )}
+      </div>
 
       {eyebrow && <p className="text-eyebrow-gold mb-3">{eyebrow}</p>}
 

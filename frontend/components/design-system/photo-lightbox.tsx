@@ -12,6 +12,8 @@ interface PhotoLightboxProps {
   index: number
   slides: LightboxSlide[]
   onClose: () => void
+  /** PR 7 — whether the viewer may see owner-only actions (album cover selection). */
+  isOwner?: boolean
 }
 
 /**
@@ -28,8 +30,8 @@ interface PhotoLightboxProps {
  * controls, discreet metadata drawer, restrained favorite animation) inside
  * `ResilientLightbox` without needing to change this contract.
  */
-export function PhotoLightbox({ open, index, slides, onClose }: PhotoLightboxProps) {
+export function PhotoLightbox({ open, index, slides, onClose, isOwner }: PhotoLightboxProps) {
   return (
-    <ResilientLightbox open={open} index={index} slides={slides} onClose={onClose} />
+    <ResilientLightbox open={open} index={index} slides={slides} onClose={onClose} isOwner={isOwner} />
   )
 }

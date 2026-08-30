@@ -1,16 +1,19 @@
 'use client'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ImageOff } from 'lucide-react'
-import { ageCaption, dateRangeLabel, earliestDate } from '@/lib/photo-age'
+import { ageCaption, dateRangeLabel, earliestDate, explicitDateRangeLabel } from '@/lib/photo-age'
 import { albumCoverUrl } from '@/lib/api-client'
 import { AlbumHeader, type BreadcrumbItem } from './album-header'
 import { CategoryHeader } from './category-header'
 import { FolderGrid } from './folder-grid'
 import { AlbumPhotoGrid } from './album-photo-grid'
+import { CoverPickerDialog } from './cover-picker-dialog'
+import { useSetAlbumCover } from '@/hooks/use-albums'
+import { useCurrentUser } from '@/hooks/use-auth'
 import { AlbumGridSkeleton } from '@/components/albums/album-grid-skeleton'
 import { PhotoGridSkeleton } from '@/components/photos/photo-grid-skeleton'
 import { SectionReveal } from '@/components/ui/section-reveal'
-import { EmptyState } from '@/components/design-system'
+import { ConfirmationToast, EmptyState } from '@/components/design-system'
 import type { AlbumDetail } from '@/types'
 
 export interface AlbumDetailTemplateMeta {
@@ -78,7 +81,30 @@ export function AlbumDetailTemplate({ id, data, isLoading, error, meta }: AlbumD
   ]
   if (data?.album) breadcrumbs.push({ label: data.album.name })
 
+  // PR 7 — header "Change cover" affordance, opening `CoverPickerDialog`
+  // (the second of the two cover-selection surfaces the brief allows,
+  // alongside the lightbox's overflow menu owned by `AlbumPhotoGrid`).
+  // Legacy `/albums` routes aren't workspace-scoped (see the auth-scope
+  // note in `backend/api/albums/routes.py`), so "authenticated" is the
+  // meaningful "owner" signal here, same as `AlbumPhotoGrid`.
+  const { data: currentUser } = useCurrentUser()
+  const setCover = useSetAlbumCover()
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // Clear the pending timer on unmount — otherwise navigating away mid-toast
+  // fires setState on an unmounted component.
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+  }, [])
+  function showToast(message: string, tone: 'success' | 'error' = 'success') {
+    setToast({ message, tone })
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = setTimeout(() => setToast(null), tone === 'error' ? 4000 : 2600)
+  }
+
   const isCategory = meta?.isCategory ?? false
+  const canEditCover = Boolean(currentUser) && !isCategory && Boolean(data?.album)
   // Category pages use "folder(s)" per docs/OUR-FRAME-DESIGN-SYSTEM.md §9
   // ("113 folders", "42 folders" ...); leaf albums keep "album(s)" for
   // their own sub-albums section.
@@ -100,14 +126,30 @@ export function AlbumDetailTemplate({ id, data, isLoading, error, meta }: AlbumD
       p.created_time ? ageCaption(new Date(p.created_time), ageStart).label : undefined
   }, [ageStart])
 
-  // A specific album's date range, derived from its own photos' real
-  // capture dates (never fabricated) — location has no backing field yet
-  // (PR 7), so it's simply omitted until then. Category landing pages don't
-  // get a date range; they fan out to many folders, not one dated set.
-  const dateRange = useMemo(
-    () => (isCategory ? undefined : dateRangeLabel(photos.map((p) => p.created_time))),
-    [isCategory, photos],
-  )
+  // A specific album's date range. Prefers the real, day-precision
+  // `start_date`/`end_date` metadata fields (PR 7) when set; falls back to
+  // a range derived from the photos' own capture dates (coarser, month-
+  // precision) when no explicit dates have been set for this album, so
+  // existing albums keep behaving exactly as before PR 7. Category landing
+  // pages don't get a date range; they fan out to many folders, not one
+  // dated set.
+  const dateRange = useMemo(() => {
+    if (isCategory) return undefined
+    return (
+      explicitDateRangeLabel(data?.album.start_date, data?.album.end_date) ??
+      dateRangeLabel(photos.map((p) => p.created_time))
+    )
+  }, [isCategory, data?.album.start_date, data?.album.end_date, photos])
+  // Real album location (PR 7 metadata field) — omitted gracefully when
+  // absent, never a placeholder. Category landing pages don't show a
+  // location row (see `CategoryHeader`'s doc comment — that row is
+  // reserved for a specific album's header, §10).
+  const location = !isCategory ? data?.album.location ?? undefined : undefined
+  // A curated per-chapter description (`meta.description`, only set for the
+  // four top-level category buckets) still wins when present; otherwise a
+  // real leaf album's own `description` field (PR 7) is used instead of
+  // always being blank.
+  const description = meta?.description ?? (!isCategory ? data?.album.description ?? undefined : undefined)
   // Rendered ~1400px wide in the header band, so it asks for the larger
   // cached derivative rather than the 400px card thumbnail — see
   // `albumCoverUrl`. Still the album's own real cover; never a placeholder.
@@ -135,11 +177,13 @@ export function AlbumDetailTemplate({ id, data, isLoading, error, meta }: AlbumD
               breadcrumbs={breadcrumbs}
               eyebrow={meta?.eyebrow ?? 'Album'}
               title={title}
-              description={meta?.description}
+              description={description}
+              location={location}
               dateRange={dateRange}
               countLabel={countLabel}
               isLoading={isLoading}
               coverImageUrl={coverImageUrl}
+              onChangeCover={canEditCover ? () => setPickerOpen(true) : undefined}
             />
           )}
         </div>
@@ -201,6 +245,12 @@ export function AlbumDetailTemplate({ id, data, isLoading, error, meta }: AlbumD
                     folderId={id}
                     albumName={title}
                     captionFor={captionFor}
+                    hasCustomCover={Boolean(data?.album.has_custom_cover)}
+                    // Category landing pages (isCategory) have no cover
+                    // slot in their header (`CategoryHeader` doesn't render
+                    // one — see its doc comment), so cover selection is
+                    // only offered on a real leaf album's own photos.
+                    enableCoverSelection={!isCategory}
                   />
                 </section>
               </SectionReveal>
@@ -208,6 +258,41 @@ export function AlbumDetailTemplate({ id, data, isLoading, error, meta }: AlbumD
           </>
         )}
       </div>
+
+      {canEditCover && (
+        <CoverPickerDialog
+          open={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          candidates={photos.map((p) => ({
+            id: p.id,
+            thumbnailUrl: p.thumbnail_url,
+            alt: p.name,
+          }))}
+          selectedId={data?.album.cover_photo_id}
+          onSelect={(photoId) => {
+            setCover.mutate(
+              { albumId: id, photoId },
+              {
+                onSuccess: () => showToast('Album cover updated'),
+                onError: () => showToast("Couldn't update the album cover", 'error'),
+              },
+            )
+          }}
+          onReset={
+            data?.album.has_custom_cover
+              ? () =>
+                  setCover.mutate(
+                    { albumId: id, photoId: null },
+                    {
+                      onSuccess: () => showToast('Album cover reset'),
+                      onError: () => showToast("Couldn't reset the album cover", 'error'),
+                    },
+                  )
+              : undefined
+          }
+        />
+      )}
+      <ConfirmationToast message={toast?.message ?? null} tone={toast?.tone} />
     </div>
   )
 }

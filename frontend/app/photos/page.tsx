@@ -4,7 +4,7 @@ import { SectionReveal } from '@/components/ui/section-reveal'
 import { ImageOff } from 'lucide-react'
 import { PageIntro, ChapterCard, TextLink, EmptyState } from '@/components/design-system'
 import { CHAPTER_COVER_ASPECT } from '@/components/design-system/chapter-card'
-import { mediaUrl } from '@/lib/api-client'
+import { albumCoverUrl } from '@/lib/api-client'
 import { BUCKETS } from '@/lib/buckets'
 import { cn } from '@/lib/utils'
 
@@ -81,7 +81,11 @@ export default function PhotosPage() {
           ) : (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8">
               {resolved.map(({ chapter, album }, i) => {
-                const imageUrl = album?.thumbnail_url ? mediaUrl(album.thumbnail_url) : undefined
+                // These are the largest folder tiles in the app (a 2x2 grid,
+                // each up to ~680px wide on desktop) — request the cached
+                // `grid` derivative (900px), not the 400px card thumbnail,
+                // per PR 7's image-quality fix (`albumCoverUrl`).
+                const imageUrl = album?.thumbnail_url ? albumCoverUrl(album.thumbnail_url) : undefined
                 const meta =
                   album?.photo_count != null
                     ? `${album.photo_count.toLocaleString()} photo${album.photo_count === 1 ? '' : 's'}`

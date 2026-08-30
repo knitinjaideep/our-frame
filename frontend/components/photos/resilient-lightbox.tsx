@@ -20,7 +20,7 @@ import Lightbox, { useController, useLightboxState } from 'yet-another-react-lig
 import Video from 'yet-another-react-lightbox/plugins/video'
 import 'yet-another-react-lightbox/styles.css'
 import type { RenderSlideProps, SlideImage } from 'yet-another-react-lightbox'
-import { X, ChevronLeft, ChevronRight, Heart, Download as DownloadIcon, Info } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Heart, Download as DownloadIcon, Info, ImagePlus, RotateCcw } from 'lucide-react'
 import { thumbnailUrl, contentUrl } from '@/lib/api-client'
 import { IconButton } from '@/components/design-system/icon-button'
 import { PhotoContextMenu } from '@/components/design-system/photo-context-menu'
@@ -301,6 +301,18 @@ interface LightboxSlideMeta {
   isFavorite?: boolean
   /** Favorite toggle handler for the currently displayed slide. */
   onToggleFavorite?: () => void
+  /**
+   * Manual album-cover selection (PR 7, `docs/OUR-FRAME-DESIGN-SYSTEM.md`
+   * §13) — owner-only, rendered in the overflow menu alongside Download.
+   * Undefined entirely when the viewer isn't the owner or the slide has no
+   * associated album (the caller decides both), so the menu item simply
+   * doesn't exist rather than being disabled.
+   */
+  albumCover?: {
+    onSetCover: () => void
+    /** Present only when the album currently has a custom cover set. */
+    onResetCover?: () => void
+  }
 }
 
 export interface ResilientImageSlide extends LightboxSlideMeta {
@@ -401,7 +413,13 @@ function useAutoHideControls(active: boolean) {
 
 const DETAILS_PANEL_ID = 'lightbox-details-panel'
 
-function LightboxControls({ onToggleRef }: { onToggleRef: MutableRefObject<(() => void) | null> }) {
+function LightboxControls({
+  onToggleRef,
+  isOwner,
+}: {
+  onToggleRef: MutableRefObject<(() => void) | null>
+  isOwner: boolean
+}) {
   const { close, prev, next } = useController()
   const { currentSlide } = useLightboxState()
   const { visible, toggle } = useAutoHideControls(true)
@@ -434,7 +452,7 @@ function LightboxControls({ onToggleRef }: { onToggleRef: MutableRefObject<(() =
     lastKeyRef.current = activeKey
     if (detailsOpen) setDetailsOpen(false)
   }
-  const { date, caption, album, location, people, isFavorite, onToggleFavorite, download } = meta ?? {}
+  const { date, caption, album, location, people, isFavorite, onToggleFavorite, download, albumCover } = meta ?? {}
   const hasMeta = Boolean(date || caption || album || location || (people && people.length > 0))
 
   function handleFavoriteClick() {
@@ -473,17 +491,51 @@ function LightboxControls({ onToggleRef }: { onToggleRef: MutableRefObject<(() =
             }
           />
         )}
-        {download && (
+        {(download || albumCover) && (
           <PhotoContextMenu
             className="pointer-events-auto"
             label="More actions"
+            // Real owner flag, threaded down from `ResilientLightbox`'s
+            // `isOwner` prop — `PhotoContextMenu` hides `ownerOnly` entries
+            // (Set/Reset album cover) entirely for non-owners, not just
+            // disables them, and does so regardless of whether the caller
+            // also (redundantly) omitted `meta.albumCover` — defense in
+            // depth, since the real enforcement is server-side (the backend
+            // requires an authenticated session for the cover-set endpoint).
+            isOwner={isOwner}
             actions={[
-              {
-                key: 'download',
-                label: 'Download original',
-                href: download,
-                icon: <DownloadIcon className="h-4 w-4" aria-hidden />,
-              },
+              ...(download
+                ? [
+                    {
+                      key: 'download',
+                      label: 'Download original',
+                      href: download,
+                      icon: <DownloadIcon className="h-4 w-4" aria-hidden />,
+                    },
+                  ]
+                : []),
+              ...(albumCover
+                ? [
+                    {
+                      key: 'set-cover',
+                      label: 'Set as album cover',
+                      icon: <ImagePlus className="h-4 w-4" aria-hidden />,
+                      onSelect: albumCover.onSetCover,
+                      ownerOnly: true,
+                    },
+                    ...(albumCover.onResetCover
+                      ? [
+                          {
+                            key: 'reset-cover',
+                            label: 'Reset album cover',
+                            icon: <RotateCcw className="h-4 w-4" aria-hidden />,
+                            onSelect: albumCover.onResetCover,
+                            ownerOnly: true,
+                          },
+                        ]
+                      : []),
+                  ]
+                : []),
             ]}
           />
         )}
@@ -570,9 +622,15 @@ interface ResilientLightboxProps {
   index: number
   slides: LightboxSlide[]
   onClose: () => void
+  /**
+   * Whether the current viewer may see owner-only actions (album cover
+   * selection). Defaults to `false` — every existing call site keeps
+   * rendering exactly as before unless it opts in.
+   */
+  isOwner?: boolean
 }
 
-export function ResilientLightbox({ open, index, slides, onClose }: ResilientLightboxProps) {
+export function ResilientLightbox({ open, index, slides, onClose, isOwner = false }: ResilientLightboxProps) {
   // The library re-seeds its internal index from the `index` prop whenever
   // the `slides` array identity changes (see `LightboxStateProvider` ->
   // `reducer` "update" in yet-another-react-lightbox). Consumers rebuild
@@ -652,7 +710,7 @@ export function ResilientLightbox({ open, index, slides, onClose }: ResilientLig
         toolbar={{ buttons: [] }}
         render={{
           slide: renderSlide,
-          controls: () => <LightboxControls onToggleRef={controlsToggleRef} />,
+          controls: () => <LightboxControls onToggleRef={controlsToggleRef} isOwner={isOwner} />,
           buttonPrev: () => null,
           buttonNext: () => null,
           buttonClose: () => null,

@@ -54,6 +54,23 @@ def _run_schema_migrations():
             conn.commit()
             logger.info("Migration: added workspaces.drive_connect_deferred")
 
+        # albums: description/location/start_date/end_date (redesign-v2 PR 7
+        # metadata fields). All nullable and additive — existing rows are
+        # unaffected, no backfill needed. `cover_photo_id` already existed
+        # as a column before this PR, so it needs no migration.
+        album_cols = {c["name"] for c in inspector.get_columns("albums")}
+        album_migrations = {
+            "description": "ALTER TABLE albums ADD COLUMN description TEXT",
+            "location": "ALTER TABLE albums ADD COLUMN location TEXT",
+            "start_date": "ALTER TABLE albums ADD COLUMN start_date DATETIME",
+            "end_date": "ALTER TABLE albums ADD COLUMN end_date DATETIME",
+        }
+        for col, ddl in album_migrations.items():
+            if col not in album_cols:
+                conn.execute(sa.text(ddl))
+                conn.commit()
+                logger.info("Migration: added albums.%s", col)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

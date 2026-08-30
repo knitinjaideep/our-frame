@@ -69,6 +69,41 @@ export function fullDate(iso: string | null | undefined): string | undefined {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+/**
+ * Full, precise date-range label for a real album `start_date`/`end_date`
+ * pair (PR 7 metadata fields — day-precision, unlike the photo-capture-
+ * derived `dateRangeLabel` below), e.g. "May 10 – May 17, 2024" (board 4's
+ * own example) or "Dec 25, 2025" for a single date. Either field may be
+ * absent; returns undefined only when both are. Never fabricates a date —
+ * only formats what the caller actually has.
+ */
+export function explicitDateRangeLabel(
+  startIso?: string | null,
+  endIso?: string | null,
+): string | undefined {
+  const start = startIso ? new Date(startIso) : null
+  const end = endIso ? new Date(endIso) : null
+  const validStart = start && !Number.isNaN(start.getTime()) ? start : null
+  const validEnd = end && !Number.isNaN(end.getTime()) ? end : null
+  if (!validStart && !validEnd) return undefined
+
+  if (validStart && validEnd) {
+    if (validStart.getTime() === validEnd.getTime()) {
+      return validStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    }
+    const sameYear = validStart.getFullYear() === validEnd.getFullYear()
+    const startLabel = validStart.toLocaleDateString(
+      'en-US',
+      sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' },
+    )
+    const endLabel = validEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    return `${startLabel} – ${endLabel}`
+  }
+
+  const only = (validStart ?? validEnd)!
+  return only.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 /** Latest valid `created_time` in a list of ISO date strings, or null if none. */
 export function latestDate(isoDates: Array<string | null | undefined>): Date | null {
   let latest: Date | null = null

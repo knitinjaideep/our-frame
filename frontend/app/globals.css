@@ -958,7 +958,12 @@
 /* Title overlaid on image bottom */
 .album-card__overlay-title {
   position: absolute;
-  inset-x: 0;
+  /* `inset-x` is a Tailwind utility name, not a CSS property — it was being
+     dropped, leaving this block shrink-to-fit. The metadata line added in
+     PR 7 uses `truncate`, which needs a real width constraint to ellipsize
+     rather than clip at the card edge. */
+  left: 0;
+  right: 0;
   bottom: 0;
   padding: 1rem 1.1rem 0.9rem;
   z-index: 2;

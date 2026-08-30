@@ -1,8 +1,16 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Grid2x2, Grid3x3, LayoutGrid } from 'lucide-react'
-import { MasonryGallery, PhotoLightbox, type MasonryGalleryItem, type LightboxSlide } from '@/components/design-system'
+import {
+  ConfirmationToast,
+  MasonryGallery,
+  PhotoLightbox,
+  type MasonryGalleryItem,
+  type LightboxSlide,
+} from '@/components/design-system'
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/use-favorites'
+import { useSetAlbumCover } from '@/hooks/use-albums'
+import { useCurrentUser } from '@/hooks/use-auth'
 import { mediaUrl, downloadUrl, videoStreamUrl } from '@/lib/api-client'
 import { gridThumbnail } from '@/lib/media'
 import { shortDate } from '@/lib/photo-age'
@@ -28,6 +36,26 @@ interface AlbumPhotoGridProps {
    * gallery with more than one photo.
    */
   showControls?: boolean
+  /**
+   * Whether the album currently has a *manually chosen* cover
+   * (`Album.has_custom_cover`) — used only to decide whether the lightbox's
+   * "Reset album cover" action appears. Note this deliberately does not use
+   * `Album.cover_photo_id`: since PR 7 the API returns the deterministically
+   * auto-resolved id in that field when no manual cover is set, so it is
+   * almost always non-null and would make "Reset" appear with nothing to
+   * reset to.
+   */
+  hasCustomCover?: boolean
+  /**
+   * Enables the "Set as album cover" / "Reset album cover" lightbox actions
+   * (PR 7). Category landing pages (Arjun/Travel/Milestones/Life buckets)
+   * pass `false` — a bucket's own "cover" concept doesn't map cleanly onto
+   * "set this photo as the bucket's cover" the way a real leaf album's does
+   * (the bucket has no direct photos of its own in three of the four
+   * chapters), and offering it there would be confusing UI, not a real
+   * capability gap. See `docs/redesign-v2/STATE.md` for the scope decision.
+   */
+  enableCoverSelection?: boolean
 }
 
 type FilterValue = 'all' | 'favorites'
@@ -58,6 +86,8 @@ export function AlbumPhotoGrid({
   density,
   captionFor,
   showControls,
+  hasCustomCover,
+  enableCoverSelection,
 }: AlbumPhotoGridProps) {
   const [lightboxIndex, setLightboxIndex] = useState(-1)
   const [filter, setFilter] = useState<FilterValue>('all')
@@ -65,6 +95,48 @@ export function AlbumPhotoGrid({
   const [viewDensity, setViewDensity] = useState<NonNullable<AlbumPhotoGridProps['density']>>(density ?? 'default')
   const favoriteIds = useFavoriteIds()
   const { add, remove } = useToggleFavorite()
+
+  // Legacy `/albums` routes are not workspace-scoped (see `.claude/
+  // CLAUDE.md`'s "Current Migration Context" and the auth-scope note in
+  // `backend/api/albums/routes.py`'s `set_album_cover`) — there is no
+  // per-workspace owner role to check here, only whether the app has an
+  // authenticated session at all. The whole app already sits behind
+  // `AuthGate`, so "authenticated" is the correct/only meaningful "owner"
+  // signal for this legacy path today.
+  const { data: currentUser } = useCurrentUser()
+  const isOwner = Boolean(currentUser) && Boolean(enableCoverSelection)
+
+  const setCover = useSetAlbumCover()
+  const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+  }, [])
+  function showToast(message: string, tone: 'success' | 'error' = 'success') {
+    setToast({ message, tone })
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = setTimeout(() => setToast(null), tone === 'error' ? 4000 : 2600)
+  }
+  function handleSetCover(photoId: string) {
+    setCover.mutate(
+      { albumId: folderId, photoId },
+      {
+        onSuccess: () => showToast('Album cover updated'),
+        // Fail visibly — otherwise a rejected request looks identical to a
+        // successful one from the user's side.
+        onError: () => showToast("Couldn't update the album cover", 'error'),
+      },
+    )
+  }
+  function handleResetCover() {
+    setCover.mutate(
+      { albumId: folderId, photoId: null },
+      {
+        onSuccess: () => showToast('Album cover reset'),
+        onError: () => showToast("Couldn't reset the album cover", 'error'),
+      },
+    )
+  }
 
   function isFav(p: Photo) {
     return favoriteIds.has(p.id) || p.is_favorite
@@ -126,6 +198,19 @@ export function AlbumPhotoGrid({
           album: albumName,
           isFavorite: isFav(p),
           onToggleFavorite: () => toggleFavorite(p),
+          // Videos are deliberately excluded: an album cover is served via
+          // the "thumbnail" derivative kind (`thumbnail_url_for` in
+          // `backend/services/media_response_service.py`), which is only
+          // ever generated for photos — a video only has a "poster"
+          // derivative, so setting one as cover would resolve to a broken
+          // image rather than a real cached thumbnail.
+          albumCover:
+            isOwner && !isVideo
+              ? {
+                  onSetCover: () => handleSetCover(p.id),
+                  onResetCover: hasCustomCover ? handleResetCover : undefined,
+                }
+              : undefined,
         }
         if (isVideo) {
           const videoSrc = p.playback_url ? mediaUrl(p.playback_url) : videoStreamUrl(p.id)
@@ -155,8 +240,10 @@ export function AlbumPhotoGrid({
       }),
     // isFav/toggleFavorite are derived from favoriteIds (already a dep) —
     // same pattern as the former arjun-gallery.tsx/life-gallery.tsx.
+    // handleSetCover/handleResetCover close over folderId/setCover, which
+    // don't change identity meaningfully within a render of this component.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [visiblePhotos, favoriteIds, albumName, captionFor],
+    [visiblePhotos, favoriteIds, albumName, captionFor, isOwner, hasCustomCover],
   )
 
   return (
@@ -206,7 +293,10 @@ export function AlbumPhotoGrid({
         index={lightboxIndex}
         slides={slides}
         onClose={() => setLightboxIndex(-1)}
+        isOwner={isOwner}
       />
+
+      <ConfirmationToast message={toast?.message ?? null} tone={toast?.tone} />
     </>
   )
 }

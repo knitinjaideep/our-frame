@@ -16,16 +16,18 @@ interface ThumbnailPickerProps {
 }
 
 /**
- * ThumbnailPicker — presentational scaffold for manual album/folder cover
+ * ThumbnailPicker — presentational grid for manual album/folder cover
  * selection (`docs/redesign-v2/MILESTONES.md` PR 7, "Metadata, Thumbnail
  * Selection, Image Quality").
  *
- * PR 2 (this component's origin) only builds the shared *architecture*
- * category/album pages will need; it deliberately does NOT wire this into
- * any live page yet, because `Album` has no cover-photo reference field to
- * select for until PR 7 adds one (see `docs/redesign-v2/STATE.md` for the
- * judgment call). Building the picker grid now means PR 7 only has to
- * supply real candidates + a save mutation, not invent this layout.
+ * Built as an unwired scaffold in PR 2 (see `docs/redesign-v2/STATE.md` for
+ * that judgment call — `Album` had no cover-photo reference field yet).
+ * PR 7 wires it up: `components/photos/cover-picker-dialog.tsx` supplies
+ * real per-album photo candidates and calls the real `POST /albums/{id}
+ * /cover` mutation (`useSetAlbumCover`) on selection, opened from the
+ * album header's "Change cover" affordance. Left presentational-only here
+ * (no data fetching, no mutation) so it stays reusable if another surface
+ * ever needs the same picker grid.
  */
 export function ThumbnailPicker({ candidates, selectedId, onSelect, className }: ThumbnailPickerProps) {
   if (candidates.length === 0) return null

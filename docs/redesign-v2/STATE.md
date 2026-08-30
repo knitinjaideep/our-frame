@@ -1,6 +1,9 @@
 # Our Frame Redesign V2 State
 
-Status: PR 6 reviewed (PASS WITH FIXES) — pending verification
+Status: PR 7 reviewed — PASS WITH FIXES (pending verifier). (PR 6's "Completed Checks" entry
+at the bottom of this file records a verifier PASS at commit `bb95b1b`, even
+though this line hadn't been updated to say so — leaving that pre-existing
+inconsistency noted here rather than silently rewriting history above.)
 
 Last updated: 2026-08-30
 
@@ -85,7 +88,7 @@ work does not change them.)
 | 4 | Photos Overview | Verified — PASS | redesign-v2/pr-4-photos-overview | 78e8607 |
 | 5 | Category Pages | Verified — PASS | redesign-v2/pr-5-category-pages | 8492caa |
 | 6 | Album Pages | Verified — PASS | redesign-v2/pr-6-album-pages | 8e43986 |
-| 7 | Metadata, Thumbnail Selection, Image Quality | Pending | redesign-v2/pr-7-metadata-covers | — |
+| 7 | Metadata, Thumbnail Selection, Image Quality | Reviewed — PASS WITH FIXES | redesign-v2/pr-7-metadata-covers | (this commit) |
 | 8 | Final Consistency Audit | Pending | redesign-v2/pr-8-consistency-audit | — |
 
 ## Next Action
@@ -1747,3 +1750,487 @@ Before continuing:
   reviewer defects (image quality and text legibility) were genuinely fixed; the
   implementation is complete and correct. PR 6 is ready for merge decision.
 
+- 2026-08-30: Implemented PR 7 (Metadata, Thumbnail Selection, Image
+  Quality) on `redesign-v2/pr-7-metadata-covers`, branched from the real PR
+  6 commit under `redesign-v2/pr-6-album-pages`'s tip (per the task's note
+  about two unrelated commits on top of that branch). Read `.claude/
+  CLAUDE.md` (Data Safety, Privacy/Security), `docs/OUR-FRAME-DESIGN-
+  SYSTEM.md` §12/§13/§14, `docs/redesign-v2/MILESTONES.md`/`PROMPTS.md` PR
+  7, and visually inspected `docs/mockups/05-lightbox-album-cover-
+  selection.png` before writing any code, plus the existing PR-2 scaffolds
+  (`photo-context-menu.tsx`, `thumbnail-picker.tsx`) and the whole album
+  data path (`backend/models/album.py` → `album_repo.py` → `album_service.py`
+  → `api/albums/routes.py` → `frontend/hooks/use-albums.ts` →
+  `album-detail-template.tsx`/`album-card.tsx`) so nothing was rebuilt that
+  already existed.
+
+  **Key finding before writing code**: `DriveAlbum.cover_photo_id` already
+  existed as a column (pre-dating this PR) and was already read everywhere
+  a folder card/bucket resolves its thumbnail (`_to_album_summary_with_
+  resolved_cover`'s `cover_id = album.cover_photo_id or _resolve_cover(...)`)
+  — but nothing ever *wrote* to it. So the "manual cover" data model was
+  already half-built; this PR's real job for Part C was adding the write
+  path (a real endpoint + idempotent repo setter), not the field itself.
+
+  **A. Album metadata.** Added four new optional, additive columns to
+  `DriveAlbum` (`backend/models/album.py`): `description`, `location`,
+  `start_date`, `end_date` — all `Optional`, no existing column removed or
+  renamed. Added a lightweight ad-hoc SQLite migration in `backend/main.py`'s
+  existing `_run_schema_migrations()` (the same pattern already used for
+  `workspaces.drive_connect_deferred`): `ALTER TABLE albums ADD COLUMN ...`
+  for each of the four, guarded by a `sqlalchemy.inspect` column-existence
+  check, so it's a no-op on a DB that already has them. Verified against a
+  hand-built "legacy" SQLite file with the *old* `albums` schema (no new
+  columns) that running the migration adds exactly the four columns,
+  preserves the existing row's data untouched, and running it twice in a
+  row is a genuine no-op (no error, no duplicate `ALTER TABLE` attempt) —
+  see "Checks run" below for the exact commands. Surfaced through
+  `AlbumSummary` (`backend/schemas/album.py`) and both `_to_album_summary`/
+  `_to_album_summary_with_resolved_cover` (`backend/services/
+  album_service.py`).
+
+  Also fixed a real, pre-existing inconsistency while wiring this: an
+  album's own header cover (`get_album_detail`'s `album` field) previously
+  used the *non*-resolving `_to_album_summary`, so a leaf album with no
+  manual cover showed a cover-less header (`AlbumHeader` falls back to the
+  plain, no-photo header) even though every other place that same album
+  appears (its `FolderCard` in the parent's grid, the root buckets grid)
+  already fell back to a real auto-picked photo via `_to_album_summary_
+  with_resolved_cover`. Switched `get_album_detail` to the resolving
+  variant too, so "deterministic fallback ... never randomly change on
+  reload" (an explicit PR 7 acceptance criterion) now holds for the
+  header, not just the card.
+
+  Frontend wiring (`album-detail-template.tsx`): `AlbumHeader`'s
+  `location`/`description`/`dateRange` now prefer the real fields
+  (`Album.location`/`.description`, and a new `explicitDateRangeLabel`
+  helper in `lib/photo-age.ts` for day-precision `start_date`/`end_date`,
+  formatted like board 4's own example "May 10 – May 17, 2024") and fall
+  back to the pre-existing photo-capture-derived values only when the real
+  field is unset — so every album that had no metadata before this PR
+  renders byte-identically to before. `AlbumCard` (`components/albums/
+  album-card.tsx`) gained a second overlay line, `folderMetaLine` (location
+  OR description, per the brief's literal "title, location OR short
+  description, photo count"), above the existing count line — a deliberate,
+  documented departure from `docs/OUR-FRAME-DESIGN-SYSTEM.md` §9's "one
+  muted secondary line" wording, which was written before PR 7's real
+  fields existed and only had a count to describe; the count line itself
+  is untouched.
+
+  **Scope decision, explicitly not built**: no metadata *edit* UI. The
+  brief permits this ("even if there's no admin UI to edit them yet ...
+  storing+displaying is enough"). To make the fields actually populable
+  without inventing a second write path later, added a real, owner-gated
+  `PATCH /albums/{id}/metadata` endpoint (partial-update semantics via
+  Pydantic's `exclude_unset`) that no frontend page calls yet — a
+  deliberate, small bet that a future admin UI will want exactly this
+  shape rather than nothing.
+
+  **B. High-definition thumbnails.** Confirmed the derivative sizes already
+  in place (`backend/services/media_derivative_service.py`'s
+  `PHOTO_DERIVATIVE_SIZES`: thumbnail 400px, grid 900px, preview 1800px)
+  and, per the task's explicit pointer, checked `FolderCard`/`AlbumCard`
+  for "the same class of bug" PR 6's reviewer already fixed for the album
+  header (a 400px `thumbnail` derivative stretched across a much larger
+  band). Found it in two places rendering the *same* underlying
+  `Album.thumbnail_url` at large sizes with the raw `mediaUrl()` call
+  instead of the existing `albumCoverUrl()` upgrade helper: `AlbumCard`
+  (`components/albums/album-card.tsx`, every folder/category tile in the
+  app) and the Photos-overview `ChapterCard` tiles (`app/photos/page.tsx`
+  — the single largest folder tiles in the app, up to ~680px wide in a 2x2
+  desktop grid). Both switched to `albumCoverUrl()`, which upgrades a
+  cached-route `/thumbnail` path to `/grid` (900px, still CDN-sourced,
+  never a full-original download) and passes anything else (legacy
+  `/drive/file/...` fallback, absolute URLs) through unchanged, exactly
+  the reasoning PR 6 already documented on that helper.
+
+  Left the photo masonry grid (`AlbumPhotoGrid`/`MasonryGallery`) at the
+  400px `thumbnail` derivative, deliberately unchanged — this was a real
+  choice, not an oversight. `lib/media.ts`'s `gridThumbnail()` already
+  carries an explicit code comment about why it never falls back to a
+  larger derivative (avoiding an original-per-tile in a grid that can
+  render hundreds of items), `MasonryGallery` already lazy-loads
+  (`loading="lazy"`), and design-system §12's "must look high-def on
+  Retina" is in tension with "don't load every original upfront" for a
+  many-small-tile grid specifically — the brief's own phrasing
+  distinguishes "folder/category thumbnails" (few, large tiles — 1200–
+  1600px target) from "photo grid" (many, small tiles — "optimized
+  preview... lazy loading... no full original"), and I read that as two
+  different targets, not one. The lightbox already requests `preview_url`
+  (1800px, the largest cached derivative), confirmed unchanged and already
+  higher-resolution than the grid, satisfying that specific acceptance
+  criterion with no code change needed.
+
+  **C. Manual album cover selection.** Backend: `album_repo.
+  set_cover_photo(session, album_id, photo_id)` (idempotent — re-saving
+  the same id is just a write of the same value, never an error) and
+  `album_repo.update_metadata(...)` (using a `...`-sentinel default per
+  kwarg so "omitted" and "explicitly null" are distinguishable). Service
+  layer (`album_service.set_album_cover`) validates the album exists and,
+  when `photo_id` is not `None`, that the photo exists (`PhotoNotFoundError`
+  → 404) before writing — deliberately does *not* validate the photo
+  belongs to this specific album/its subfolder tree (that would need the
+  same depth-bounded recursive walk `_resolve_cover` already does, and
+  false negatives there — Drive folder structures the recursion doesn't
+  cleanly model — seemed worse than the honest scope note here: any
+  authenticated user can currently set any existing photo id as any
+  album's cover, not just one from that album). Route:
+  `POST /albums/{album_id}/cover` (body `{"photo_id": string | null}`,
+  `null` resets to the automatic fallback), `PATCH /albums/{album_id}
+  /metadata`. Both gated with `Depends(get_current_user)` (401 if
+  unauthenticated) — documented at length in the route docstrings *why*
+  this is the right owner check for this specific router: the legacy
+  `/albums` path predates the Phase 1 workspace model and isn't workspace-
+  scoped at all (no `workspace_id` in any route here), so there is no
+  finer-grained owner role to check; the whole frontend already sits behind
+  `AuthGate` and (confirmed by re-reading `auth-gate.tsx`) the only public
+  paths anywhere in the app are `/`, `/login`, `/auth/callback` — no public/
+  unauthenticated media-viewing mode exists to leak this control into.
+
+  Frontend: `useSetAlbumCover()` (`hooks/use-albums.ts`) — on success,
+  optimistically writes the returned `AlbumSummary` into the mutated
+  album's own `useAlbumDetail` cache entry (instant header/lightbox
+  update, no reload) and then `invalidateQueries({queryKey: ['albums']})`,
+  which (react-query prefix matching) invalidates every albums-prefixed
+  query at once — the plain list, the root buckets list, and any other
+  album's detail query that has this one cached as a subfolder card — so
+  the new cover propagates to "wherever it appears" (§13) without this
+  hook needing to know the parent chain. Two selection surfaces, matching
+  the brief's "context/overflow menu, or a discreet ... action" wording
+  (interpreted as an explicit either/or, not a requirement to build both a
+  grid-hover affordance *and* a lightbox action *and* a header affordance —
+  I built the lightbox action, required by Part D, plus one more, described
+  next, rather than also adding a third trigger on every grid tile, which
+  no mockup shows and would add hover-chrome clutter §7/§16 explicitly
+  warns against):
+
+  1. **Lightbox overflow menu** (Part D, below).
+  2. **Album header "Change cover"** — a small pencil `IconButton` next to
+     the breadcrumb row in `AlbumHeader` (owner-only, via a new optional
+     `onChangeCover` prop the header only renders when given one), opening
+     `components/photos/cover-picker-dialog.tsx` — a small, dependency-free
+     modal (Escape + backdrop-click to close, no portal library) wrapping
+     PR 2's previously-unwired `ThumbnailPicker` scaffold with the album's
+     own already-loaded photos as candidates. This is the second surface
+     board 5 itself depicts ("ALBUM COVER UPDATED (MOBILE)" panel: "an
+     edit pencil in the header" + a "Change cover" button), and it's the
+     reason `ThumbnailPicker` finally gets a real caller instead of staying
+     permanently-scaffolded dead code. Selecting a candidate calls the same
+     `useSetAlbumCover` mutation and shows the same `ConfirmationToast`;
+     "Reset to automatic cover" appears only when a custom cover is
+     currently set.
+
+  New shared `ConfirmationToast` (`components/design-system/confirmation-
+  toast.tsx`) — bronze check icon + message, fixed bottom-center, a very
+  high `z-index` (10000, above the lightbox portal's default 9999) so it
+  stays visible while the lightbox is open, matching board 5's "Cover
+  updated" confirmation and Part D's "do not close the lightbox"
+  requirement. Auto-dismisses after ~2.6s; generic (just a `message`
+  string) so any future owner-only mutation can reuse it.
+
+  **Judgment call**: the header dialog and the lightbox action each own an
+  independent `useSetAlbumCover()` instance and independent toast state,
+  rather than lifting one shared mutation/toast instance to
+  `AlbumDetailTemplate` and threading it into both `AlbumHeader` and
+  `AlbumPhotoGrid`. React Query mutations are stateless/cache-agnostic
+  (both instances write to and invalidate the same query cache regardless
+  of which triggered them), so this has no correctness cost; the only
+  real cost is two toasts could theoretically overlap if a user triggered
+  both within the ~2.6s window, an edge case not worth a larger refactor
+  of an already-tested, working `AlbumPhotoGrid`.
+
+  Deterministic fallback: unchanged/confirmed — `_resolve_cover` always
+  walks the same `photo_repo.get_by_folder` ordering (`created_time desc`),
+  so "reset" always lands on the same photo, never a random one, verified
+  with a real service-layer test (see below).
+
+  **Applied uniformly**: both surfaces live in the two components every
+  category/album page already shares (`AlbumHeader`, `AlbumPhotoGrid` via
+  `AlbumDetailTemplate`) — no per-category branching was added anywhere.
+  One deliberate exception, documented in code comments at both call
+  sites: the four top-level chapter buckets (Arjun/Travel/Milestones/Life)
+  render via `CategoryHeader`, not `AlbumHeader` — `CategoryHeader` has no
+  cover-photo slot at all (by design, since PR 5/6 — a category page fans
+  out to many folders, it doesn't have one photo "of" it), so cover
+  selection is disabled on those pages (`enableCoverSelection`/
+  `canEditCover` both gated on `!isCategory`). Every real leaf/sub-album
+  under any of the four (e.g. "Maine" under Travel, any dated folder under
+  Arjun) gets the full feature. Read literally, the brief's "Apply to
+  folders under Arjun, Travel, Milestones, Life" supports this reading —
+  it says folders *under* each chapter, not the chapter root itself.
+
+  Video slides are explicitly excluded from cover selection (`isVideo` gate
+  in `album-photo-grid.tsx`'s slide-meta builder) — a cover renders via the
+  `thumbnail` derivative kind, which only photos ever get; a video only has
+  a `poster` derivative, so setting one as cover would resolve to a broken
+  image rather than degrade gracefully.
+
+  **D. Lightbox actions.** `resilient-lightbox.tsx`: extended
+  `LightboxSlideMeta` with an optional `albumCover: { onSetCover,
+  onResetCover? }` (mirrors the existing `onToggleFavorite` callback-
+  injection pattern rather than the lightbox owning any persistence
+  logic itself — `AlbumPhotoGrid` still builds/owns the mutation, the
+  lightbox only renders the menu item and fires the callback). The
+  existing `download`-only overflow `PhotoContextMenu` now also renders
+  "Set as album cover" and, only when the album already has a custom
+  cover, "Reset album cover" — both passed `ownerOnly: true` and a real
+  `isOwner` prop threaded down from `ResilientLightbox` → `PhotoLightbox`
+  (new optional prop on both, default `false`, so every existing call site
+  — Favorites, Memories, anywhere else `PhotoLightbox` is used — keeps
+  rendering exactly as before unless it opts in). Confirmed
+  `PhotoContextMenu` already hides (not disables) `ownerOnly` entries
+  entirely for non-owners — no new gating logic needed there, just real
+  data passed in. Selecting either menu item closes only the small
+  dropdown (`PhotoContextMenu`'s own `setOpen(false)`), never the
+  `Lightbox` itself, and the header/parent-grid cover updates live via the
+  same cache-invalidation path as the header dialog.
+
+  **Verification performed** (backend, since no dev server with a real
+  session/Drive connection is available in this environment — same
+  limitation prior PRs recorded): built a scratch SQLite DB by hand with
+  the *pre*-PR-7 `albums` schema, ran `_run_schema_migrations()` twice,
+  confirmed all four columns were added, the pre-existing row's data was
+  preserved, and the second run was a genuine no-op; separately, seeded a
+  real album + two photos and exercised `album_service.set_album_cover`
+  end-to-end: set → idempotent re-set (same result) → reset (falls back to
+  the same deterministic photo `_resolve_cover` would have picked) →
+  confirmed `PhotoNotFoundError`/`AlbumNotFoundError` raise correctly for
+  bad ids; exercised `update_album_metadata` and confirmed partial fields
+  land correctly. Hit both new endpoints unauthenticated via an ASGI
+  `httpx` client and confirmed both 401 (`{"detail":"Not authenticated"}`),
+  i.e. the owner gate is real, not just present in a docstring. Started
+  the frontend dev server and confirmed `/photos` and `/login` render
+  without a runtime error (backend not running, so data fetches fail
+  gracefully — no crash), same limited check prior PRs used.
+
+  Files changed: `backend/models/album.py`, `backend/schemas/album.py`,
+  `backend/repositories/album_repo.py`, `backend/services/album_service.py`,
+  `backend/api/albums/routes.py`, `backend/main.py`, `frontend/types/
+  index.ts`, `frontend/lib/photo-age.ts`, `frontend/hooks/use-albums.ts`,
+  `frontend/components/albums/album-card.tsx`, `frontend/app/photos/
+  page.tsx`, `frontend/components/photos/album-header.tsx`, `frontend/
+  components/photos/album-detail-template.tsx`, `frontend/components/
+  photos/album-photo-grid.tsx`, `frontend/components/photos/resilient-
+  lightbox.tsx`, `frontend/components/design-system/photo-lightbox.tsx`,
+  `frontend/components/design-system/index.ts`, `frontend/components/
+  photos/thumbnail-picker.tsx` (doc comment only — now genuinely wired),
+  and two new files: `frontend/components/design-system/confirmation-
+  toast.tsx`, `frontend/components/photos/cover-picker-dialog.tsx`.
+  Favorites, Memories, Videos, Drive sync/auth, and every other backend
+  router untouched — `git status --porcelain` confirmed. No `.env`,
+  tokens, `.db` files, or generated media in the diff (confirmed via
+  `git status --porcelain --ignored`).
+
+  Checks run: `backend/.venv/bin/python -m py_compile` on every changed
+  backend file (clean); the scratch-DB migration/idempotency/service-layer
+  tests described above; an unauthenticated-request check against both new
+  endpoints; `npx tsc --noEmit` (clean); `npx eslint` on every touched
+  frontend file (0 errors, 0 new warnings — the pre-existing `<img>`-vs-
+  `next/image` warning in `album-card.tsx` is the same architectural
+  pattern used throughout the codebase, untouched by this PR); `npm run
+  build` (passes, all 26 routes, same route list as PR 6 — no route
+  added/removed); a frontend dev-server smoke check of `/photos` and
+  `/login` (200, no runtime error).
+
+  **Known limitations / left for review**: (1) no real Drive-backed
+  session was available to visually confirm the pencil affordance, the
+  cover picker dialog, or the lightbox menu items against the live app or
+  the mockup pixel-for-pixel — only build-level and headless-service-level
+  verification was possible, the same limitation PRs 4–6 recorded; a
+  reviewer with a live session should open a real album, confirm the
+  header pencil/dialog and lightbox overflow items render and behave as
+  described, and compare against board 5. (2) cover-photo-belongs-to-album
+  validation is intentionally not enforced server-side (documented above)
+  — a reviewer should confirm that's an acceptable scope decision rather
+  than a gap. (3) `folderMetaLine`'s two-secondary-line card layout is a
+  documented departure from `docs/OUR-FRAME-DESIGN-SYSTEM.md` §9's literal
+  "one muted secondary line" wording; the design-system doc itself was not
+  edited to reflect this (out of scope for a Metadata/Cover-Selection PR to
+  rewrite Design Memory doc), which a future audit (PR 8) should reconcile
+  explicitly rather than leave silently drifted.
+
+- 2026-08-30: Reviewed PR 7 (`our-frame-reviewer`) — **PASS WITH FIXES**.
+  Every load-bearing claim was re-derived by running code, not by reading
+  the implementer's write-up. Recorded at length because this PR is the
+  only backend-touching one in the sequence and carried a security-adjacent
+  self-flag.
+
+  **Priority 1 — the flagged cover-ownership gap. Real, but strictly
+  narrower than "cross-workspace". Fixed.**
+
+  First, the workspace question, settled by reading the models rather than
+  the docstring: `backend/models/album.py` (`albums`) and
+  `backend/models/photo.py` (`photos`) have **no `workspace_id` column at
+  all**. Only `models/media.py`'s `MediaItem`/`MediaDerivative` are
+  workspace-scoped, and `POST /albums/{id}/cover` never touches them. So
+  there is no Workspace-A-user-sets-Workspace-B-photo escalation reachable
+  through this endpoint — the legacy `/albums` router genuinely serves one
+  shared library, exactly as the implementer claimed. The `/media/file/...`
+  route that ultimately serves the cover image does its own authorization
+  (`_authorize_media_item`, workspace membership or authenticated-legacy),
+  so a cover reference cannot be used to pull another workspace's bytes
+  either. `.claude/CLAUDE.md`'s "expose unauthenticated media endpoints for
+  private workspaces" prohibition is not violated.
+
+  Second, the within-library gap, which **was** real and is now closed.
+  Confirmed empirically against a seeded scratch DB: before the fix,
+  `album_service.set_album_cover(s, "alb-a", "pX")` — where `pX` lives in an
+  entirely unrelated root album — returned success and persisted. The
+  concrete harm is not "another family's photos" but resurfacing media the
+  library deliberately hides: a photo inside a folder marked `excluded`
+  (hidden from every view by `album_repo.get_by_parent`/`get_root_albums`)
+  could be pinned as a visible cover tile by any authenticated caller with
+  a photo id. Fix applied in review, in the service layer where it belongs:
+  a new `_photo_in_album_tree()` walk plus a `PhotoNotInAlbumError` →
+  HTTP 400 in the route. The photo must now live in the album itself or in
+  one of its **visible** descendant folders (breadth-first, cycle-guarded,
+  depth-bounded at 5 — deliberately deeper than `_resolve_cover`'s 3 so the
+  walk can never be the thing that rejects a legitimate pick). This cannot
+  produce a false negative for a real user action: both selection surfaces
+  are built from `AlbumDetail.photos`, which is
+  `photo_repo.get_by_folder(album_id)` — direct children only — so every
+  UI-reachable selection is a strict subset of what the check allows.
+  Verified all four ways: direct child accepted, visible nested subfolder
+  accepted, unrelated album rejected, `excluded` subfolder rejected.
+
+  **Priority 2 — migration safety, independently re-tested, no defects.**
+  Did not take the implementer's self-test on trust: built a throwaway
+  SQLite file containing the hand-written *pre*-PR-7 `albums`/`photos`
+  schema plus three album rows and three photo rows, pointed `DATABASE_URL`
+  at it (asserting first that `settings.database_url` really resolved to
+  the temp file, so `.env` could not redirect the test at the real DB), and
+  ran `create_db_and_tables()` + `_run_schema_migrations()` **twice**.
+  Result: the four columns are added exactly once (`PRAGMA table_info`
+  count == 1 each), the second pass is a genuine no-op, every legacy column
+  survives, the pre-existing rows compare byte-identical before/after
+  across all eleven original columns, and all four new columns are NULL on
+  existing rows. The model fields are all `Optional[...] = Field(default=
+  None)` with no `NOT NULL`, so `create_all()` on a fresh DB and the
+  `ALTER TABLE` path agree. Migration verdict: safe.
+
+  **Priority 3 — the two-line `AlbumCard`. Ratified, not a layout defect;
+  the doc drift was reconciled rather than deferred.** Checked whether this
+  reintroduces the card-height variance PR 4's review fixed: it does not.
+  `.album-card__overlay-title` is `position: absolute; bottom: 0` inside
+  `.album-card__img-wrap`, which is a fixed `aspect-ratio: 4 / 3` box, so a
+  folder with location + count and a folder with neither render at
+  identical dimensions — the text block simply grows upward into the scrim.
+  Substantively, board 5's own "FOLDER CARD PREVIEW (UPDATED COVER)" panel
+  shows a folder card with a title, a "113 photos · Dec 2025" line **and** a
+  separate description line, and PR 7's brief asks for "title, location OR
+  short description, photo count" — so two lines is what the source material
+  actually depicts. Rather than leave `docs/OUR-FRAME-DESIGN-SYSTEM.md` §9
+  silently contradicting shipped code for PR 8 to discover, §9 was amended
+  in review with the evidence and an explicit note that uniform card sizing
+  still holds literally.
+
+  **Other defects found and fixed in review:**
+  1. **"Reset album cover" always appeared, with nothing to reset to.** The
+     implementer (correctly) switched `get_album_detail` to
+     `_to_album_summary_with_resolved_cover`, which writes the *auto-
+     resolved* id into `AlbumSummary.cover_photo_id`. But both new UI
+     surfaces gated their reset affordance on `cover_photo_id` being
+     truthy, which is now almost always true — so every album offered
+     "Reset album cover"/"Reset to automatic cover" even when it was already
+     on the automatic cover. Added an explicit `has_custom_cover` boolean to
+     `AlbumSummary` (reported from the album's *stored* field, not the
+     resolved one), plumbed it through `types/index.ts`, and renamed
+     `AlbumPhotoGrid`'s `albumCoverPhotoId` prop to `hasCustomCover` so the
+     wrong field can't be reintroduced by accident.
+  2. **Cover mutations failed silently.** Both call sites passed only
+     `onSuccess`, so a rejected request (including the new 400 above, or any
+     network failure) was indistinguishable from success — nothing moved and
+     nothing was said. `ConfirmationToast` gained an optional
+     `tone: 'success' | 'error'` (warning mark instead of the bronze check,
+     4s instead of 2.6s), and both surfaces now report failure honestly, per
+     `.claude/CLAUDE.md`'s "fail visibly and recoverably".
+  3. **Missing timer cleanup** in `album-detail-template.tsx` — it had the
+     toast timer but not the unmount `clearTimeout` that `AlbumPhotoGrid`
+     already had, so navigating away mid-toast set state on an unmounted
+     component. Added.
+  4. **`.album-card__overlay-title` used `inset-x: 0`**, which is a Tailwind
+     utility name, not a CSS property — it was being dropped, leaving the
+     overlay shrink-to-fit. Pre-existing, but PR 7's new metadata line uses
+     `truncate`, which needs a real width constraint to ellipsize instead of
+     clipping at the card edge. Replaced with `left: 0; right: 0`.
+  5. **Latent `ValidationError`** on `get_album_detail`'s unknown-album
+     path: the fallback `AlbumSummary(...)` literal omitted the required
+     `child_count` field. Pre-existing; fixed while adjacent.
+
+  **Verified as claimed, independently:** both new endpoints really do 401
+  unauthenticated — hit `POST /albums/x/cover` (with and without a
+  `photo_id`) and `PATCH /albums/x/metadata` through an in-process ASGI
+  client with no session cookie, all three returned
+  `{"detail":"Not authenticated"}`; idempotency (setting the same cover
+  twice returns the same state, no error) and reset-to-deterministic-
+  fallback (always lands back on the same `created_time desc` first photo);
+  partial metadata update leaves omitted fields untouched (the `...`
+  sentinel works) while an explicit `null` clears; videos genuinely excluded
+  from cover eligibility via the `isOwner && !isVideo` gate, not silently
+  allowed to produce a broken cover; category buckets genuinely excluded via
+  `enableCoverSelection={!isCategory}` / `canEditCover`, matching
+  `CategoryHeader` having no cover slot; `AlbumCard` and the Photos-overview
+  `ChapterCard` both now request the 900px `grid` derivative through
+  `albumCoverUrl()`; the lightbox still requests `preview_url` (1800px);
+  selecting a cover from the lightbox closes only the dropdown, and the
+  lightbox does not snap back to its opening slide when `slides` is rebuilt
+  (`ResilientLightbox`'s existing `viewIndex`/`seedIndex` mirror already
+  handles this — the same mechanism that makes favoriting safe); cache
+  invalidation is a real `['albums']`-prefix invalidation plus a direct
+  `setQueryData` on the mutated album, so header, picker, and parent folder
+  card update without a reload; only a photo id is persisted, never image
+  bytes, and no derivative generation is triggered by selecting a cover.
+  No `.env`, token, `.db`, or generated-media file is in the diff.
+
+  **New focused test committed:** `backend/tests/test_album_cover.py` (the
+  repo had no test directory and no pytest in `backend/.venv`, so it runs
+  standalone: `cd backend && ./.venv/bin/python tests/test_album_cover.py`).
+  It builds the pre-PR-7 schema in a temp dir, refuses to run unless
+  `settings.database_url` resolves to that temp file, and asserts migration
+  additivity/idempotency/row preservation plus the whole cover contract
+  including the containment cases.
+
+  **Remaining concerns, not fixed — for PR 8, stated plainly rather than
+  softened:**
+  - **`srcset`/`sizes` are still absent everywhere.** MILESTONES' PR 7
+    criterion says "responsive sizes/high-DPI support" and §12 says "use
+    responsive image sizes (srcset/sizes)". What shipped is a single
+    upgraded source per surface (900px `grid` for folder/chapter cards),
+    which satisfies "large enough for its rendered size" but is not
+    responsive. Left alone deliberately: adding it app-wide is a real
+    change to image plumbing across `AlbumCard`, `ChapterCard`, and
+    `MasonryGallery`, not a review-scope tweak, and only two derivative
+    widths (400/900) exist to choose between. This criterion should be read
+    as partially met.
+  - **Masonry photo tiles at 400px — measured, and it is thin at `loose`
+    density.** At a 1440px viewport the album gallery container is ~1280px;
+    `loose` is 3 columns with a 16px gutter, i.e. ~415px per tile, so the
+    400px `thumbnail` source is roughly 1× — visibly soft on any Retina
+    screen, against §12's "must look high-definition on Retina". `default`
+    (4 cols, ~310px) and `tight` (5 cols, ~245px) are closer to acceptable.
+    Not changed here because it is a genuine cost decision rather than a
+    bug: `/media/file/{id}/{kind}` generates a missing derivative on first
+    request, so promoting every tile to `grid` would trigger first-view
+    derivative generation across a whole album, and that is a
+    performance/hosting call for the user, not the reviewer. The
+    implementer's reasoning is sound; the numbers just deserve to be on the
+    record.
+  - Still **no live authenticated run with real Drive media** — the same
+    limitation PRs 4–6 recorded. The header pencil, `CoverPickerDialog`,
+    lightbox menu items, and toast were verified by code path and by
+    backend-level tests, not seen rendering against real photos.
+  - The `PATCH /albums/{id}/metadata` endpoint remains write-only with no
+    caller, so `description`/`location`/`start_date`/`end_date` will read as
+    absent (and correctly render as nothing) until something populates them.
+    That matches the brief's explicit allowance; noting it so PR 8 doesn't
+    mistake empty metadata for broken metadata.
+
+  Checks run after fixes: `backend/.venv/bin/python -m py_compile` on all
+  six changed backend files plus the new test (clean);
+  `backend/tests/test_album_cover.py` (all assertions pass); the
+  unauthenticated ASGI 401 check on both endpoints; `npx tsc --noEmit`
+  (clean); `npx eslint` over `app/photos`, `components/{photos,albums,
+  design-system}`, `hooks`, `lib`, `types` (0 errors; 3 pre-existing
+  warnings — two `<img>`-vs-`next/image`, one unused `_` in
+  `album-cover-fallback.tsx`, none introduced by this PR); `npm run build`
+  (compiles successfully, all 26 routes, unchanged route list).
