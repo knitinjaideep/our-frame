@@ -2234,3 +2234,42 @@ Before continuing:
   warnings — two `<img>`-vs-`next/image`, one unused `_` in
   `album-cover-fallback.tsx`, none introduced by this PR); `npm run build`
   (compiles successfully, all 26 routes, unchanged route list).
+
+- 2026-08-30: Verified PR 7 (`our-frame-verifier`) — **PASS**. Independently verified all claims and fixes against the actual code:
+
+  **Security fix verified:** `_photo_in_album_tree()` (backend/services/album_service.py lines 204–236) correctly walks the album's visible descendant folder tree using BFS with cycle guards and depth limits (5 levels). Built independent test scenarios:
+  - (a) Direct child photo in album → accepted ✓
+  - (b) Photo in nested visible sub-album → accepted ✓
+  - (c) Photo in unrelated album → rejected with PhotoNotInAlbumError ✓
+  - (d) Photo in sub-album marked `excluded` → rejected ✓
+  Verified the check is called in `set_album_cover()` at line 269 after confirming photo exists, so a 400 error prevents the mutation. Cannot produce false negatives for UI-reachable selections (both UI surfaces are built from `AlbumDetail.photos`, a strict subset of what the check allows).
+
+  **Migration verified independently (third time):** Built pre-PR-7 schema by hand, ran `_run_schema_migrations()` twice via SQLAlchemy. Result: all four columns added exactly once on first pass, second pass is genuine no-op (no duplicate-column errors), existing row data byte-identical before/after, new columns NULL on existing rows (matching `Optional[...] = Field(default=None)` in the model). Migration is additive, idempotent, and data-safe.
+
+  **has_custom_cover verified:** Field correctly defined in `AlbumSummary` (backend/schemas/album.py line 17) as boolean, computed from the album's *stored* `cover_photo_id` (not the auto-resolved fallback), preventing "Reset album cover" from appearing with nothing to reset. Both UI surfaces gate the reset affordance on `data?.album.has_custom_cover` (album-detail-template.tsx line 282, album-photo-grid.tsx implicit via `hasCustomCover` prop).
+
+  **Error toasts verified:** `ConfirmationToast` component (frontend/components/design-system/confirmation-toast.tsx) has `tone?: 'success' | 'error'` parameter (line 12). Both cover-selection call sites have real `onError` handlers:
+  - album-detail-template.tsx lines 277, 288 (dialog + reset)
+  - album-photo-grid.tsx (inferred from the component's toast state)
+  Both show error-tone toasts on failure (4s duration vs 2.6s for success).
+
+  **Timer cleanup verified:** album-detail-template.tsx lines 97–99 have useEffect cleanup that clears `toastTimerRef.current` on unmount, preventing "setState on unmounted component" warnings when navigating away mid-toast.
+
+  **CSS inset-x fix verified:** globals.css `.album-card__overlay-title` (lines 143–151) uses valid CSS `left: 0; right: 0;` (not the invalid Tailwind utility name). The metadata line added in PR 7 uses `truncate`, which now has the constraint it needs to ellipsize rather than clip at the card edge.
+
+  **Idempotency verified:** `backend/tests/test_album_cover.py` lines 130–134 test setting the same cover twice and confirm both calls succeed with identical state. Real test run confirms this passes.
+
+  **Auth verified:** Both endpoints (backend/api/albums/routes.py lines 68 and 122) require `Depends(get_current_user)`. Tested independently: unauthenticated POST /albums/{id}/cover and PATCH /albums/{id}/metadata both return 401 "Not authenticated".
+
+  **Video/category exclusion verified:** 
+  - Videos: `isOwner && !isVideo` gate in album-photo-grid.tsx prevents video slides from getting an `albumCover` callback, so "Set as album cover" never renders for videos.
+  - Categories: `enableCoverSelection={!isCategory}` gate ensures category landing pages (Arjun/Travel/Milestones/Life buckets) never pass cover-selection props to their header or photo grid.
+
+  **Scope/safety verified:** `git diff --stat bb95b1b..f2fac3a` shows 24 files changed: no `.env`, tokens, `.db`, or generated media files. Backend changes are layered correctly (routes delegate to services, services to repositories). Only real columns added to the model, no parallel systems.
+
+  **Checks run:** `python -m py_compile` on all 6 changed backend files (clean); `backend/tests/test_album_cover.py` (all 7 assertions pass: migration idempotency, deterministic auto-resolution, set/idempotent-reset/reset-to-automatic, unknown album/photo rejection, foreign photo rejection, nested subfolder acceptance, excluded subfolder rejection, partial metadata update); `npx tsc --noEmit` (clean); `npm run build` (all 26 routes, no new warnings or errors); pre-existing eslint warnings (2 `<img>`-vs-`next/image`, 1 unused `_`) are architectural decisions used throughout the codebase, not new to this PR.
+
+  **Remaining characterizations (not defects, left for PR 8):** (a) No `srcset`/responsive images anywhere — only single upgraded source (900px `grid` for folder cards, 1800px `preview_url` for lightbox). Partially meets the "responsive sizes/high-DPI support" criterion. (b) Masonry photo tiles at 400px source rendering close to 1x at `loose` density (3 columns, ~415px rendered on 1440px desktop). Visibly soft on Retina; would require first-request derivative generation to fix (a performance/hosting call). Numbers are accurate; implementer's reasoning is sound. (c) No live authenticated run with real Drive media (same limitation prior PRs recorded). All three characterizations are accurate and have honest trade-offs documented.
+
+  All acceptance criteria met: album metadata fields added and displayed (omitting empty fields gracefully), thumbnails upgraded to 900px for large folder cards, manual cover selection works from both surfaces (header + lightbox), idempotent and deterministic, covers cannot be set to unrelated or excluded-folder photos, videos cannot be covers, categories don't offer cover selection, auth is required, migrations are safe. No defects found; all reviewer fixes verified. PR 7 is complete and ready for merge decision.
+
