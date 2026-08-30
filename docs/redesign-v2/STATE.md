@@ -1,6 +1,6 @@
 # Our Frame Redesign V2 State
 
-Status: PR 3 verified — PASS
+Status: PR 4 reviewed — PASS WITH FIXES (pending verification)
 
 Last updated: 2026-08-30
 
@@ -82,13 +82,19 @@ work does not change them.)
 | 1 | Design Memory / Source of Truth | Verified — PASS | redesign-v2/pr-1-design-memory | 361a7ea |
 | 2 | Shared Photos Architecture | Verified — PASS | redesign-v2/pr-2-photos-architecture | 4ea1614 |
 | 3 | Home Page | Verified — PASS | redesign-v2/pr-3-home | 3a700bb |
-| 4 | Photos Overview | Pending | redesign-v2/pr-4-photos-overview | — |
+| 4 | Photos Overview | Reviewed — PASS WITH FIXES | redesign-v2/pr-4-photos-overview | — |
 | 5 | Category Pages | Pending | redesign-v2/pr-5-category-pages | — |
 | 6 | Album Pages | Pending | redesign-v2/pr-6-album-pages | — |
 | 7 | Metadata, Thumbnail Selection, Image Quality | Pending | redesign-v2/pr-7-metadata-covers | — |
 | 8 | Final Consistency Audit | Pending | redesign-v2/pr-8-consistency-audit | — |
 
 ## Next Action
+
+PR 4 (Photos Overview) is implemented and reviewed (PASS WITH FIXES) on
+`redesign-v2/pr-4-photos-overview`; next step is `our-frame-verifier` on
+PR 4, then PR 5. Note for the verifier: the live authenticated `/photos`
+page still has not been seen with real Drive thumbnails (no backend session
+available); verification so far is measured-DOM + build-level.
 
 PR 1, PR 2, and PR 3 are all implemented, reviewed (PASS WITH FIXES), and verified (PASS).
 PR 1 (Design Memory / Source of Truth) is on `redesign-v2/pr-1-design-memory` (commit 361a7ea).
@@ -725,20 +731,220 @@ All three are complete and ready; next step is starting PR 4 (Photos Overview) o
 
   All acceptance criteria met: duplicate navigation removed, slideshow framing fixed (full-frame + blurred backdrop), hero height reduced (78–84vh), Ken Burns corrected (scale 1–1.03 over 10s, no aggressive panning), cross-fade real (single keyed array), prev/next/dots/autoplay preserved, autoplay respects prefers-reduced-motion, no "Recently Captured" section, "Moments That Stay" correctly identified as non-recency feature. No defects found; PR 3 is ready for merge decision.
 
+- 2026-08-30: Implemented PR 4 (Photos Overview). Inspected the running
+  `frontend/app/photos/page.tsx` before touching anything, plus board 2
+  (`docs/mockups/02-photos-overview-unified-folder-system.png`) and
+  `docs/OUR-FRAME-DESIGN-SYSTEM.md`'s Photos Overview rules section.
+
+  **Confirmed the earlier `docs/redesign/` asymmetric mosaic was still
+  live.** `PhotosPage` rendered a 12-column mosaic (`MOSAIC_META`) with
+  Arjun/Life as `lg` tiles (`lg:col-span-7`, taller `aspect-[16/11]`, larger
+  serif title) and Travel/Milestones as `md` tiles (`lg:col-span-5`, shorter
+  `aspect-[4/3]`, smaller title) — the code comment literally said "Arjun and
+  Life are the two visually dominant chapters". This is the exact opposite
+  of board 2, which shows four identical 2x2 cards, and directly
+  contradicted PR 4's brief. It was rendered via `components/design-
+  system/chapter-card.tsx`'s `ChapterCard` ('cover' variant, `size` prop).
+
+  **Judgment call: reused `ChapterCard`, did not switch to `FolderCard`/
+  `AlbumCard`.** Checked `FolderCard` (PR 2's re-export of the pre-existing
+  `AlbumCard`/`AlbumGrid`) first, per the task's explicit instruction to
+  reuse-or-extend before building anything new. `AlbumCard` only accepts an
+  `Album` and renders a single overlaid name — no eyebrow/description/count
+  hierarchy, and no props to add them without either changing the shared
+  `Album`-driven contract used by every category/album folder grid (out of
+  scope for this PR, and would risk PR 5/6/7's folder-grid work) or
+  duplicating a second card component (against CORE RULE 2). `ChapterCard`
+  already had the exact right anatomy (eyebrow → serif title → description →
+  meta) and was already the single component powering this exact page — the
+  only problem was the `size: 'lg' | 'md'` variant it exposed, which is the
+  actual asymmetry. So the fix was to remove the variance, not the
+  component: deleted the `size` prop from `ChapterCardProps`/its 'cover'
+  branch entirely (hardcoded what was previously `size === 'lg'` — larger
+  title, taller scrim, `p-6 sm:p-7` padding — as the only treatment), and
+  collapsed `CHAPTER_COVER_ASPECT` from a `{ lg, md }` map to one string
+  (`aspect-[4/5] sm:aspect-[16/10] lg:aspect-[16/11]`, close to the brief's
+  recommended ~4:3/16:9 range and the ratio already established for the
+  dominant tiles, so no new visual language was introduced). Verified via
+  grep that `ChapterCard`'s 'rail' variant (used only by the Home hero's
+  floating chapter rail) never referenced `size`, so this was safe.
+
+  **`app/photos/page.tsx` changes:** removed `MOSAIC_META`'s `span`/`size`
+  fields and the 12-column `lg:grid-cols-12` mosaic grid; replaced with a
+  plain `grid-cols-1 sm:grid-cols-2` grid (four equal-size cards render as a
+  true 2x2 at `sm:` and above, single column below), matching board 2's
+  desktop/mobile split exactly (board 2 has no distinct tablet 2-column
+  layout for this page — mobile is 375px 1-column, desktop is 1440px 2x2, so
+  a single `sm:` breakpoint for both axes is correct here, unlike PR 5's
+  category folder grids which do need a distinct tablet column count).
+  Renamed `ChapterMosaicSkeleton` → `ChapterGridSkeleton` accordingly so the
+  loading skeleton renders the same four equal shapes (no layout shift).
+
+  **Text hierarchy fix.** The mockup's card order is eyebrow → title →
+  description → count (with a small photo-stack icon next to the count);
+  the existing `ChapterCard` rendered count *before* description. Reordered
+  to match, and added a small `lucide-react` `ImageIcon` next to the meta/
+  count string (`113 photos [icon]`), matching board 2's per-card icon —
+  this is the one new visual element added, done inside the shared
+  component so every card gets it uniformly rather than per-instance.
+
+  **Copy: no new taglines needed.** `lib/buckets.ts`'s existing
+  `eyebrow`/`description` strings ("Growing Up, Frame by Frame" / "Every
+  milestone, every laugh. A timeline written in light." for Arjun, etc.)
+  already match board 2's card copy verbatim (mockup shows "Every milestone,
+  every laugh." exactly) — confirmed by reading the file before assuming
+  anything needed inventing.
+
+  **Header untouched**, per the brief: `PageIntro` eyebrow "Our Story in
+  Frames" / title "Photos" / description "Four chapters. Every frame we have
+  captured together." / `TextLink` "View all photos" all preserved verbatim,
+  already matches board 2's header treatment and was not broken/
+  inconsistent to begin with.
+
+  **Resolved the PR 3 open question about `bucket-card.tsx`.** PR 3's review
+  flagged `frontend/components/buckets/bucket-card.tsx` as having zero
+  callers after the duplicate Home "Photos" section was removed, left in
+  place on the theory PR 4 might reuse it. Re-confirmed zero callers via
+  grep, and it does not fit this task (no eyebrow/description hierarchy,
+  built around `BucketDef`'s per-bucket gradient/accent-color theming, which
+  is exactly the kind of "one category looks special" pattern this PR
+  removes). Deleted the file (and the now-empty `components/buckets/`
+  directory) rather than leave it as permanent dead code, per that open
+  question's own instruction. Its `.world-card` CSS classes in
+  `globals.css` were *not* touched — confirmed via grep that
+  `frontend/app/albums/page.tsx` still uses them (out of scope, unrelated
+  page), so the CSS stays.
+
+  **Not touched:** `frontend/lib/buckets.ts` (data only, reused as-is),
+  category pages (`app/{arjun,travel,milestones,life}`), album pages,
+  Favorites/Memories/Videos — confirmed via `git status --short` showing
+  only `app/photos/page.tsx`, `components/design-system/chapter-card.tsx`
+  modified and `components/buckets/bucket-card.tsx` deleted.
+
+  Checks run: `npx tsc --noEmit` (clean); `npx eslint app/photos
+  components/design-system` (0 errors, 0 warnings); `npm run build` (passes,
+  all 26 routes build, including `/photos`). Also started the dev server and
+  hit `/photos` directly — it renders the app's unauthenticated login screen
+  (no session/backend available in this environment), so no visual
+  screenshot of the real logged-in grid with live Drive thumbnails could be
+  taken here; this should be part of the reviewer's/PR 8's manual route
+  check once run against a real session.
+
+- 2026-08-30: Reviewed PR 4 (`our-frame-reviewer`) — **PASS WITH FIXES**.
+  Every claim was re-derived independently, and the grid was checked
+  *visually at real breakpoints* rather than by code-reading alone.
+
+  **Visual verification method (the implementer could not do one).** `/photos`
+  is behind `AuthGate` and no backend session exists in this environment, so
+  the live authenticated grid with real Drive thumbnails still has not been
+  seen — that remains PR 8's / the user's manual check. Instead, a temporary
+  harness route was created under the *public* `/login/...` prefix
+  (`AuthGate`'s `PUBLIC_PREFIX`) rendering the exact `PhotosPage` markup —
+  same `PageIntro`, same grid classes, same `ChapterCard`, real `BUCKETS`
+  copy, synthetic flat-colour covers and plausible counts — plus a second
+  harness page embedding it in 375 / 768 / 1440px iframes (headless Chrome
+  clamps its own window to ≥500px, so iframes are the only way to test a real
+  375px viewport). A `Measure` overlay printed each card's live
+  `getBoundingClientRect` width/height/aspect ratio and the distance from the
+  card's bottom edge to its `<h3>` top, so "identical" is a measurement, not
+  an impression. **Both harness routes were deleted before committing**
+  (`app/login/` contains only `page.tsx`; `npm run build` shows 26 routes with
+  no `pr4-*` route).
+
+  **Confirmed correct as implemented:**
+  - The asymmetric mosaic is genuinely gone. `ChapterCardProps` no longer has
+    a `size` prop; the 'cover' branch has no `size ===` conditional anywhere
+    (scrim, padding, title size, and aspect are all single-valued), and
+    `app/photos/page.tsx` has no `span`/`col-span` anything. Measured at
+    1440px: all four cards 655x492, aspect 1.332 — identical.
+  - Desktop is a true 2x2 (`grid-cols-1 sm:grid-cols-2`), mobile is a single
+    column, and there is no masonry.
+  - Card heights cannot diverge from copy length: the text block is
+    `absolute inset-x-0 bottom-0` inside a fixed-aspect-ratio box, so all
+    four are the same height by construction.
+  - Header genuinely untouched: `git diff` on `app/photos/page.tsx` shows no
+    change to the `PageIntro` block ("Our Story in Frames" / "Photos" /
+    "Four chapters. Every frame we have captured together." / "View all
+    photos").
+  - `bucket-card.tsx` deletion is safe: `grep -rn "BucketCard\|bucket-card\|
+    components/buckets"` across `app`, `components`, `hooks`, `lib`, `types`
+    returns exactly one hit, an explanatory comment in `home-feed-view.tsx`.
+    `.world-card*` / `.worlds-grid` CSS is still legitimately used —
+    `app/albums/page.tsx` uses all of `world-card`, `__bg`, `__glow`,
+    `__noise`, `__content`, `__eyebrow`, `__title`, `__desc`,
+    `__accent-line`, `__arrow`, and `worlds-grid` — so leaving `globals.css`
+    alone was right.
+  - Copy is real, not invented: descriptions come from `lib/buckets.ts`
+    unchanged. (One correction to the implementation entry above: they are
+    *not* verbatim board 2 — the board shows shortened one-liners, e.g.
+    "Roads taken, places explored." vs the app's "Roads taken, cities
+    explored, memories carried home.". The longer existing strings were kept
+    deliberately; only their layout was made uniform, see fix 2.)
+
+  **Defects found and fixed in review:**
+  1. **Three different aspect ratios, not one.** `CHAPTER_COVER_ASPECT` was
+     `aspect-[4/5] sm:aspect-[16/10] lg:aspect-[16/11]`, i.e. 0.80 on mobile,
+     1.60 at `sm`, 1.45 at `lg`. `MILESTONES.md` PR 4 requires "mobile single
+     column, **same ratio preserved**", so a portrait-on-mobile /
+     landscape-on-desktop chain fails that criterion outright, and the 4:5
+     mobile card measured 333x416 — taller than half a phone screen, four in
+     a row. Board 2 was measured directly (desktop card 381x283 px = 1.346;
+     its mobile cards are ~2:1, which §8 explicitly says not to copy), and
+     PR 4's brief names "~16:9 or 4:3". Collapsed to a single
+     `aspect-[4/3]` at every breakpoint: measured 333x250 / 347x261 /
+     655x492 at 375 / 768 / 1440, aspect 1.331–1.332 everywhere. The
+     implementer's stated rationale ("avoids introducing a new ratio") did
+     not hold — `aspect-[4/3]` was already in this same constant as the `md`
+     tile ratio before this PR, so 4:3 is the *less* novel choice.
+  2. **Eyebrow/title placement was not identical between the four cards.**
+     The description has no reserved height, so a card whose description
+     wraps to two lines pushes its own eyebrow and title higher than a
+     neighbour's. Measured before the fix, distance from card bottom to
+     `<h3>` top: at 375px Arjun/Travel/Life 132px but Milestones 112px; at
+     768px 140px vs 120px. That is exactly the "identical text placement"
+     rule this PR exists to enforce, and it read as Milestones being a
+     slightly different card. Fixed in `chapter-card.tsx` by making the
+     description a fixed two-line box (`line-clamp-2 min-h-[2.4375rem]`, =
+     2 x 13px x 1.5). Re-measured after: 132/132/132/132 at 375px,
+     140 x4 at 768px, 140 x4 at 1440px. Trade-off accepted deliberately: on
+     desktop, where all four descriptions fit one line, this leaves one
+     blank line of reserved space above the count. Uniformity is the point
+     of this PR; tightness is not.
+  3. **Wrong eyebrow tier on Arjun.** `docs/OUR-FRAME-DESIGN-SYSTEM.md` §8
+     specifies the Photos overview uses the *short* eyebrows (`GROWING UP`,
+     `STORIES FROM EVERYWHERE`, `ANCHOR MEMORIES`, `PEOPLE & MOMENTS`) and §9
+     the longer forms for category pages; board 2 shows "GROWING UP" on the
+     Arjun card. The page was passing `chapter.eyebrow`, so Arjun rendered
+     "GROWING UP, FRAME BY FRAME" — the §9 string. Added an additive
+     `overviewEyebrow` to all four entries in `lib/buckets.ts` (identical to
+     `eyebrow` for the three categories where the two tiers agree, so there
+     is one obvious place to edit and no silent per-page override) and used
+     it in `app/photos/page.tsx`. `eyebrow` is untouched, so PR 5's category
+     pages keep the long form.
+
+  Nothing else was changed: no backend, Drive, auth, or media-cache code; no
+  `.env`, token, DB, or generated media in the diff; Favorites/Memories/
+  Videos/Home untouched. The Home chapter rail is unaffected — it uses
+  `ChapterCard`'s `rail` variant, which never referenced `size` or
+  `CHAPTER_COVER_ASPECT` and does not render `meta`.
+
+  Checks run after fixes: `npx tsc --noEmit` clean; `npx eslint app/photos
+  components/design-system/chapter-card.tsx lib/buckets.ts` → 0 errors, 0
+  warnings; `npm run build` passes with all 26 routes including `/photos` and
+  no leftover harness route.
+
 ## Open Questions
 
-- **For PR 4 (raised in PR 3 review, not blocking):**
-  `frontend/components/buckets/bucket-card.tsx` now has **zero callers** —
-  its only usage was the duplicate Home "Photos" section PR 3 removed. The
-  implementer left it in place on the theory PR 4 might reuse it, which is
-  acceptable for one PR but must not become permanent dead code. PR 4 owns
-  the Photos-overview folder-card system and should either reuse it or
-  delete it; if PR 4 standardises on PR 2's `FolderCard`/`AlbumCard` (the
-  likely outcome), delete `bucket-card.tsx` there. It stays recoverable from
-  git history either way. `AlbumGridSkeleton` and the `.worlds-grid` CSS
-  class, also dropped from Home, were checked and are still used elsewhere
-  (`section-world-page.tsx` / `album-detail-template.tsx`, and
-  `app/albums/page.tsx` respectively) — leave both alone.
+- **Resolved by PR 4:** `frontend/components/buckets/bucket-card.tsx` (zero
+  callers since PR 3 removed the duplicate Home "Photos" section) has been
+  deleted — PR 4 standardised the Photos overview on the existing
+  `ChapterCard` (not `FolderCard`/`AlbumCard`, which doesn't have the
+  eyebrow/description/count anatomy this page needs), and `BucketCard`'s
+  gradient/accent-color per-bucket theming was itself a pattern this PR's
+  consistency goal removes. Recoverable from git history
+  (`components/buckets/bucket-card.tsx` at commit `3a700bb`) if ever needed.
+  `AlbumGridSkeleton` and the `.worlds-grid` CSS class remain untouched and
+  still used elsewhere, as previously noted.
 - **For PR 5 / PR 6 (raised in PR 2 review, not blocking):** the breadcrumb
   is `Home / Photos / {album}` and cannot yet show the category level
   (`Home / Photos / Travel / Maine`) that board 4 depicts, because

@@ -9,34 +9,29 @@ import { BUCKETS } from '@/lib/buckets'
 import { cn } from '@/lib/utils'
 
 /**
- * Chapter labels + mosaic sizing, zipped onto `BUCKETS` by index (same
- * pattern as `HERO_CHAPTER_META` in `home-feed-view.tsx`). Drive folder ids
- * live once in `lib/buckets.ts` — not repeated here.
+ * Chapter labels, zipped onto `BUCKETS` by index (same pattern as
+ * `HERO_CHAPTER_META` in `home-feed-view.tsx`). Drive folder ids live once
+ * in `lib/buckets.ts` — not repeated here.
  *
- * `span`/`size` create the asymmetric editorial mosaic: Arjun and Life are
- * the two visually dominant chapters (wide + tall), Travel and Milestones
- * sit smaller beside them — not four identical tiles.
+ * Per docs/OUR-FRAME-DESIGN-SYSTEM.md's Photos Overview rules (and
+ * docs/mockups/02-photos-overview-unified-folder-system.png), all four
+ * chapters render as one identical FolderCard — uniform width, height,
+ * aspect ratio, corner radius, padding, and text placement. No chapter is
+ * visually dominant. The former asymmetric lg/md mosaic (7/5 column span,
+ * larger Arjun/Life tiles) was removed in redesign-v2 PR 4; recoverable
+ * from git history if ever needed again.
  */
-const MOSAIC_META = [
-  { label: 'Arjun', span: 'lg:col-span-7', size: 'lg' as const },
-  { label: 'Travel', span: 'lg:col-span-5', size: 'md' as const },
-  { label: 'Milestones', span: 'lg:col-span-5', size: 'md' as const },
-  { label: 'Life', span: 'lg:col-span-7', size: 'lg' as const },
-]
+const CHAPTER_LABELS = ['Arjun', 'Travel', 'Milestones', 'Life']
 
-const CHAPTERS = BUCKETS.map((bucket, i) => ({ ...bucket, ...MOSAIC_META[i] }))
+const CHAPTERS = BUCKETS.map((bucket, i) => ({ ...bucket, label: CHAPTER_LABELS[i] }))
 
-function ChapterMosaicSkeleton() {
+function ChapterGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8">
       {CHAPTERS.map((chapter) => (
         <div
           key={chapter.id}
-          className={cn(
-            'overflow-hidden rounded-2xl skeleton-shimmer',
-            chapter.span,
-            CHAPTER_COVER_ASPECT[chapter.size],
-          )}
+          className={cn('overflow-hidden rounded-2xl skeleton-shimmer', CHAPTER_COVER_ASPECT)}
         />
       ))}
     </div>
@@ -69,10 +64,10 @@ export default function PhotosPage() {
           />
         </SectionReveal>
 
-        {/* ── Asymmetric editorial chapter mosaic ── */}
+        {/* ── Uniform 2x2 chapter grid — every card identical ── */}
         <div id="chapters" className="scroll-mt-24">
           {bucketsLoading ? (
-            <ChapterMosaicSkeleton />
+            <ChapterGridSkeleton />
           ) : isError || !hasChapters ? (
             <EmptyState
               icon={<ImageOff className="h-6 w-6" />}
@@ -84,7 +79,7 @@ export default function PhotosPage() {
               }
             />
           ) : (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8">
               {resolved.map(({ chapter, album }, i) => {
                 const imageUrl = album?.thumbnail_url ? mediaUrl(album.thumbnail_url) : undefined
                 const meta =
@@ -93,10 +88,12 @@ export default function PhotosPage() {
                     : undefined
 
                 return (
-                  <SectionReveal key={chapter.id} delay={i * 0.05} className={chapter.span}>
+                  <SectionReveal key={chapter.id} delay={i * 0.05}>
                     <ChapterCard
                       href={album ? `/albums/${album.id}` : '/photos'}
-                      eyebrow={chapter.eyebrow}
+                      // Short board-2 form here; the longer editorial
+                      // eyebrow belongs to the category pages (§8 vs §9).
+                      eyebrow={chapter.overviewEyebrow}
                       title={chapter.label}
                       meta={meta}
                       description={chapter.description}
@@ -105,7 +102,6 @@ export default function PhotosPage() {
                       // description already sit inside this link, so an alt
                       // repeating "Arjun" would just double the link name.
                       imageAlt=""
-                      size={chapter.size}
                     />
                   </SectionReveal>
                 )
