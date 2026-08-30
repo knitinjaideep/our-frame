@@ -98,7 +98,7 @@ implemented, reviewed (PASS WITH FIXES), and verified (**PASS**) on
 `redesign-v2/pr-2-photos-architecture`, per plan) — duplicate category
 navigation removed, slideshow framing/hero-height/Ken-Burns fixed, no
 "Recently Captured" section added. It has now been **reviewed — PASS WITH
-FIXES** (`our-frame-reviewer`, 2026-08-30; four defects fixed in review, see
+FIXES** (`our-frame-reviewer`, 2026-08-30; five defects fixed in review, see
 the log entry below). Next step is `our-frame-verifier` on PR 3, before
 starting PR 4.
 
