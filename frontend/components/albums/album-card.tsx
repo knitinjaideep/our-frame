@@ -1,11 +1,32 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
+import { Folder } from 'lucide-react'
 import { mediaUrl } from '@/lib/api-client'
 import { AlbumCoverFallback } from './album-cover-fallback'
 import type { Album } from '@/types'
 
+/**
+ * Secondary line under a folder's name, per
+ * `docs/OUR-FRAME-DESIGN-SYSTEM.md` §9: "one muted sans secondary line
+ * whose content varies by category ... while the slot and styling stay
+ * fixed." The API does not (yet — PR 7) expose location/date metadata, so
+ * this uses the one real count field available rather than inventing
+ * placeholder location/date text: a folder's own photo count when it has
+ * one, else its child-album count, else omitted entirely.
+ */
+function folderCountLabel(album: Album): string | undefined {
+  if (album.photo_count != null && album.photo_count > 0) {
+    return `${album.photo_count.toLocaleString()} ${album.photo_count === 1 ? 'item' : 'items'}`
+  }
+  if (album.child_count != null && album.child_count > 0) {
+    return `${album.child_count.toLocaleString()} ${album.child_count === 1 ? 'album' : 'albums'}`
+  }
+  return undefined
+}
+
 export function AlbumCard({ album }: { album: Album }) {
+  const countLabel = folderCountLabel(album)
   const [loaded, setLoaded] = useState(false)
   const [hovered, setHovered] = useState(false)
 
@@ -91,18 +112,38 @@ export function AlbumCard({ album }: { album: Album }) {
             }}
           />
 
-          {/* Album name overlaid on image — ivory, editorial */}
-          <div className="album-card__overlay-title">
-            <p
-              className="album-card__name font-serif"
-              style={{
-                transform: hovered ? 'translateY(0)' : 'translateY(3px)',
-                transition: 'transform 0.35s ease, opacity 0.35s ease',
-                opacity: hovered ? 1 : 0.85,
-              }}
-            >
-              {album.name}
+          {/* Folder glyph + name + optional count overlaid on image — ivory, editorial */}
+          <div
+            className="album-card__overlay-title"
+            /* Name and count line move/fade together as one block — animating
+               only the name would slide it relative to the count on hover. */
+            style={{
+              transform: hovered ? 'translateY(0)' : 'translateY(3px)',
+              transition: 'transform 0.35s ease, opacity 0.35s ease',
+              opacity: hovered ? 1 : 0.85,
+            }}
+          >
+            <p className="album-card__name font-serif flex items-baseline gap-1.5">
+              <Folder
+                className="h-3 w-3 shrink-0 translate-y-[0.1em]"
+                style={{ color: 'var(--amber)' }}
+                aria-hidden
+              />
+              <span className="min-w-0">{album.name}</span>
             </p>
+            {countLabel && (
+              <p
+                className="mt-0.5 font-sans text-xs"
+                style={{
+                  color: 'oklch(0.97 0.010 72 / 72%)',
+                  /* Same shadow as `.album-card__name` — the scrim alone is
+                     not enough over a bright thumbnail. */
+                  textShadow: '0 1px 8px oklch(0 0 0 / 60%)',
+                }}
+              >
+                {countLabel}
+              </p>
+            )}
           </div>
         </div>
       </Link>

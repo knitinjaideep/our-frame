@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { ImageOff } from 'lucide-react'
 import { ageCaption, earliestDate } from '@/lib/photo-age'
 import { AlbumHeader, type BreadcrumbItem } from './album-header'
+import { CategoryHeader } from './category-header'
 import { FolderGrid } from './folder-grid'
 import { AlbumPhotoGrid } from './album-photo-grid'
 import { AlbumGridSkeleton } from '@/components/albums/album-grid-skeleton'
@@ -25,6 +26,17 @@ export interface AlbumDetailTemplateMeta {
    * judgment call behind the estimate (no birth-date field exists).
    */
   ageCaptions?: boolean
+  /**
+   * True only for the four top-level chapter buckets (Arjun/Travel/
+   * Milestones/Life). Switches the header to the compact `CategoryHeader`
+   * (instead of `AlbumHeader`), the folder grid to the 3/2/1-column
+   * `category` variant (instead of 4/3/2), and drops the "Inside this
+   * Album" section label so the grid begins directly under the header, per
+   * `docs/redesign-v2/PROMPTS.md` PR 5 / `docs/OUR-FRAME-DESIGN-SYSTEM.md`
+   * §9 (board 3 shows no such label). Leaf albums/sub-albums keep the
+   * existing `AlbumHeader` + default grid unchanged — that's PR 6's scope.
+   */
+  isCategory?: boolean
 }
 
 interface AlbumDetailTemplateProps {
@@ -65,8 +77,13 @@ export function AlbumDetailTemplate({ id, data, isLoading, error, meta }: AlbumD
   ]
   if (data?.album) breadcrumbs.push({ label: data.album.name })
 
+  const isCategory = meta?.isCategory ?? false
+  // Category pages use "folder(s)" per docs/OUR-FRAME-DESIGN-SYSTEM.md §9
+  // ("113 folders", "42 folders" ...); leaf albums keep "album(s)" for
+  // their own sub-albums section.
+  const folderWord = isCategory ? (subfolders.length === 1 ? 'folder' : 'folders') : subfolders.length === 1 ? 'album' : 'albums'
   const countParts: string[] = []
-  if (hasSubfolders) countParts.push(`${subfolders.length.toLocaleString()} ${subfolders.length === 1 ? 'album' : 'albums'}`)
+  if (hasSubfolders) countParts.push(`${subfolders.length.toLocaleString()} ${folderWord}`)
   if (hasPhotos) countParts.push(`${photos.length.toLocaleString()} ${photos.length === 1 ? 'photo' : 'photos'}`)
   const countLabel = !isLoading && countParts.length > 0 ? countParts.join(' · ') : undefined
 
@@ -84,16 +101,28 @@ export function AlbumDetailTemplate({ id, data, isLoading, error, meta }: AlbumD
 
   return (
     <div>
-      {/* ── Header — one shared anatomy for every album/category ── */}
-      <div className="content-padding pt-12 pb-16">
-        <AlbumHeader
-          breadcrumbs={breadcrumbs}
-          eyebrow={meta?.eyebrow ?? 'Album'}
-          title={title}
-          description={meta?.description}
-          countLabel={countLabel}
-          isLoading={isLoading}
-        />
+      {/* ── Header — CategoryHeader (compact, 48–64px margin) for the four
+          chapter buckets; AlbumHeader for every leaf album/sub-album ── */}
+      <div className={isCategory ? 'content-padding pt-14 pb-14' : 'content-padding pt-12 pb-16'}>
+        {isCategory ? (
+          <CategoryHeader
+            breadcrumbs={breadcrumbs}
+            eyebrow={meta?.eyebrow ?? 'Photos'}
+            title={title}
+            description={meta?.description}
+            countLabel={countLabel}
+            isLoading={isLoading}
+          />
+        ) : (
+          <AlbumHeader
+            breadcrumbs={breadcrumbs}
+            eyebrow={meta?.eyebrow ?? 'Album'}
+            title={title}
+            description={meta?.description}
+            countLabel={countLabel}
+            isLoading={isLoading}
+          />
+        )}
       </div>
 
       {error && (
@@ -109,8 +138,8 @@ export function AlbumDetailTemplate({ id, data, isLoading, error, meta }: AlbumD
           <>
             <SectionReveal>
               <section className="content-padding mb-20">
-                <SkeletonHeading />
-                <AlbumGridSkeleton count={4} />
+                {!isCategory && <SkeletonHeading />}
+                <AlbumGridSkeleton count={isCategory ? 6 : 4} variant={isCategory ? 'category' : 'default'} />
               </section>
             </SectionReveal>
             <SectionReveal delay={0.04}>
@@ -133,8 +162,12 @@ export function AlbumDetailTemplate({ id, data, isLoading, error, meta }: AlbumD
             {hasSubfolders && (
               <SectionReveal>
                 <section className="content-padding mb-20">
-                  <SectionLabel eyebrow="Inside this Album" heading="Albums" />
-                  <FolderGrid albums={subfolders} />
+                  {/* Category landing pages: the folder grid begins right
+                      under the header, no section label — board 3 shows no
+                      "Inside this Album" heading on a category page. Leaf
+                      albums keep the label to introduce their sub-albums. */}
+                  {!isCategory && <SectionLabel eyebrow="Inside this Album" heading="Albums" />}
+                  <FolderGrid albums={subfolders} variant={isCategory ? 'category' : 'default'} />
                 </section>
               </SectionReveal>
             )}

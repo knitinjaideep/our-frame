@@ -1,11 +1,7 @@
 'use client'
-import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
+import { Breadcrumbs, type BreadcrumbItem } from './breadcrumbs'
 
-export interface BreadcrumbItem {
-  label: string
-  href?: string
-}
+export type { BreadcrumbItem }
 
 export interface AlbumHeaderProps {
   breadcrumbs: BreadcrumbItem[]
@@ -24,16 +20,19 @@ export interface AlbumHeaderProps {
 }
 
 /**
- * AlbumHeader — the single shared header anatomy used by every category
- * landing page and every individual album page (docs/OUR-FRAME-DESIGN-
- * SYSTEM.md §7/§9/§10): breadcrumb → eyebrow → title → optional location/
- * date → optional description → optional count. Absent optional fields are
- * omitted entirely, never rendered as empty placeholders.
+ * AlbumHeader — the shared header for an individual album / leaf sub-album
+ * (docs/OUR-FRAME-DESIGN-SYSTEM.md §10): breadcrumb → eyebrow → title →
+ * optional location/date → optional description → optional count. Absent
+ * optional fields are omitted entirely, never rendered as empty
+ * placeholders.
  *
- * Also exported as `PhotoSectionHeader` — category pages and album pages
- * share the exact same header shape per the design system, so this is
- * intentionally one component with two names rather than two near-identical
- * ones.
+ * Category *landing* pages use `CategoryHeader` (`./category-header.tsx`)
+ * instead — §17 names both as distinct shared components, and §10 requires
+ * this album header to eventually sit on top of a full-bleed cover photo
+ * with a gradient scrim (PR 6), which a category page must not inherit.
+ * The parts that genuinely are the same in both — the breadcrumb trail, the
+ * `text-eyebrow-gold` / `text-display-sm` / `text-body` / `text-small`
+ * type scale — are shared rather than duplicated (see `./breadcrumbs.tsx`).
  */
 export function AlbumHeader({
   breadcrumbs,
@@ -47,26 +46,7 @@ export function AlbumHeader({
 }: AlbumHeaderProps) {
   return (
     <div>
-      <nav className="mb-5 flex flex-wrap items-center gap-1.5 text-xs" aria-label="Breadcrumb">
-        {breadcrumbs.map((crumb, i) => (
-          <span key={`${crumb.label}-${i}`} className="flex items-center gap-1.5">
-            {i > 0 && (
-              <ChevronRight
-                className="h-3 w-3 shrink-0"
-                style={{ color: 'var(--muted-foreground)', opacity: 0.4 }}
-                aria-hidden
-              />
-            )}
-            {crumb.href ? (
-              <Link href={crumb.href} className="transition-colors" style={{ color: 'var(--muted-foreground)' }}>
-                {crumb.label}
-              </Link>
-            ) : (
-              <span style={{ color: 'var(--foreground)' }}>{crumb.label}</span>
-            )}
-          </span>
-        ))}
-      </nav>
+      <Breadcrumbs items={breadcrumbs} />
 
       {eyebrow && <p className="text-eyebrow-gold mb-3">{eyebrow}</p>}
 
@@ -93,5 +73,3 @@ export function AlbumHeader({
     </div>
   )
 }
-
-export const PhotoSectionHeader = AlbumHeader

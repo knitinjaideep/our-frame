@@ -10,6 +10,13 @@ import { BUCKETS } from '@/lib/buckets'
 // the same `AlbumDetailTemplate` (docs/redesign-v2 PR 2); only the eyebrow/
 // description/empty-state copy differs per chapter, sourced from
 // `lib/buckets.ts` rather than four separate page components.
+// The four top-level chapter buckets are category *landing* pages (Home →
+// Photos → Arjun/Travel/Milestones/Life), not individual albums — flagged
+// `isCategory: true` so `AlbumDetailTemplate` renders the compact
+// `CategoryHeader` and the 3/2/1-column category folder grid (docs/
+// redesign-v2/PROMPTS.md PR 5) instead of the leaf-album `AlbumHeader` and
+// 4/3/2 grid. Any other id (a real album/sub-album id) falls through to
+// `BUCKET_META[id] === undefined`, i.e. the existing leaf-album treatment.
 const BUCKET_META: Record<string, AlbumDetailTemplateMeta> = {
   [BUCKETS[0].id]: {
     eyebrow: BUCKETS[0].eyebrow,
@@ -18,21 +25,25 @@ const BUCKET_META: Record<string, AlbumDetailTemplateMeta> = {
     // Arjun is the one chapter that holds dated photos directly; keep the
     // age captions the removed `arjun-gallery.tsx` used to render.
     ageCaptions: true,
+    isCategory: true,
   },
   [BUCKETS[1].id]: {
     eyebrow: BUCKETS[1].eyebrow,
     description: BUCKETS[1].description,
     emptyMessage: 'No travel albums found yet. Map a Google Drive folder to this section in Settings.',
+    isCategory: true,
   },
   [BUCKETS[2].id]: {
     eyebrow: BUCKETS[2].eyebrow,
     description: BUCKETS[2].description,
     emptyMessage: 'No milestone albums found yet. Map a Google Drive folder to this section in Settings.',
+    isCategory: true,
   },
   [BUCKETS[3].id]: {
     eyebrow: BUCKETS[3].eyebrow,
     description: BUCKETS[3].description,
     emptyMessage: 'No life albums found yet. Map a Google Drive folder to this section in Settings.',
+    isCategory: true,
   },
 }
 
