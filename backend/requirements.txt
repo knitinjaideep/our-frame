@@ -17,10 +17,8 @@ python-multipart==0.0.6
 sqlmodel
 pydantic-settings
 sqlalchemy>=2.0.36
-# psycopg[binary] intentionally not listed: nothing in this codebase imports
-# psycopg (grepped, zero hits) — SQLite is the only DB actually wired up
-# right now, per .claude/CLAUDE.md's Postgres-is-a-future-path note. Add it
-# back if/when Postgres support is actually implemented.
+# Required by SQLAlchemy when production DATABASE_URL uses postgresql+psycopg.
+psycopg[binary]>=3.2.0
 
 # Image processing
 pillow
