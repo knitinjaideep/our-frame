@@ -93,7 +93,7 @@ work does not change them.)
 | 5 | Category Pages | Verified — PASS | redesign-v2/pr-5-category-pages | 8492caa |
 | 6 | Album Pages | Verified — PASS | redesign-v2/pr-6-album-pages | 8e43986 |
 | 7 | Metadata, Thumbnail Selection, Image Quality | Reviewed — PASS WITH FIXES | redesign-v2/pr-7-metadata-covers | f2fac3a |
-| 8 | Final Consistency Audit | Reviewed — PASS WITH FIXES | redesign-v2/pr-8-consistency-audit | (this commit) |
+| 8 | Final Consistency Audit | Reviewed — PASS WITH FIXES | redesign-v2/pr-8-consistency-audit | b9029de |
 
 ## Next Action
 
