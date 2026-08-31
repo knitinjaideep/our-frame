@@ -6,6 +6,8 @@ from models.album import DriveAlbum
 def upsert(session: Session, album: DriveAlbum) -> DriveAlbum:
     existing = session.get(DriveAlbum, album.id)
     if existing:
+        if existing.workspace_id is None:
+            existing.workspace_id = album.workspace_id
         existing.name = album.name
         existing.parent_id = album.parent_id
         if album.cover_photo_id:
@@ -27,13 +29,23 @@ def upsert(session: Session, album: DriveAlbum) -> DriveAlbum:
     return album
 
 
-def get_by_id(session: Session, album_id: str) -> DriveAlbum | None:
-    return session.get(DriveAlbum, album_id)
+def get_by_id(
+    session: Session,
+    album_id: str,
+    workspace_id: int | None = None,
+) -> DriveAlbum | None:
+    album = session.get(DriveAlbum, album_id)
+    if not album:
+        return None
+    if workspace_id is not None and album.workspace_id != workspace_id:
+        return None
+    return album
 
 
 def get_by_parent(
     session: Session,
     parent_id: str,
+    workspace_id: int | None = None,
     include_excluded: bool = False,
 ) -> list[DriveAlbum]:
     stmt = (
@@ -43,11 +55,14 @@ def get_by_parent(
     )
     if not include_excluded:
         stmt = stmt.where(DriveAlbum.excluded == False)  # noqa: E712
+    if workspace_id is not None:
+        stmt = stmt.where(DriveAlbum.workspace_id == workspace_id)
     return list(session.exec(stmt).all())
 
 
 def get_root_albums(
     session: Session,
+    workspace_id: int | None = None,
     include_excluded: bool = False,
 ) -> list[DriveAlbum]:
     stmt = (
@@ -57,11 +72,18 @@ def get_root_albums(
     )
     if not include_excluded:
         stmt = stmt.where(DriveAlbum.excluded == False)  # noqa: E712
+    if workspace_id is not None:
+        stmt = stmt.where(DriveAlbum.workspace_id == workspace_id)
     return list(session.exec(stmt).all())
 
 
-def set_excluded(session: Session, album_id: str, excluded: bool) -> DriveAlbum | None:
-    album = session.get(DriveAlbum, album_id)
+def set_excluded(
+    session: Session,
+    album_id: str,
+    excluded: bool,
+    workspace_id: int | None = None,
+) -> DriveAlbum | None:
+    album = get_by_id(session, album_id, workspace_id)
     if not album:
         return None
     album.excluded = excluded
@@ -71,14 +93,19 @@ def set_excluded(session: Session, album_id: str, excluded: bool) -> DriveAlbum 
     return album
 
 
-def set_cover_photo(session: Session, album_id: str, photo_id: str | None) -> DriveAlbum | None:
+def set_cover_photo(
+    session: Session,
+    album_id: str,
+    photo_id: str | None,
+    workspace_id: int | None = None,
+) -> DriveAlbum | None:
     """
     Set (or clear, when `photo_id` is None) the album's manually-selected
     cover photo reference. Idempotent — setting the same id twice just
     re-saves the same value, never errors. Only a photo id is stored, never
     image bytes (docs/redesign-v2 PR 7 / `.claude/CLAUDE.md` Data Safety).
     """
-    album = session.get(DriveAlbum, album_id)
+    album = get_by_id(session, album_id, workspace_id)
     if not album:
         return None
     album.cover_photo_id = photo_id
@@ -91,6 +118,7 @@ def set_cover_photo(session: Session, album_id: str, photo_id: str | None) -> Dr
 def update_metadata(
     session: Session,
     album_id: str,
+    workspace_id: int | None = None,
     *,
     description: str | None = ...,
     location: str | None = ...,
@@ -102,7 +130,7 @@ def update_metadata(
     `...` sentinel so a caller can omit a field to leave it untouched
     (distinct from explicitly passing `None` to clear it).
     """
-    album = session.get(DriveAlbum, album_id)
+    album = get_by_id(session, album_id, workspace_id)
     if not album:
         return None
     if description is not ...:
@@ -119,5 +147,8 @@ def update_metadata(
     return album
 
 
-def count_all(session: Session) -> int:
-    return len(session.exec(select(DriveAlbum)).all())
+def count_all(session: Session, workspace_id: int | None = None) -> int:
+    stmt = select(DriveAlbum)
+    if workspace_id is not None:
+        stmt = stmt.where(DriveAlbum.workspace_id == workspace_id)
+    return len(session.exec(stmt).all())

@@ -95,6 +95,44 @@ def list_user_workspaces(db: Session, user_id: int) -> list[Workspace]:
     return list(owned) + list(additional)
 
 
+def get_active_workspace_for_user(db: Session, user_id: int) -> Optional[Workspace]:
+    """
+    Select the workspace the app should use for authenticated browsing.
+
+    Matches the bootstrap route's priority: completed workspace with an active
+    Drive connection first, then completed workspace, then the most recently
+    touched incomplete workspace.
+    """
+    workspaces = sorted(
+        list_user_workspaces(db, user_id),
+        key=lambda w: w.updated_at,
+        reverse=True,
+    )
+    if not workspaces:
+        return None
+
+    workspace_ids = [w.id for w in workspaces if w.id is not None]
+    drive_conns = db.exec(
+        select(DriveConnection).where(DriveConnection.workspace_id.in_(workspace_ids))
+    ).all() if workspace_ids else []
+    active_drive_ws_ids = {
+        dc.workspace_id for dc in drive_conns if dc.connection_status == "active"
+    }
+
+    workspace = next(
+        (w for w in workspaces if w.onboarding_complete and w.id in active_drive_ws_ids),
+        None,
+    )
+    if workspace is not None:
+        return workspace
+
+    workspace = next((w for w in workspaces if w.onboarding_complete), None)
+    if workspace is not None:
+        return workspace
+
+    return workspaces[0]
+
+
 def update_workspace(
     db: Session,
     workspace: Workspace,

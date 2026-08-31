@@ -183,15 +183,8 @@ def count_legacy_items(session: Session) -> int:
 def workspace_has_media(session: Session, workspace_id: int) -> bool:
     """
     Whether the app has any media to show a member of this workspace.
-
-    Workspace-scoped items come first. Legacy unscoped items count too: the
-    gallery routes they feed are still workspace-agnostic during the
-    migration, so an environment synced through the legacy path really does
-    have media to browse and must not be sent back to the setup flow.
     """
-    if count_items_for_workspace(session, workspace_id) > 0:
-        return True
-    return count_legacy_items(session) > 0
+    return count_items_for_workspace(session, workspace_id) > 0
 
 
 def get_derivative(

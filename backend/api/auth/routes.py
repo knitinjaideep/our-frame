@@ -22,6 +22,7 @@ from services.auth_service import (
     get_session_by_token,
     get_user_by_id,
 )
+from services.workspace_service import get_active_workspace_for_user, list_user_workspaces
 
 router = APIRouter(prefix="/api/auth", tags=["Auth v2"])
 
@@ -98,23 +99,22 @@ def bootstrap(
         return _unauthenticated_response()
 
     # ── Resolve workspaces ────────────────────────────────────────────────────
-    from models.workspace import Workspace
     from models.drive_connection import DriveConnection
 
-    all_owned = db.exec(
-        select(Workspace)
-        .where(Workspace.owner_user_id == user.id)
-        .order_by(Workspace.updated_at.desc())
-    ).all()
-
-    log.debug(
-        "bootstrap: user_id=%s found %d owned workspaces: %s",
-        user.id,
-        len(all_owned),
-        [(w.id, w.name, w.onboarding_complete) for w in all_owned],
+    workspaces = sorted(
+        list_user_workspaces(db, user.id),
+        key=lambda w: w.updated_at,
+        reverse=True,
     )
 
-    if not all_owned:
+    log.debug(
+        "bootstrap: user_id=%s found %d workspaces: %s",
+        user.id,
+        len(workspaces),
+        [(w.id, w.name, w.onboarding_complete) for w in workspaces],
+    )
+
+    if not workspaces:
         log.debug("bootstrap: no workspaces → /home (setup state will prompt creation)")
         return {
             "authenticated": True,
@@ -130,28 +130,29 @@ def bootstrap(
             "next_route": "/home",
         }
 
-    # ── Select active workspace deterministically ─────────────────────────────
-    # Fetch all drive connections for owned workspaces in one query
-    owned_ids = [w.id for w in all_owned]
+    workspace = get_active_workspace_for_user(db, user.id)
+    if workspace is None:
+        log.debug("bootstrap: no active workspace → /home")
+        return {
+            "authenticated": True,
+            "user": _user_dict(user),
+            "has_workspace": False,
+            "workspace": None,
+            "active_workspace_id": None,
+            "has_drive_connection": False,
+            "has_root_folder": False,
+            "has_media": False,
+            "onboarding_complete": False,
+            "drive_connect_deferred": False,
+            "next_route": "/home",
+        }
+
+    # Fetch all drive connections for candidate workspaces in one query.
+    workspace_ids = [w.id for w in workspaces if w.id is not None]
     drive_conns = db.exec(
         select(DriveConnection)
-        .where(DriveConnection.workspace_id.in_(owned_ids))
-    ).all()
-    active_drive_ws_ids = {
-        dc.workspace_id for dc in drive_conns if dc.connection_status == "active"
-    }
-
-    # Priority 1: complete + active drive (most recently updated)
-    workspace = next(
-        (w for w in all_owned if w.onboarding_complete and w.id in active_drive_ws_ids),
-        None,
-    )
-    # Priority 2: complete, any drive state
-    if workspace is None:
-        workspace = next((w for w in all_owned if w.onboarding_complete), None)
-    # Priority 3: most recently touched incomplete workspace
-    if workspace is None:
-        workspace = all_owned[0]
+        .where(DriveConnection.workspace_id.in_(workspace_ids))
+    ).all() if workspace_ids else []
 
     log.debug(
         "bootstrap: selected workspace id=%s name=%r onboarding_complete=%s",

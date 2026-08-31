@@ -36,14 +36,23 @@ def _legacy_preview_url(drive_file_id: str, width: int = LEGACY_PREVIEW_WIDTH) -
     return f"/drive/file/{drive_file_id}/preview?w={width}"
 
 
-def thumbnail_url_for(session: Session, drive_file_id: str) -> str:
+def thumbnail_url_for(
+    session: Session,
+    drive_file_id: str,
+    workspace_id: int | None = None,
+) -> str:
     """
     Thumbnail URL for a single Drive file id (album covers, section covers).
 
     Prefers the cached derivative route and falls back to the legacy Drive
     route when the file has no `media_items` row yet.
     """
-    if media_repo.get_item_by_drive_file_any_scope(session, drive_file_id):
+    media_item = (
+        media_repo.get_item_by_drive_file(session, drive_file_id, workspace_id)
+        if workspace_id is not None
+        else media_repo.get_item_by_drive_file_any_scope(session, drive_file_id)
+    )
+    if media_item:
         return _cached_url(drive_file_id, "thumbnail")
     return _legacy_thumbnail_url(drive_file_id)
 
@@ -53,9 +62,14 @@ def media_response_fields(
     *,
     drive_file_id: str,
     mime_type: str,
+    workspace_id: int | None = None,
 ) -> dict[str, Any]:
     media_type = classify_media_type(mime_type)
-    media_item = media_repo.get_item_by_drive_file_any_scope(session, drive_file_id)
+    media_item = (
+        media_repo.get_item_by_drive_file(session, drive_file_id, workspace_id)
+        if workspace_id is not None
+        else media_repo.get_item_by_drive_file_any_scope(session, drive_file_id)
+    )
     is_video = media_type == "video"
 
     if media_item is None:

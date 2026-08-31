@@ -61,30 +61,39 @@ _KEYWORD_MAP: dict[str, re.Pattern] = {
 }
 
 
-def _resolve_cover(session: Session, album_id: str, depth: int = 0) -> str | None:
+def _resolve_cover(
+    session: Session,
+    album_id: str,
+    workspace_id: int | None = None,
+    depth: int = 0,
+) -> str | None:
     """Recursively find a cover photo ID for an album (max depth 3)."""
     if depth > 3:
         return None
-    photos = photo_repo.get_by_folder(session, album_id)
+    photos = photo_repo.get_by_folder(session, album_id, workspace_id)
     if photos:
         return photos[0].id
-    children = album_repo.get_by_parent(session, album_id)
+    children = album_repo.get_by_parent(session, album_id, workspace_id)
     for child in children:
-        cover = _resolve_cover(session, child.id, depth + 1)
+        cover = _resolve_cover(session, child.id, workspace_id, depth + 1)
         if cover:
             return cover
     return None
 
 
-def _to_summary(session: Session, album: DriveAlbum) -> AlbumSummary:
-    cover_id = album.cover_photo_id or _resolve_cover(session, album.id)
+def _to_summary(
+    session: Session,
+    album: DriveAlbum,
+    workspace_id: int | None = None,
+) -> AlbumSummary:
+    cover_id = album.cover_photo_id or _resolve_cover(session, album.id, workspace_id)
     return AlbumSummary(
         id=album.id,
         name=album.name,
         cover_photo_id=cover_id,
         photo_count=album.photo_count,
         child_count=album.child_count,
-        thumbnail_url=thumbnail_url_for(session, cover_id) if cover_id else None,
+        thumbnail_url=thumbnail_url_for(session, cover_id, workspace_id) if cover_id else None,
     )
 
 
@@ -122,7 +131,12 @@ def _classify_album(
     return None
 
 
-def _get_root_section(session: Session, album: DriveAlbum, explicit: dict[str, str]) -> str | None:
+def _get_root_section(
+    session: Session,
+    album: DriveAlbum,
+    explicit: dict[str, str],
+    workspace_id: int | None = None,
+) -> str | None:
     """
     Walk up to the root parent and classify by its name.
     This supports nested structures like: root → Arjun → First Year → photos
@@ -136,7 +150,7 @@ def _get_root_section(session: Session, album: DriveAlbum, explicit: dict[str, s
     # Walk up to find the root parent and classify by it
     current = album
     while current.parent_id is not None:
-        parent = album_repo.get_by_id(session, current.parent_id)
+        parent = album_repo.get_by_id(session, current.parent_id, workspace_id)
         if parent is None:
             break
         key = _classify_album(parent, explicit)
@@ -147,18 +161,26 @@ def _get_root_section(session: Session, album: DriveAlbum, explicit: dict[str, s
     return None
 
 
-def _get_root_parent(session: Session, album: DriveAlbum) -> DriveAlbum:
+def _get_root_parent(
+    session: Session,
+    album: DriveAlbum,
+    workspace_id: int | None = None,
+) -> DriveAlbum:
     """Walk up to the root (parent_id is None) and return it."""
     current = album
     while current.parent_id is not None:
-        parent = album_repo.get_by_id(session, current.parent_id)
+        parent = album_repo.get_by_id(session, current.parent_id, workspace_id)
         if parent is None:
             break
         current = parent
     return current
 
 
-def _get_video_sections(session: Session, all_albums: list[DriveAlbum]) -> dict[str, list[AlbumSummary]]:
+def _get_video_sections(
+    session: Session,
+    all_albums: list[DriveAlbum],
+    workspace_id: int | None = None,
+) -> dict[str, list[AlbumSummary]]:
     """
     Find all folders named 'Videos' (case-insensitive) anywhere in the tree.
     Each one is bucketed based on the name of its root ancestor:
@@ -180,25 +202,26 @@ def _get_video_sections(session: Session, all_albums: list[DriveAlbum]) -> dict[
 
         # Case 1: this folder IS a "Videos" folder → bucket by its root ancestor
         if name_lower == "videos":
-            root = _get_root_parent(session, album)
+            root = _get_root_parent(session, album, workspace_id)
             root_name = root.name.lower()
             if "arjun" in root_name:
-                result["arjun_videos"].append(_to_summary(session, album))
+                result["arjun_videos"].append(_to_summary(session, album, workspace_id))
             elif "travel" in root_name:
-                result["family_travel_videos"].append(_to_summary(session, album))
+                result["family_travel_videos"].append(_to_summary(session, album, workspace_id))
 
         # Case 2: folder named "Family Travel" (direct or nested) → family_travel_videos
         elif "family travel" in name_lower:
-            result["family_travel_videos"].append(_to_summary(session, album))
+            result["family_travel_videos"].append(_to_summary(session, album, workspace_id))
 
     return result
 
 
-def get_sections(session: Session) -> SectionsResponse:
+def get_sections(session: Session, workspace_id: int | None = None) -> SectionsResponse:
     from sqlmodel import select as sql_select
-    all_albums = list(session.exec(
-        sql_select(DriveAlbum).where(DriveAlbum.excluded == False)  # noqa: E712
-    ).all())
+    stmt = sql_select(DriveAlbum).where(DriveAlbum.excluded == False)  # noqa: E712
+    if workspace_id is not None:
+        stmt = stmt.where(DriveAlbum.workspace_id == workspace_id)
+    all_albums = list(session.exec(stmt).all())
     explicit = _get_explicit_mappings(session)
 
     result: dict[str, list[AlbumSummary]] = {
@@ -216,9 +239,9 @@ def get_sections(session: Session) -> SectionsResponse:
         if album.id in root_ids:
             continue
 
-        key = _get_root_section(session, album, explicit)
+        key = _get_root_section(session, album, explicit, workspace_id)
         if key and key in result:
-            result[key].append(_to_summary(session, album))
+            result[key].append(_to_summary(session, album, workspace_id))
 
     # Fallback: if no sub-albums found for a section, show root containers
     for section_key in ("child", "travel", "milestones", "life"):
@@ -227,9 +250,9 @@ def get_sections(session: Session) -> SectionsResponse:
                 if album.id in root_ids:
                     key = _classify_album(album, explicit)
                     if key == section_key:
-                        result[section_key].append(_to_summary(session, album))
+                        result[section_key].append(_to_summary(session, album, workspace_id))
 
-    video_sections = _get_video_sections(session, all_albums)
+    video_sections = _get_video_sections(session, all_albums, workspace_id)
 
     return SectionsResponse(
         featured_child=result["child"],
@@ -245,27 +268,30 @@ def get_video_files(
     session: Session,
     section_key: str,
     fav_ids: set[str],
+    workspace_id: int | None = None,
 ) -> VideoFilesResponse:
     """
     Return the actual video files (not album cards) for a video section.
     Collects all video-mime files from every album in the given section.
     """
     from sqlmodel import select as sql_select
-    all_albums = list(session.exec(
-        sql_select(DriveAlbum).where(DriveAlbum.excluded == False)  # noqa: E712
-    ).all())
-    video_sections = _get_video_sections(session, all_albums)
+    stmt = sql_select(DriveAlbum).where(DriveAlbum.excluded == False)  # noqa: E712
+    if workspace_id is not None:
+        stmt = stmt.where(DriveAlbum.workspace_id == workspace_id)
+    all_albums = list(session.exec(stmt).all())
+    video_sections = _get_video_sections(session, all_albums, workspace_id)
     section_albums = video_sections.get(section_key, [])
 
     videos: list[PhotoResponse] = []
     for album_summary in section_albums:
-        files = photo_repo.get_by_folder(session, album_summary.id)
+        files = photo_repo.get_by_folder(session, album_summary.id, workspace_id)
         for p in files:
             if p.mime_type and p.mime_type.startswith("video/"):
                 media_fields = media_response_fields(
                     session,
                     drive_file_id=p.id,
                     mime_type=p.mime_type,
+                    workspace_id=workspace_id,
                 )
                 videos.append(PhotoResponse(
                     id=p.id,

@@ -21,6 +21,7 @@ from models.workspace import Workspace, WorkspaceMember
 from models.session import UserSession
 from repositories.favorites_repo import get_all_photo_ids
 from services.auth_service import SESSION_COOKIE, get_session_by_token, get_user_by_id
+from services.workspace_service import get_active_workspace_for_user
 
 
 # ── DB session ────────────────────────────────────────────────────────────────
@@ -76,6 +77,16 @@ def get_current_user_optional(
     if not sess:
         return None
     return get_user_by_id(db, sess.user_id)
+
+
+def get_active_workspace(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Workspace:
+    workspace = get_active_workspace_for_user(db, user.id)
+    if not workspace:
+        raise HTTPException(404, "Workspace not found")
+    return workspace
 
 
 # ── Workspace access control ──────────────────────────────────────────────────

@@ -21,8 +21,18 @@ from models.photo import DrivePhoto
 from services.media_response_service import media_response_fields
 
 
-def _to_photo_resp(session: Session, p: DrivePhoto, fav_ids: set[str]) -> PhotoResponse:
-    media_fields = media_response_fields(session, drive_file_id=p.id, mime_type=p.mime_type)
+def _to_photo_resp(
+    session: Session,
+    p: DrivePhoto,
+    fav_ids: set[str],
+    workspace_id: int | None = None,
+) -> PhotoResponse:
+    media_fields = media_response_fields(
+        session,
+        drive_file_id=p.id,
+        mime_type=p.mime_type,
+        workspace_id=workspace_id,
+    )
     return PhotoResponse(
         id=p.id,
         name=p.name,
@@ -63,9 +73,9 @@ def _hero_score(p: DrivePhoto) -> float:
     return landscape_bonus + size_bonus
 
 
-def get_home_feed(session: Session) -> HomeFeedResponse:
-    fav_ids = favorites_repo.get_all_photo_ids(session)
-    albums = album_repo.get_root_albums(session)  # excluded already filtered
+def get_home_feed(session: Session, workspace_id: int | None = None) -> HomeFeedResponse:
+    fav_ids = favorites_repo.get_all_photo_ids(session, workspace_id)
+    albums = album_repo.get_root_albums(session, workspace_id)  # excluded already filtered
 
     # ── Hero photos ──────────────────────────────────────────────────────────
     # Collect candidates from albums that have a cover photo,
@@ -74,17 +84,17 @@ def get_home_feed(session: Session) -> HomeFeedResponse:
     for album in albums:
         if not album.cover_photo_id:
             continue
-        photos = photo_repo.get_by_folder(session, album.id)
+        photos = photo_repo.get_by_folder(session, album.id, workspace_id)
         worthy = [p for p in photos if _is_hero_worthy(p)]
         worthy.sort(key=_hero_score, reverse=True)
         hero_candidates.extend(worthy[:4])
 
     hero_candidates.sort(key=_hero_score, reverse=True)
-    hero_photos = [_to_photo_resp(session, p, fav_ids) for p in hero_candidates[:15]]
+    hero_photos = [_to_photo_resp(session, p, fav_ids, workspace_id) for p in hero_candidates[:15]]
 
     # ── Throwbacks: same month+day in prior years ─────────────────────────────
     now = datetime.now(tz=timezone.utc)
-    throwback_photos_raw = photo_repo.get_by_month_day(session, now.month, now.day)
+    throwback_photos_raw = photo_repo.get_by_month_day(session, now.month, now.day, workspace_id)
     current_year = now.year
 
     year_groups: dict[int, list[DrivePhoto]] = {}
@@ -101,14 +111,14 @@ def get_home_feed(session: Session) -> HomeFeedResponse:
             ThrowbackGroup(
                 year=year,
                 label=label,
-                photos=[_to_photo_resp(session, p, fav_ids) for p in year_groups[year][:6]],
+                photos=[_to_photo_resp(session, p, fav_ids, workspace_id) for p in year_groups[year][:6]],
             )
         )
 
     # ── Month memories: same calendar month, prior years, excluding the exact
     # day (already covered by `throwbacks` above) — real created_time data,
     # used by the Memories page's "This month in past years" section. ─────────
-    month_photos_raw = photo_repo.get_by_month(session, now.month)
+    month_photos_raw = photo_repo.get_by_month(session, now.month, workspace_id)
     month_year_groups: dict[int, list[DrivePhoto]] = {}
     for p in month_photos_raw:
         if p.created_time and p.created_time.year < current_year and p.created_time.day != now.day:
@@ -124,19 +134,19 @@ def get_home_feed(session: Session) -> HomeFeedResponse:
             ThrowbackGroup(
                 year=year,
                 label=label,
-                photos=[_to_photo_resp(session, p, fav_ids) for p in photos_sorted[:6]],
+                photos=[_to_photo_resp(session, p, fav_ids, workspace_id) for p in photos_sorted[:6]],
             )
         )
 
     # ── Stats ─────────────────────────────────────────────────────────────────
-    all_photos = photo_repo.count_all(session)
-    all_albums_count = album_repo.count_all(session)
+    all_photos = photo_repo.count_all(session, workspace_id)
+    all_albums_count = album_repo.count_all(session, workspace_id)
     all_favs = len(fav_ids)
 
     years = [
         p.created_time.year
         for album in albums
-        for p in photo_repo.get_by_folder(session, album.id)
+        for p in photo_repo.get_by_folder(session, album.id, workspace_id)
         if p.created_time
     ]
     oldest = min(years) if years else None

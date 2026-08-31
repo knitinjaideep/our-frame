@@ -7,6 +7,7 @@ class DriveAlbum(SQLModel, table=True):
     __tablename__ = "albums"
 
     id: str = Field(primary_key=True)           # Google Drive folder ID
+    workspace_id: Optional[int] = Field(default=None, foreign_key="workspaces.id", index=True)
     name: str
     parent_id: Optional[str] = Field(default=None, index=True)
     cover_photo_id: Optional[str] = None

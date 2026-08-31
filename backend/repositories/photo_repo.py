@@ -6,6 +6,8 @@ from models.photo import DrivePhoto
 def upsert(session: Session, photo: DrivePhoto, *, commit: bool = True) -> DrivePhoto:
     existing = session.get(DrivePhoto, photo.id)
     if existing:
+        if existing.workspace_id is None:
+            existing.workspace_id = photo.workspace_id
         existing.name = photo.name
         existing.mime_type = photo.mime_type
         existing.parent_folder_id = photo.parent_folder_id
@@ -32,25 +34,47 @@ def upsert(session: Session, photo: DrivePhoto, *, commit: bool = True) -> Drive
     return photo
 
 
-def get_by_folder(session: Session, folder_id: str) -> list[DrivePhoto]:
+def get_by_folder(
+    session: Session,
+    folder_id: str,
+    workspace_id: int | None = None,
+) -> list[DrivePhoto]:
+    stmt = (
+        select(DrivePhoto)
+        .where(DrivePhoto.parent_folder_id == folder_id)
+        .order_by(DrivePhoto.created_time.desc())
+    )
+    if workspace_id is not None:
+        stmt = stmt.where(DrivePhoto.workspace_id == workspace_id)
     return list(
-        session.exec(
-            select(DrivePhoto)
-            .where(DrivePhoto.parent_folder_id == folder_id)
-            .order_by(DrivePhoto.created_time.desc())
-        ).all()
+        session.exec(stmt).all()
     )
 
 
-def get_by_id(session: Session, photo_id: str) -> DrivePhoto | None:
-    return session.get(DrivePhoto, photo_id)
+def get_by_id(
+    session: Session,
+    photo_id: str,
+    workspace_id: int | None = None,
+) -> DrivePhoto | None:
+    photo = session.get(DrivePhoto, photo_id)
+    if not photo:
+        return None
+    if workspace_id is not None and photo.workspace_id != workspace_id:
+        return None
+    return photo
 
 
-def get_by_month_day(session: Session, month: int, day: int) -> list[DrivePhoto]:
+def get_by_month_day(
+    session: Session,
+    month: int,
+    day: int,
+    workspace_id: int | None = None,
+) -> list[DrivePhoto]:
     """Return photos taken on the same calendar month+day across all years."""
-    all_photos = session.exec(
-        select(DrivePhoto).where(DrivePhoto.created_time.is_not(None))
-    ).all()
+    stmt = select(DrivePhoto).where(DrivePhoto.created_time.is_not(None))
+    if workspace_id is not None:
+        stmt = stmt.where(DrivePhoto.workspace_id == workspace_id)
+    all_photos = session.exec(stmt).all()
     return [
         p for p in all_photos
         if p.created_time
@@ -59,16 +83,24 @@ def get_by_month_day(session: Session, month: int, day: int) -> list[DrivePhoto]
     ]
 
 
-def get_by_month(session: Session, month: int) -> list[DrivePhoto]:
+def get_by_month(
+    session: Session,
+    month: int,
+    workspace_id: int | None = None,
+) -> list[DrivePhoto]:
     """Return photos taken anywhere in the given calendar month, any year."""
-    all_photos = session.exec(
-        select(DrivePhoto).where(DrivePhoto.created_time.is_not(None))
-    ).all()
+    stmt = select(DrivePhoto).where(DrivePhoto.created_time.is_not(None))
+    if workspace_id is not None:
+        stmt = stmt.where(DrivePhoto.workspace_id == workspace_id)
+    all_photos = session.exec(stmt).all()
     return [
         p for p in all_photos
         if p.created_time and p.created_time.month == month
     ]
 
 
-def count_all(session: Session) -> int:
-    return len(session.exec(select(DrivePhoto)).all())
+def count_all(session: Session, workspace_id: int | None = None) -> int:
+    stmt = select(DrivePhoto)
+    if workspace_id is not None:
+        stmt = stmt.where(DrivePhoto.workspace_id == workspace_id)
+    return len(session.exec(stmt).all())

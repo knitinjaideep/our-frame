@@ -62,6 +62,7 @@ def _upsert_album_from_drive(
     folder_id: str,
     name: str,
     parent_id: str | None,
+    workspace_id: int | None = None,
     drive_modified_time: datetime | None = None,
 ) -> DriveAlbum:
     existing = album_repo.get_by_id(session, folder_id)
@@ -70,6 +71,8 @@ def _upsert_album_from_drive(
     if existing:
         # Only update fields that Drive owns; preserve app-controlled fields
         # (excluded, section) unless they haven't been set.
+        if existing.workspace_id is None:
+            existing.workspace_id = workspace_id
         existing.name = name
         existing.parent_id = parent_id
         if drive_modified_time:
@@ -82,6 +85,7 @@ def _upsert_album_from_drive(
 
     album = DriveAlbum(
         id=folder_id,
+        workspace_id=workspace_id,
         name=name,
         parent_id=parent_id,
         drive_modified_time=drive_modified_time,
@@ -113,7 +117,11 @@ def _parse_drive_datetime(value: str | None) -> datetime | None:
         return None
 
 
-def _validate_queue_item(session: Session, item) -> tuple[str | None, int]:
+def _validate_queue_item(
+    session: Session,
+    item,
+    workspace_id: int | None = None,
+) -> tuple[str | None, int]:
     """
     Validate one BFS queue entry.
 
@@ -139,7 +147,7 @@ def _validate_queue_item(session: Session, item) -> tuple[str | None, int]:
     if not isinstance(depth, int) or isinstance(depth, bool) or depth < 1:
         depth = 1
 
-    if album_repo.get_by_id(session, folder_id) is None:
+    if album_repo.get_by_id(session, folder_id, workspace_id) is None:
         # Every legitimate queue entry is seeded from a folder we just upserted
         # as an album, so an unknown id means a stale or hand-crafted queue.
         logger.warning("sync_root: ignoring queue item for unknown folder %s", folder_id)
@@ -181,10 +189,10 @@ def sync_folder_shallow(
                 modified = datetime.fromisoformat(f["modifiedTime"].replace("Z", "+00:00"))
             except Exception:
                 pass
-        _upsert_album_from_drive(session, f["id"], f["name"], folder_id, modified)
+        _upsert_album_from_drive(session, f["id"], f["name"], folder_id, workspace_id, modified)
 
     # Update child_count on the parent album
-    parent = album_repo.get_by_id(session, folder_id)
+    parent = album_repo.get_by_id(session, folder_id, workspace_id)
     if parent:
         parent.child_count = len(data["folders"])
 
@@ -201,6 +209,7 @@ def sync_folder_shallow(
         from models.photo import DrivePhoto
         photo = DrivePhoto(
             id=p["id"],
+            workspace_id=workspace_id,
             name=p["name"],
             mime_type=p["mimeType"],
             parent_folder_id=folder_id,
@@ -353,7 +362,7 @@ def sync_root(
                     modified = datetime.fromisoformat(f["modifiedTime"].replace("Z", "+00:00"))
                 except Exception:
                     pass
-            album = _upsert_album_from_drive(session, f["id"], f["name"], None, modified)
+            album = _upsert_album_from_drive(session, f["id"], f["name"], None, workspace_id, modified)
             _apply_section_mapping(session, album)
             total_folders += 1
 
@@ -387,7 +396,7 @@ def sync_root(
             }
 
         item = queue.pop(0)
-        folder_id, depth = _validate_queue_item(session, item)
+        folder_id, depth = _validate_queue_item(session, item, workspace_id)
         if folder_id is None:
             continue
 
@@ -398,7 +407,7 @@ def sync_root(
             total_photos += result["photos_synced"]
             total_folders += result["folders_synced"]
             if depth < 3:
-                children = album_repo.get_by_parent(session, folder_id)
+                children = album_repo.get_by_parent(session, folder_id, workspace_id)
                 for c in children:
                     queue.append({"folder_id": c.id, "depth": depth + 1})
         except (ReauthRequired, DriveError) as e:

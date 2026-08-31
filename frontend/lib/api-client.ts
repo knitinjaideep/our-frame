@@ -14,7 +14,16 @@ function storedSessionToken(): string | null {
 // where the cross-origin cookie never lands (the same reason /auth/callback
 // hands the token to the frontend in the first place). `/sync` is not under
 // `/api`, but its workspace-scoped calls are authenticated just the same.
-const AUTHENTICATED_PATH_PREFIXES = ['/api/', '/sync/', '/media/', '/drive/file/']
+const AUTHENTICATED_PATH_PREFIXES = [
+  '/api/',
+  '/sync/',
+  '/media/',
+  '/drive/file/',
+  '/albums',
+  '/favorites',
+  '/home/',
+  '/sections',
+]
 
 function withSessionToken(path: string): string {
   const token = storedSessionToken()

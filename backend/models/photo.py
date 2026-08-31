@@ -7,6 +7,7 @@ class DrivePhoto(SQLModel, table=True):
     __tablename__ = "photos"
 
     id: str = Field(primary_key=True)           # Google Drive file ID
+    workspace_id: Optional[int] = Field(default=None, foreign_key="workspaces.id", index=True)
     name: str
     mime_type: str
     parent_folder_id: Optional[str] = Field(default=None, index=True)

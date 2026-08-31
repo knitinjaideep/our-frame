@@ -17,8 +17,18 @@ from schemas.photo import PhotoResponse
 from services.media_response_service import media_response_fields
 
 
-def _to_photo_resp(session: Session, p: DrivePhoto, fav_ids: set[str]) -> PhotoResponse:
-    media_fields = media_response_fields(session, drive_file_id=p.id, mime_type=p.mime_type)
+def _to_photo_resp(
+    session: Session,
+    p: DrivePhoto,
+    fav_ids: set[str],
+    workspace_id: int | None = None,
+) -> PhotoResponse:
+    media_fields = media_response_fields(
+        session,
+        drive_file_id=p.id,
+        mime_type=p.mime_type,
+        workspace_id=workspace_id,
+    )
     return PhotoResponse(
         id=p.id,
         name=p.name,
@@ -50,27 +60,32 @@ def _score(p: DrivePhoto) -> float:
     return landscape_bonus + size_bonus
 
 
-def get_slideshow_photos(session: Session) -> list[PhotoResponse]:
+def get_slideshow_photos(session: Session, workspace_id: int | None = None) -> list[PhotoResponse]:
     """
     Returns photos for the hero slideshow.
     Priority: favorited images → fallback to top scored recent images.
     """
-    fav_ids: set[str] = set(session.exec(select(Favorite.photo_id)).all())
+    fav_stmt = select(Favorite.photo_id)
+    if workspace_id is not None:
+        fav_stmt = fav_stmt.where(Favorite.workspace_id == workspace_id)
+    fav_ids: set[str] = set(session.exec(fav_stmt).all())
 
     if fav_ids:
         # Fetch all favorited photos, shuffle for variety
-        rows = session.exec(
-            select(DrivePhoto).where(DrivePhoto.id.in_(fav_ids))
-        ).all()
+        stmt = select(DrivePhoto).where(DrivePhoto.id.in_(fav_ids))
+        if workspace_id is not None:
+            stmt = stmt.where(DrivePhoto.workspace_id == workspace_id)
+        rows = session.exec(stmt).all()
         worthy = [p for p in rows if _is_slideshow_worthy(p)]
         random.shuffle(worthy)
         if worthy:
-            return [_to_photo_resp(session, p, fav_ids) for p in worthy]
+            return [_to_photo_resp(session, p, fav_ids, workspace_id) for p in worthy]
 
     # Fallback: recent wide photos across all albums
-    all_photos = session.exec(
-        select(DrivePhoto).order_by(DrivePhoto.created_time.desc())
-    ).all()
+    stmt = select(DrivePhoto).order_by(DrivePhoto.created_time.desc())
+    if workspace_id is not None:
+        stmt = stmt.where(DrivePhoto.workspace_id == workspace_id)
+    all_photos = session.exec(stmt).all()
     worthy = [p for p in all_photos if _is_slideshow_worthy(p)]
     worthy.sort(key=_score, reverse=True)
-    return [_to_photo_resp(session, p, fav_ids) for p in worthy[:15]]
+    return [_to_photo_resp(session, p, fav_ids, workspace_id) for p in worthy[:15]]
