@@ -1,87 +1,244 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowRight, Baby, Clock, Landmark, Play, Plane, Users } from 'lucide-react'
+import {
+  ArrowRight,
+  Baby,
+  CalendarDays,
+  CheckCircle2,
+  Film,
+  ImageIcon,
+  Landmark,
+  Loader2,
+  Plane,
+  RefreshCw,
+  Users,
+} from 'lucide-react'
 import { useHomeFeed } from '@/hooks/use-home-feed'
 import { useRootBuckets } from '@/hooks/use-root-buckets'
 import { useSlideshow } from '@/hooks/use-slideshow'
+import { useVideoFiles } from '@/hooks/use-video-files'
+import { useWorkspace } from '@/hooks/use-workspace'
+import { useDriveSync } from '@/hooks/use-drive-sync'
 import { HeroSlideshow } from '@/components/home/hero-slideshow'
 import { PhotoGrid } from '@/components/photos/photo-grid'
 import { ChapterCard } from '@/components/design-system/chapter-card'
 import { SectionReveal } from '@/components/ui/section-reveal'
 import { BUCKETS } from '@/lib/buckets'
-import { useWorkspace } from '@/hooks/use-workspace'
-import { SyncButton } from '@/components/sync/sync-button'
 import { mediaUrl } from '@/lib/api-client'
+import type { Album, Photo } from '@/types'
 
-/**
- * Floating chapter rail presentation — label/subtitle/icon only.
- *
- * Drive folder ids deliberately are NOT repeated here: they live once in
- * `lib/buckets.ts` (`BUCKETS`) and are zipped in below, so a re-created Drive
- * folder only has to be updated in one place.
- */
-const HERO_CHAPTER_META = [
-  { label: 'Arjun',      subtitle: 'Growing up',       icon: <Baby className="h-4 w-4" /> },
-  { label: 'Travel',     subtitle: 'Places we love',   icon: <Plane className="h-4 w-4" /> },
-  { label: 'Milestones', subtitle: 'Big moments',      icon: <Landmark className="h-4 w-4" /> },
-  { label: 'Life',       subtitle: 'People & Moments', icon: <Users className="h-4 w-4" /> },
+const PHOTO_CHAPTER_META = [
+  { label: 'Arjun', subtitle: 'Growing up', icon: <Baby className="h-5 w-5" /> },
+  { label: 'Travel', subtitle: 'Places we love', icon: <Plane className="h-5 w-5" /> },
+  { label: 'Milestones', subtitle: 'Big moments', icon: <Landmark className="h-5 w-5" /> },
+  { label: 'Life', subtitle: 'People & Moments', icon: <Users className="h-5 w-5" /> },
 ] as const
 
-const HERO_CHAPTERS = BUCKETS.map((bucket, i) => ({
+const PHOTO_CHAPTERS = BUCKETS.map((bucket, i) => ({
   id: bucket.id,
-  ...HERO_CHAPTER_META[i],
+  description: bucket.description,
+  eyebrow: bucket.overviewEyebrow,
+  ...PHOTO_CHAPTER_META[i],
 }))
 
-function Divider() {
-  return (
-    <div className="content-padding my-20" aria-hidden="true">
-      <div
-        className="h-px"
-        style={{
-          background:
-            'linear-gradient(to right, transparent, var(--border) 20%, var(--border) 80%, transparent)',
-        }}
-      />
-    </div>
-  )
+const VIDEO_COLLECTIONS = [
+  {
+    key: 'arjun_videos' as const,
+    title: 'Arjun Films',
+    eyebrow: 'Growing Up',
+    description: 'Every laugh, every first. His story in motion.',
+    href: '/videos/arjun',
+  },
+  {
+    key: 'family_travel_videos' as const,
+    title: 'Family Travel',
+    eyebrow: 'On the Road',
+    description: 'Places we have been. Moments that moved us.',
+    href: '/videos/family-travel',
+  },
+]
+
+function countLabel(count: number | null | undefined, singular: string, plural: string): string {
+  const safeCount = count ?? 0
+  return `${safeCount.toLocaleString()} ${safeCount === 1 ? singular : plural}`
+}
+
+function posterFor(video: Photo | undefined): string | null {
+  return video?.poster_url ?? video?.thumbnail_url ?? null
 }
 
 function SectionHead({
   eyebrow,
   title,
   href,
-  linkLabel = 'View all',
+  linkLabel,
 }: {
   eyebrow: string
   title: string
   href: string
-  linkLabel?: string
+  linkLabel: string
 }) {
   return (
-    <div className="flex items-end justify-between mb-10">
-      <div className="space-y-1.5">
+    <div className="mb-5 flex items-end justify-between gap-5 sm:mb-6">
+      <div className="min-w-0">
         <p className="text-eyebrow-gold">{eyebrow}</p>
-        <h2
-          className="font-serif leading-[0.95]"
-          style={{
-            fontSize: 'clamp(1.7rem, 3.2vw, 2.5rem)',
-            fontStyle: 'italic',
-            fontWeight: 500,
-            color: 'var(--foreground)',
-          }}
-        >
-          {title}
-        </h2>
+        <h2 className="mt-2 text-h2">{title}</h2>
       </div>
       <Link
         href={href}
-        className="flex items-center gap-1.5 text-xs font-medium tracking-[0.12em] uppercase transition-colors hover:text-foreground shrink-0"
-        style={{ color: 'var(--muted-foreground)' }}
+        className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
       >
         {linkLabel}
-        <ArrowRight className="h-3 w-3" />
+        <ArrowRight className="h-3.5 w-3.5" />
       </Link>
+    </div>
+  )
+}
+
+function SyncPanel({
+  workspaceId,
+  totalPhotos,
+  totalAlbums,
+  totalVideos,
+}: {
+  workspaceId: number | undefined
+  totalPhotos: number
+  totalAlbums: number
+  totalVideos: number
+}) {
+  const { syncing, progress, error, sync } = useDriveSync(workspaceId)
+
+  return (
+    <aside className="rounded-2xl border border-border bg-card/72 p-4 shadow-[var(--shadow-card)] backdrop-blur-md sm:p-5">
+      <div className="grid gap-4 lg:grid-cols-[minmax(13rem,0.8fr)_minmax(22rem,1.2fr)_minmax(13rem,0.8fr)] lg:items-center">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-muted text-amber">
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+          </span>
+          <div className="min-w-0">
+            <p className="text-eyebrow-gold">Library Status</p>
+            <h2 className="mt-1 text-lg font-semibold text-foreground">Ready to browse</h2>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: 'Photos', value: totalPhotos },
+            { label: 'Videos', value: totalVideos },
+            { label: 'Albums', value: totalAlbums },
+          ].map((item) => (
+            <div key={item.label} className="rounded-xl border border-border bg-background/35 px-3 py-3">
+              <p className="text-lg font-semibold tabular-nums text-foreground">{item.value.toLocaleString()}</p>
+              <p className="mt-0.5 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                {item.label}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-2 lg:items-end">
+          <button
+            onClick={sync}
+            disabled={!workspaceId || syncing}
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60 lg:max-w-[14rem]"
+            aria-label="Sync library from Google Drive"
+          >
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            {syncing ? 'Syncing library' : 'Sync library'}
+          </button>
+
+          <p className="text-small lg:max-w-[18rem] lg:text-right">
+            {syncing
+              ? progress
+                ? `${progress.totalPhotos.toLocaleString()} item${progress.totalPhotos === 1 ? '' : 's'} found so far`
+                : 'Scanning Google Drive'
+              : 'Refresh photos and videos from Google Drive.'}
+          </p>
+        </div>
+      </div>
+
+      {error && <p className="mt-3 text-small text-destructive">{error}</p>}
+    </aside>
+  )
+}
+
+function VideoCollectionCard({
+  title,
+  eyebrow,
+  description,
+  href,
+  count,
+  poster,
+  loading,
+}: {
+  title: string
+  eyebrow: string
+  description: string
+  href: string
+  count: number
+  poster: string | null
+  loading: boolean
+}) {
+  return (
+    <Link
+      href={href}
+      className="card-lift group relative flex min-h-[13rem] overflow-hidden rounded-2xl border border-border bg-card"
+    >
+      {poster ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={mediaUrl(poster)}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover opacity-55 transition-transform duration-[var(--motion-slow)] group-hover:scale-[1.02]"
+          loading="lazy"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,oklch(0.16_0.018_48),oklch(0.10_0.010_46))]" />
+      )}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'linear-gradient(to top, oklch(0.04 0.006 46 / 92%) 0%, oklch(0.04 0.006 46 / 56%) 48%, oklch(0.04 0.006 46 / 18%) 100%)',
+        }}
+      />
+      <div className="relative z-10 flex w-full flex-col justify-between p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-amber-muted text-amber backdrop-blur">
+            <Film className="h-4 w-4" />
+          </span>
+          <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[11px] font-medium text-muted-foreground backdrop-blur">
+            {loading ? 'Loading' : countLabel(count, 'video', 'videos')}
+          </span>
+        </div>
+
+        <div>
+          <p className="text-eyebrow-gold">{eyebrow}</p>
+          <h3 className="mt-2 font-serif text-3xl font-medium italic leading-none text-foreground">{title}</h3>
+          <p className="mt-3 max-w-sm text-small text-muted-foreground/90">{description}</p>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+function ErrorBanner({ error }: { error: unknown }) {
+  return (
+    <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-5 py-4">
+      <p className="text-sm text-destructive">
+        Could not load your memories.{' '}
+        {(error as Error).message?.includes('auth') ? (
+          <a href={`${process.env.NEXT_PUBLIC_API_BASE}/auth/start`} className="underline underline-offset-2">
+            Sign in with Google
+          </a>
+        ) : (
+          <button onClick={() => window.location.reload()} className="underline underline-offset-2">
+            Try again
+          </button>
+        )}
+      </p>
     </div>
   )
 }
@@ -90,210 +247,132 @@ export function HomeFeedView() {
   const { data, error } = useHomeFeed()
   const { data: slideshowPhotos } = useSlideshow()
   const { data: bucketsData } = useRootBuckets()
+  const arjunVideos = useVideoFiles('arjun_videos')
+  const familyTravelVideos = useVideoFiles('family_travel_videos')
   const { workspace } = useWorkspace()
 
-  const hasThrowbacks = (data?.throwbacks ?? []).length > 0
-
-  // Used only to back the chapter rail's real thumbnails below — the
-  // "Photos" section that used to repeat these same four categories as
-  // BucketCards was removed (see PR 3 in docs/redesign-v2/STATE.md): the
-  // chapter rail is the single, sole representation of Arjun/Travel/
-  // Milestones/Life on Home now.
   const allBuckets = bucketsData?.albums ?? []
+  const hasThrowbacks = (data?.throwbacks ?? []).length > 0
+  const totalPhotos = data?.stats.total_photos ?? 0
+  const totalAlbums = data?.stats.total_albums ?? allBuckets.length
+  const totalVideos = (arjunVideos.data?.total ?? 0) + (familyTravelVideos.data?.total ?? 0)
+
+  const videoData = {
+    arjun_videos: arjunVideos,
+    family_travel_videos: familyTravelVideos,
+  }
 
   return (
-    <div>
-      <HeroSlideshow photos={slideshowPhotos ?? []} />
+    <div className="min-h-screen bg-background">
+      <div className="content-padding pb-24 pt-[calc(var(--topbar-height)+1.5rem)] sm:pt-[calc(var(--topbar-height)+2rem)]">
+        <div className="mx-auto max-w-[var(--container-max)]">
+          {error && (
+            <div className="mb-6">
+              <ErrorBanner error={error} />
+            </div>
+          )}
 
-      {/* ── Floating chapter rail — straddles the hero's bottom edge.
-          Sits as a sibling (not nested) of the hero section so the negative
-          margin can pull it up over the photograph without being clipped
-          by the hero's own overflow-hidden. Reuses real album thumbnails,
-          not stock imagery. ── */}
-      <div className="relative z-30 -mt-12 content-padding sm:-mt-14">
-        <div className="mx-auto grid max-w-[var(--container-max)] grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3.5 lg:grid-cols-4">
-          {HERO_CHAPTERS.map((chapter) => {
-            const album = allBuckets.find((a) => a.id === chapter.id) ?? null
-            const imageUrl = album?.thumbnail_url ? mediaUrl(album.thumbnail_url) : undefined
-            return (
-              <ChapterCard
-                key={chapter.id}
-                variant="rail"
-                href={album ? `/albums/${album.id}` : '/photos'}
-                title={chapter.label}
-                description={chapter.subtitle}
-                imageUrl={imageUrl}
-                imageAlt={chapter.label}
-                icon={chapter.icon}
+          <SectionReveal>
+            <section className="space-y-4">
+              <HeroSlideshow photos={slideshowPhotos ?? []} />
+              <SyncPanel
+                workspaceId={workspace?.id}
+                totalPhotos={totalPhotos}
+                totalAlbums={totalAlbums}
+                totalVideos={totalVideos}
               />
-            )
-          })}
-        </div>
-      </div>
+            </section>
+          </SectionReveal>
 
-      <div className="pt-16 pb-48 sm:pt-14">
-        {workspace && (
-          <div className="content-padding flex justify-end mb-8">
-            <SyncButton workspaceId={workspace.id} variant="quiet" />
-          </div>
-        )}
-
-        {error && (
-          <div className="content-padding mb-16">
-            <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-5 py-4">
-              <p className="text-sm text-destructive">
-                Could not load your memories.{' '}
-                {(error as Error).message?.includes('auth') ? (
-                  <a
-                    href={`${process.env.NEXT_PUBLIC_API_BASE}/auth/start`}
-                    className="underline underline-offset-2"
-                  >
-                    Sign in with Google
-                  </a>
-                ) : (
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="underline underline-offset-2"
-                  >
-                    Try again
-                  </button>
-                )}
-              </p>
-            </div>
-          </div>
-        )}
-
-        <SectionReveal delay={0.04}>
-          <section className="content-padding">
-            <SectionHead
-              eyebrow="Stories in Motion"
-              title="Family Films"
-              href="/videos"
-              linkLabel="All videos"
-            />
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2">
-              {[
-                { label: 'Arjun',         eyebrow: 'Growing Up',  href: '/videos/arjun'         },
-                { label: 'Family Travel', eyebrow: 'On the Road', href: '/videos/family-travel' },
-              ].map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="group relative flex flex-col justify-end overflow-hidden rounded-2xl"
-                  style={{
-                    aspectRatio: '16 / 9',
-                    background: 'linear-gradient(145deg, oklch(0.14 0.015 50) 0%, oklch(0.09 0.008 46) 100%)',
-                    border: '1px solid oklch(1 0 0 / 7%)',
-                    transition: 'border-color 0.3s ease, box-shadow 0.4s ease',
-                    boxShadow: '0 2px 12px oklch(0 0 0 / 30%)',
-                  }}
-                >
-                  <div
-                    className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100"
-                    style={{
-                      transition: 'opacity 0.4s ease',
-                      background: 'radial-gradient(ellipse 70% 60% at 50% 100%, oklch(0.70 0.145 58 / 18%) 0%, transparent 70%)',
-                    }}
-                  />
-                  <div
-                    className="absolute inset-0 pointer-events-none rounded-2xl opacity-0 group-hover:opacity-100"
-                    style={{
-                      transition: 'opacity 0.35s ease',
-                      boxShadow: '0 0 0 1px oklch(0.70 0.145 58 / 28%), 0 8px 32px oklch(0 0 0 / 40%)',
-                    }}
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div
-                      className="flex h-14 w-14 items-center justify-center rounded-full backdrop-blur-sm transition-all duration-300 group-hover:scale-110"
-                      style={{
-                        background: 'oklch(0.70 0.145 58 / 14%)',
-                        border: '1px solid oklch(0.70 0.145 58 / 30%)',
-                        boxShadow: '0 0 24px oklch(0.70 0.145 58 / 20%)',
-                      }}
-                    >
-                      <Play
-                        className="h-5 w-5"
-                        style={{ color: 'var(--amber)', fill: 'var(--amber)', marginLeft: '2px' }}
-                      />
-                    </div>
-                  </div>
-                  <div
-                    className="relative z-10 p-5"
-                    style={{
-                      background: 'linear-gradient(to top, oklch(0.06 0.006 48 / 85%) 0%, transparent 100%)',
-                    }}
-                  >
-                    <p className="text-eyebrow-gold mb-1">{item.eyebrow}</p>
-                    <p
-                      className="font-serif font-medium"
-                      style={{ fontSize: '1.05rem', fontStyle: 'italic', color: 'oklch(0.97 0.010 72)' }}
-                    >
-                      {item.label}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        </SectionReveal>
-
-        <Divider />
-
-        {hasThrowbacks && (
-          <SectionReveal delay={0.05}>
-            <section className="content-padding">
-              <div className="space-y-2 mb-14">
-                <p className="text-eyebrow-gold">Moments That Stay</p>
-                <h2
-                  className="font-serif leading-[0.95]"
-                  style={{
-                    fontSize: 'clamp(2rem, 4vw, 3rem)',
-                    fontStyle: 'italic',
-                    fontWeight: 500,
-                    color: 'var(--foreground)',
-                  }}
-                >
-                  On This Day
-                </h2>
-                <p className="font-sans text-sm" style={{ color: 'var(--muted-foreground)', maxWidth: '32rem' }}>
-                  A look back through the years — moments that happened on this day.
-                </p>
-              </div>
-
-              <div className="space-y-20">
-                {data!.throwbacks.map((group, i) => (
-                  <SectionReveal key={group.year} delay={i * 0.06}>
-                    <div className="space-y-8">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2.5">
-                          <Clock className="h-3 w-3 shrink-0" style={{ color: 'var(--amber)', opacity: 0.7 }} />
-                          <p
-                            className="font-sans text-[11px] font-semibold tracking-[0.22em] uppercase"
-                            style={{ color: 'var(--amber)' }}
-                          >
-                            {group.label}
-                          </p>
-                        </div>
-                        <div
-                          className="flex-1 h-px"
-                          style={{ background: 'linear-gradient(to right, var(--border), transparent)' }}
-                          aria-hidden="true"
-                        />
-                        <span
-                          className="font-sans text-[10px] tabular-nums"
-                          style={{ color: 'var(--muted-foreground)', opacity: 0.45 }}
-                        >
-                          {group.year}
-                        </span>
-                      </div>
-                      <PhotoGrid photos={group.photos} />
-                    </div>
-                  </SectionReveal>
-                ))}
+          <SectionReveal delay={0.04}>
+            <section className="mt-10 sm:mt-12">
+              <SectionHead eyebrow="Photo Albums" title="Browse by chapter" href="/photos" linkLabel="All photos" />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {PHOTO_CHAPTERS.map((chapter) => {
+                  const album: Album | null = allBuckets.find((a) => a.id === chapter.id) ?? null
+                  const imageUrl = album?.thumbnail_url ? mediaUrl(album.thumbnail_url) : undefined
+                  return (
+                    <ChapterCard
+                      key={chapter.id}
+                      href={album ? `/albums/${album.id}` : '/photos'}
+                      title={chapter.label}
+                      eyebrow={chapter.eyebrow}
+                      meta={album ? countLabel(album.photo_count, 'photo', 'photos') : chapter.subtitle}
+                      description={chapter.description}
+                      imageUrl={imageUrl}
+                      imageAlt={chapter.label}
+                      icon={chapter.icon}
+                    />
+                  )
+                })}
               </div>
             </section>
           </SectionReveal>
-        )}
+
+          <SectionReveal delay={0.08}>
+            <section className="mt-12 sm:mt-16">
+              <SectionHead eyebrow="Video Collections" title="Stories in motion" href="/videos" linkLabel="All videos" />
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {VIDEO_COLLECTIONS.map((collection) => {
+                  const query = videoData[collection.key]
+                  const videos = query.data?.videos ?? []
+                  return (
+                    <VideoCollectionCard
+                      key={collection.key}
+                      title={collection.title}
+                      eyebrow={collection.eyebrow}
+                      description={collection.description}
+                      href={collection.href}
+                      count={query.data?.total ?? 0}
+                      poster={posterFor(videos[0])}
+                      loading={query.isLoading}
+                    />
+                  )
+                })}
+              </div>
+            </section>
+          </SectionReveal>
+
+          {hasThrowbacks && (
+            <SectionReveal delay={0.12}>
+              <section className="mt-16 sm:mt-20">
+                <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-eyebrow-gold">Moments That Stay</p>
+                    <h2 className="mt-2 text-h2">On this day</h2>
+                    <p className="mt-3 max-w-xl text-body text-muted-foreground">
+                      A look back through the years from your photo library.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1.5 text-small">
+                    <CalendarDays className="h-3.5 w-3.5 text-amber" />
+                    {data!.throwbacks.length} {data!.throwbacks.length === 1 ? 'year' : 'years'}
+                  </span>
+                </div>
+
+                <div className="space-y-12">
+                  {data!.throwbacks.map((group, i) => (
+                    <SectionReveal key={group.year} delay={i * 0.04}>
+                      <div className="space-y-5">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2.5">
+                            <ImageIcon className="h-3.5 w-3.5 shrink-0 text-amber" />
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber">
+                              {group.label}
+                            </p>
+                          </div>
+                          <div className="h-px flex-1 bg-[linear-gradient(to_right,var(--border),transparent)]" />
+                          <span className="text-[10px] tabular-nums text-muted-foreground/60">{group.year}</span>
+                        </div>
+                        <PhotoGrid photos={group.photos} />
+                      </div>
+                    </SectionReveal>
+                  ))}
+                </div>
+              </section>
+            </SectionReveal>
+          )}
+        </div>
       </div>
     </div>
   )
